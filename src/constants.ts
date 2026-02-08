@@ -23,6 +23,24 @@ export const ELEMENT_SIZES: Readonly<Record<string, { width: number; height: num
 };
 
 /** Look up the default size for a given BPMN element type string. */
+// ── Label positioning constants ────────────────────────────────────────────
+
+/** Distance between element edge and external label (matches bpmn-js). */
+export const ELEMENT_LABEL_DISTANCE = 10;
+
+/** Default external label dimensions (matches bpmn-js). */
+export const DEFAULT_LABEL_SIZE = { width: 90, height: 20 };
+
+/** Preferred label position priority (customizable). */
+export const LABEL_POSITION_PRIORITY: readonly ("top" | "bottom" | "left" | "right")[] = [
+  "top", "bottom", "left", "right",
+];
+
+/** Indent offset for flow (connection) labels from midpoint (matches bpmn-js). */
+export const FLOW_LABEL_INDENT = 15;
+
+// ── Element size helpers ───────────────────────────────────────────────────
+
 export function getElementSize(elementType: string): { width: number; height: number } {
   if (elementType.includes("Gateway"))    return ELEMENT_SIZES.gateway;
   if (elementType.includes("Event"))      return ELEMENT_SIZES.event;
