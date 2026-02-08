@@ -9,6 +9,7 @@
 import { type SetCamundaErrorEventDefinitionArgs, type ToolResult } from "../types";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { requireDiagram, requireElement, jsonResult, syncXml, resolveOrCreateError, validateArgs } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleSetCamundaErrorEventDefinition(
   args: SetCamundaErrorEventDefinitionArgs,
@@ -73,12 +74,13 @@ export async function handleSetCamundaErrorEventDefinition(
 
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId,
     definitionCount: errorDefinitions.length,
     message: `Set ${errorDefinitions.length} camunda:ErrorEventDefinition(s) on ${elementId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

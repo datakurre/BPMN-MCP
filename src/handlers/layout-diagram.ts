@@ -9,6 +9,8 @@
 import { type LayoutDiagramArgs, type ToolResult } from "../types";
 import { requireDiagram, jsonResult, getVisibleElements } from "./helpers";
 import { createModelerFromXml } from "../diagram-manager";
+import { appendLintFeedback } from "../linter";
+import { adjustDiagramLabels, adjustFlowLabels } from "./adjust-labels";
 
 export async function handleLayoutDiagram(
   args: LayoutDiagramArgs,
@@ -35,11 +37,17 @@ export async function handleLayoutDiagram(
       !el.type.includes("Association"),
   );
 
-  return jsonResult({
+  // Adjust labels after layout (bpmn-auto-layout doesn't produce label DI)
+  const labelsMoved = await adjustDiagramLabels(diagram);
+  const flowLabelsMoved = await adjustFlowLabels(diagram);
+
+  const result = jsonResult({
     success: true,
     elementCount: elements.length,
+    labelsMoved: labelsMoved + flowLabelsMoved,
     message: `Layout applied to diagram ${diagramId} — ${elements.length} elements arranged`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

@@ -9,6 +9,7 @@ import {
   createModelerFromXml,
 } from "../diagram-manager";
 import { jsonResult } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleImportXml(
   args: ImportXmlArgs,
@@ -17,16 +18,15 @@ export async function handleImportXml(
   const diagramId = generateDiagramId();
   const modeler = await createModelerFromXml(xml);
 
-  storeDiagram(diagramId, {
-    modeler,
-    xml,
-  });
+  const diagram = { modeler, xml };
+  storeDiagram(diagramId, diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     diagramId,
     message: `Imported BPMN diagram with ID: ${diagramId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

@@ -4,6 +4,7 @@
 
 import { type DeleteElementArgs, type ToolResult } from "../types";
 import { requireDiagram, requireElement, jsonResult, syncXml } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleDeleteElement(
   args: DeleteElementArgs,
@@ -19,11 +20,12 @@ export async function handleDeleteElement(
 
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId,
     message: `Removed element ${elementId} from diagram`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

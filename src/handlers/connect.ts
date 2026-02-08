@@ -5,6 +5,7 @@
 import { type ConnectArgs, type ToolResult } from "../types";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { requireDiagram, jsonResult, syncXml, generateFlowId, validateArgs } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
   validateArgs(args, ["diagramId", "sourceElementId", "targetElementId"]);
@@ -78,13 +79,14 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
 
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     connectionId: connection.id,
     connectionType,
     isDefault: isDefault || false,
     message: `Connected ${sourceElementId} to ${targetElementId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

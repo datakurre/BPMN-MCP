@@ -9,6 +9,7 @@
 import { type SetFormDataArgs, type ToolResult } from "../types";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { requireDiagram, requireElement, jsonResult, syncXml, upsertExtensionElement, validateArgs } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleSetFormData(
   args: SetFormDataArgs,
@@ -83,13 +84,14 @@ export async function handleSetFormData(
 
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId,
     fieldCount: formFields.length,
     businessKey: businessKey || undefined,
     message: `Set form data with ${formFields.length} field(s) on ${elementId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

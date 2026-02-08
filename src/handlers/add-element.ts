@@ -6,6 +6,7 @@ import { type AddElementArgs, type ToolResult } from "../types";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { requireDiagram, requireElement, jsonResult, syncXml, generateDescriptiveId, getVisibleElements, validateArgs } from "./helpers";
 import { STANDARD_BPMN_GAP, getElementSize } from "../constants";
+import { appendLintFeedback } from "../linter";
 
 // ── Sub-function: shift downstream elements ────────────────────────────────
 
@@ -121,7 +122,7 @@ export async function handleAddElement(
     ? " (not connected - use connect_bpmn_elements to create sequence flows)"
     : "";
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId: createdElement.id,
     elementType,
@@ -129,6 +130,7 @@ export async function handleAddElement(
     position: { x, y },
     message: `Added ${elementType} to diagram${hint}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

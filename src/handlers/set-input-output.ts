@@ -9,6 +9,7 @@
 
 import { type SetInputOutputArgs, type ToolResult } from "../types";
 import { requireDiagram, requireElement, jsonResult, syncXml, upsertExtensionElement, validateArgs } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleSetInputOutput(
   args: SetInputOutputArgs,
@@ -48,13 +49,14 @@ export async function handleSetInputOutput(
 
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId,
     inputParameterCount: inputParams.length,
     outputParameterCount: outputParams.length,
     message: `Set input/output mapping on ${elementId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

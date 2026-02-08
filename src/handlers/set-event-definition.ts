@@ -5,6 +5,7 @@
 import { type SetEventDefinitionArgs, type ToolResult } from "../types";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { requireDiagram, requireElement, jsonResult, syncXml, resolveOrCreateError, validateArgs } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleSetEventDefinition(
   args: SetEventDefinitionArgs,
@@ -73,12 +74,13 @@ export async function handleSetEventDefinition(
 
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId,
     eventDefinitionType,
     message: `Set ${eventDefinitionType} on ${elementId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

@@ -8,6 +8,7 @@
 import { type SetLoopCharacteristicsArgs, type ToolResult } from "../types";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 export async function handleSetLoopCharacteristics(
   args: SetLoopCharacteristicsArgs,
@@ -42,12 +43,13 @@ export async function handleSetLoopCharacteristics(
     modeling.updateProperties(element, { loopCharacteristics: undefined });
     await syncXml(diagram);
 
-    return jsonResult({
+    const result = jsonResult({
       success: true,
       elementId,
       loopType: "none",
       message: `Removed loop characteristics from ${elementId}`,
     });
+    return appendLintFeedback(result, diagram);
   }
 
   if (loopType === "standard") {
@@ -90,12 +92,13 @@ export async function handleSetLoopCharacteristics(
   modeling.updateProperties(element, { loopCharacteristics: loopChar });
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId,
     loopType,
     message: `Set ${loopType} loop characteristics on ${elementId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {

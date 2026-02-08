@@ -12,6 +12,7 @@
 
 import { type SetPropertiesArgs, type ToolResult } from "../types";
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from "./helpers";
+import { appendLintFeedback } from "../linter";
 
 // ── Sub-functions for special-case property handling ───────────────────────
 
@@ -98,12 +99,13 @@ export async function handleSetProperties(
 
   await syncXml(diagram);
 
-  return jsonResult({
+  const result = jsonResult({
     success: true,
     elementId,
     updatedProperties: Object.keys(props),
     message: `Updated properties on ${elementId}`,
   });
+  return appendLintFeedback(result, diagram);
 }
 
 export const TOOL_DEFINITION = {
