@@ -2,11 +2,19 @@
  * Handler for add_bpmn_element tool.
  */
 
-import { type AddElementArgs, type ToolResult } from "../types";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { requireDiagram, requireElement, jsonResult, syncXml, generateDescriptiveId, getVisibleElements, validateArgs } from "./helpers";
-import { STANDARD_BPMN_GAP, getElementSize } from "../constants";
-import { appendLintFeedback } from "../linter";
+import { type AddElementArgs, type ToolResult } from '../types';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  generateDescriptiveId,
+  getVisibleElements,
+  validateArgs,
+} from './helpers';
+import { STANDARD_BPMN_GAP, getElementSize } from '../constants';
+import { appendLintFeedback } from '../linter';
 
 // ── Sub-function: shift downstream elements ────────────────────────────────
 
@@ -19,14 +27,14 @@ function shiftDownstreamElements(
   modeling: any,
   fromX: number,
   shiftAmount: number,
-  excludeId: string,
+  excludeId: string
 ): void {
   const allElements = getVisibleElements(elementRegistry).filter(
     (el: any) =>
-      !el.type.includes("SequenceFlow") &&
-      !el.type.includes("MessageFlow") &&
-      !el.type.includes("Association") &&
-      el.id !== excludeId,
+      !el.type.includes('SequenceFlow') &&
+      !el.type.includes('MessageFlow') &&
+      !el.type.includes('Association') &&
+      el.id !== excludeId
   );
   const toShift = allElements.filter((el: any) => el.x >= fromX);
   for (const el of toShift) {
@@ -36,17 +44,15 @@ function shiftDownstreamElements(
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
-export async function handleAddElement(
-  args: AddElementArgs,
-): Promise<ToolResult> {
-  validateArgs(args, ["diagramId", "elementType"]);
+export async function handleAddElement(args: AddElementArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'elementType']);
   const { diagramId, elementType, name: elementName, hostElementId, afterElementId } = args;
   let { x = 100, y = 100 } = args;
   const diagram = requireDiagram(diagramId);
 
-  const modeling = diagram.modeler.get("modeling");
-  const elementFactory = diagram.modeler.get("elementFactory");
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const modeling = diagram.modeler.get('modeling');
+  const elementFactory = diagram.modeler.get('elementFactory');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
 
   // Auto-position after another element if requested
   if (afterElementId) {
@@ -63,7 +69,7 @@ export async function handleAddElement(
         modeling,
         x,
         newSize.width + STANDARD_BPMN_GAP,
-        afterElementId,
+        afterElementId
       );
     }
   }
@@ -76,32 +82,29 @@ export async function handleAddElement(
   const shape = elementFactory.createShape(shapeOpts);
   let createdElement: any;
 
-  if (elementType === "bpmn:BoundaryEvent" && hostElementId) {
+  if (elementType === 'bpmn:BoundaryEvent' && hostElementId) {
     // Boundary events must be attached to a host
     const host = requireElement(elementRegistry, hostElementId);
     createdElement = modeling.createShape(shape, { x, y }, host, {
       attach: true,
     });
-  } else if (elementType === "bpmn:BoundaryEvent" && !hostElementId) {
+  } else if (elementType === 'bpmn:BoundaryEvent' && !hostElementId) {
     throw new McpError(
       ErrorCode.InvalidRequest,
-      "BoundaryEvent requires hostElementId to specify the element to attach to",
+      'BoundaryEvent requires hostElementId to specify the element to attach to'
     );
-  } else if (elementType === "bpmn:Participant") {
+  } else if (elementType === 'bpmn:Participant') {
     // Participants create a collaboration; add via createParticipantBandShape or special handling
-    const canvas = diagram.modeler.get("canvas");
+    const canvas = diagram.modeler.get('canvas');
     const rootElement = canvas.getRootElement();
     createdElement = modeling.createShape(shape, { x, y }, rootElement);
   } else {
     // Regular element — add to process (or first participant)
     const process = elementRegistry.filter(
-      (el: any) => el.type === "bpmn:Process" || el.type === "bpmn:Participant",
+      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Participant'
     )[0];
     if (!process) {
-      throw new McpError(
-        ErrorCode.InternalError,
-        "No bpmn:Process found in diagram",
-      );
+      throw new McpError(ErrorCode.InternalError, 'No bpmn:Process found in diagram');
     }
     createdElement = modeling.createShape(shape, { x, y }, process);
   }
@@ -113,14 +116,14 @@ export async function handleAddElement(
   await syncXml(diagram);
 
   const needsConnection =
-    elementType.includes("Event") ||
-    elementType.includes("Task") ||
-    elementType.includes("Gateway") ||
-    elementType.includes("SubProcess") ||
-    elementType.includes("CallActivity");
+    elementType.includes('Event') ||
+    elementType.includes('Task') ||
+    elementType.includes('Gateway') ||
+    elementType.includes('SubProcess') ||
+    elementType.includes('CallActivity');
   const hint = needsConnection
-    ? " (not connected - use connect_bpmn_elements to create sequence flows)"
-    : "";
+    ? ' (not connected - use connect_bpmn_elements to create sequence flows)'
+    : '';
 
   const result = jsonResult({
     success: true,
@@ -134,69 +137,69 @@ export async function handleAddElement(
 }
 
 export const TOOL_DEFINITION = {
-  name: "add_bpmn_element",
+  name: 'add_bpmn_element',
   description:
-    "Add an element (task, gateway, event, etc.) to a BPMN diagram. Supports boundary events via hostElementId and auto-positioning via afterElementId. When afterElementId is used, downstream elements are automatically shifted right to prevent overlap. Generates descriptive element IDs when a name is provided (e.g. UserTask_EnterName, Gateway_HasSurname).",
+    'Add an element (task, gateway, event, etc.) to a BPMN diagram. Supports boundary events via hostElementId and auto-positioning via afterElementId. When afterElementId is used, downstream elements are automatically shifted right to prevent overlap. Generates descriptive element IDs when a name is provided (e.g. UserTask_EnterName, Gateway_HasSurname).',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
       diagramId: {
-        type: "string",
-        description: "The diagram ID returned from create_bpmn_diagram",
+        type: 'string',
+        description: 'The diagram ID returned from create_bpmn_diagram',
       },
       elementType: {
-        type: "string",
+        type: 'string',
         enum: [
-          "bpmn:StartEvent",
-          "bpmn:EndEvent",
-          "bpmn:Task",
-          "bpmn:UserTask",
-          "bpmn:ServiceTask",
-          "bpmn:ScriptTask",
-          "bpmn:ManualTask",
-          "bpmn:BusinessRuleTask",
-          "bpmn:SendTask",
-          "bpmn:ReceiveTask",
-          "bpmn:CallActivity",
-          "bpmn:ExclusiveGateway",
-          "bpmn:ParallelGateway",
-          "bpmn:InclusiveGateway",
-          "bpmn:EventBasedGateway",
-          "bpmn:IntermediateCatchEvent",
-          "bpmn:IntermediateThrowEvent",
-          "bpmn:BoundaryEvent",
-          "bpmn:SubProcess",
-          "bpmn:TextAnnotation",
-          "bpmn:DataObjectReference",
-          "bpmn:DataStoreReference",
-          "bpmn:Participant",
-          "bpmn:Lane",
+          'bpmn:StartEvent',
+          'bpmn:EndEvent',
+          'bpmn:Task',
+          'bpmn:UserTask',
+          'bpmn:ServiceTask',
+          'bpmn:ScriptTask',
+          'bpmn:ManualTask',
+          'bpmn:BusinessRuleTask',
+          'bpmn:SendTask',
+          'bpmn:ReceiveTask',
+          'bpmn:CallActivity',
+          'bpmn:ExclusiveGateway',
+          'bpmn:ParallelGateway',
+          'bpmn:InclusiveGateway',
+          'bpmn:EventBasedGateway',
+          'bpmn:IntermediateCatchEvent',
+          'bpmn:IntermediateThrowEvent',
+          'bpmn:BoundaryEvent',
+          'bpmn:SubProcess',
+          'bpmn:TextAnnotation',
+          'bpmn:DataObjectReference',
+          'bpmn:DataStoreReference',
+          'bpmn:Participant',
+          'bpmn:Lane',
         ],
-        description: "The type of BPMN element to add",
+        description: 'The type of BPMN element to add',
       },
       name: {
-        type: "string",
-        description: "The name/label for the element",
+        type: 'string',
+        description: 'The name/label for the element',
       },
       x: {
-        type: "number",
-        description: "X coordinate for the element (default: 100)",
+        type: 'number',
+        description: 'X coordinate for the element (default: 100)',
       },
       y: {
-        type: "number",
-        description: "Y coordinate for the element (default: 100)",
+        type: 'number',
+        description: 'Y coordinate for the element (default: 100)',
       },
       hostElementId: {
-        type: "string",
+        type: 'string',
         description:
-          "For boundary events: the ID of the host element (task/subprocess) to attach to",
+          'For boundary events: the ID of the host element (task/subprocess) to attach to',
       },
       afterElementId: {
-        type: "string",
+        type: 'string',
         description:
-          "Place the new element to the right of this element (auto-positions x/y). Overrides explicit x/y.",
+          'Place the new element to the right of this element (auto-positions x/y). Overrides explicit x/y.',
       },
     },
-    required: ["diagramId", "elementType"],
+    required: ['diagramId', 'elementType'],
   },
 } as const;

@@ -1,30 +1,30 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { handleListElements, handleConnect } from "../../src/handlers";
-import { parseResult, createDiagram, addElement, clearDiagrams } from "../helpers";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { handleListElements, handleConnect } from '../../src/handlers';
+import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
-describe("handleListElements", () => {
+describe('handleListElements', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("lists added elements", async () => {
+  it('lists added elements', async () => {
     const diagramId = await createDiagram();
-    await addElement(diagramId, "bpmn:Task", { name: "Do stuff" });
+    await addElement(diagramId, 'bpmn:Task', { name: 'Do stuff' });
 
     const res = parseResult(await handleListElements({ diagramId }));
     expect(res.count).toBeGreaterThanOrEqual(1);
-    const task = res.elements.find((e: any) => e.type === "bpmn:Task");
+    const task = res.elements.find((e: any) => e.type === 'bpmn:Task');
     expect(task).toBeDefined();
-    expect(task.name).toBe("Do stuff");
+    expect(task.name).toBe('Do stuff');
   });
 
-  it("includes connection info for connected elements", async () => {
+  it('includes connection info for connected elements', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:StartEvent", {
+    const aId = await addElement(diagramId, 'bpmn:StartEvent', {
       x: 100,
       y: 100,
     });
-    const bId = await addElement(diagramId, "bpmn:EndEvent", {
+    const bId = await addElement(diagramId, 'bpmn:EndEvent', {
       x: 300,
       y: 100,
     });
@@ -40,13 +40,13 @@ describe("handleListElements", () => {
     expect(startEl.outgoing.length).toBe(1);
   });
 
-  it("includes connection source/target info", async () => {
+  it('includes connection source/target info', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:StartEvent", {
+    const aId = await addElement(diagramId, 'bpmn:StartEvent', {
       x: 100,
       y: 100,
     });
-    const bId = await addElement(diagramId, "bpmn:EndEvent", {
+    const bId = await addElement(diagramId, 'bpmn:EndEvent', {
       x: 300,
       y: 100,
     });
@@ -57,9 +57,7 @@ describe("handleListElements", () => {
     });
 
     const res = parseResult(await handleListElements({ diagramId }));
-    const flow = res.elements.find(
-      (e: any) => e.type === "bpmn:SequenceFlow",
-    );
+    const flow = res.elements.find((e: any) => e.type === 'bpmn:SequenceFlow');
     expect(flow).toBeDefined();
     expect(flow.sourceId).toBe(aId);
     expect(flow.targetId).toBe(bId);

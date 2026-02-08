@@ -6,8 +6,8 @@
  * initialised on first call and then reused.
  */
 
-import { JSDOM } from "jsdom";
-import fs from "fs";
+import { JSDOM } from 'jsdom';
+import fs from 'fs';
 
 let jsdomInstance: any;
 let BpmnModelerCtor: any;
@@ -15,15 +15,12 @@ let BpmnModelerCtor: any;
 /** Ensure the jsdom instance + polyfills exist and return the canvas element. */
 export function createHeadlessCanvas(): HTMLElement {
   if (!jsdomInstance) {
-    const bpmnJsPath = require.resolve(
-      "bpmn-js/dist/bpmn-modeler.development.js",
-    );
-    const bpmnJsBundle = fs.readFileSync(bpmnJsPath, "utf-8");
+    const bpmnJsPath = require.resolve('bpmn-js/dist/bpmn-modeler.development.js');
+    const bpmnJsBundle = fs.readFileSync(bpmnJsPath, 'utf-8');
 
-    jsdomInstance = new JSDOM(
-      "<!DOCTYPE html><html><body><div id='canvas'></div></body></html>",
-      { runScripts: "outside-only" },
-    );
+    jsdomInstance = new JSDOM("<!DOCTYPE html><html><body><div id='canvas'></div></body></html>", {
+      runScripts: 'outside-only',
+    });
 
     applyPolyfills(jsdomInstance);
 
@@ -37,7 +34,7 @@ export function createHeadlessCanvas(): HTMLElement {
     BpmnModelerCtor = (jsdomInstance.window as any).BpmnJS;
   }
 
-  return jsdomInstance.window.document.getElementById("canvas")!;
+  return jsdomInstance.window.document.getElementById('canvas')!;
 }
 
 /** Return the lazily-loaded BpmnModeler constructor. */
@@ -57,8 +54,7 @@ function applyPolyfills(instance: any): void {
 
   // CSS.escape
   win.CSS = {
-    escape: (str: string) =>
-      str.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, "\\$&"),
+    escape: (str: string) => str.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&'),
   };
 
   // structuredClone
@@ -69,11 +65,28 @@ function applyPolyfills(instance: any): void {
   // SVGMatrix constructor
   win.SVGMatrix = function () {
     return {
-      a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
-      inverse() { return this; },
-      multiply() { return this; },
-      translate(x: number, y: number) { this.e += x; this.f += y; return this; },
-      scale(s: number) { this.a *= s; this.d *= s; return this; },
+      a: 1,
+      b: 0,
+      c: 0,
+      d: 1,
+      e: 0,
+      f: 0,
+      inverse() {
+        return this;
+      },
+      multiply() {
+        return this;
+      },
+      translate(x: number, y: number) {
+        this.e += x;
+        this.f += y;
+        return this;
+      },
+      scale(s: number) {
+        this.a *= s;
+        this.d *= s;
+        return this;
+      },
     };
   };
 
@@ -89,10 +102,21 @@ function applyPolyfills(instance: any): void {
   if (SVGElement && !SVGElement.prototype.getScreenCTM) {
     SVGElement.prototype.getScreenCTM = function () {
       return {
-        a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
-        inverse() { return this; },
-        multiply() { return this; },
-        translate() { return this; },
+        a: 1,
+        b: 0,
+        c: 0,
+        d: 1,
+        e: 0,
+        f: 0,
+        inverse() {
+          return this;
+        },
+        multiply() {
+          return this;
+        },
+        translate() {
+          return this;
+        },
       };
     };
   }
@@ -109,10 +133,10 @@ function applyPolyfills(instance: any): void {
   };
 
   if (SVGGraphicsElement) {
-    Object.defineProperty(SVGGraphicsElement.prototype, "transform", transformProp);
+    Object.defineProperty(SVGGraphicsElement.prototype, 'transform', transformProp);
   }
   if (SVGElement) {
-    Object.defineProperty(SVGElement.prototype, "transform", transformProp);
+    Object.defineProperty(SVGElement.prototype, 'transform', transformProp);
   }
 
   // SVGSVGElement helpers
@@ -121,11 +145,24 @@ function applyPolyfills(instance: any): void {
     if (!SVGSVGElement.prototype.createSVGMatrix) {
       SVGSVGElement.prototype.createSVGMatrix = function () {
         return {
-          a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
-          inverse() { return this; },
-          multiply() { return this; },
-          translate() { return this; },
-          scale() { return this; },
+          a: 1,
+          b: 0,
+          c: 0,
+          d: 1,
+          e: 0,
+          f: 0,
+          inverse() {
+            return this;
+          },
+          multiply() {
+            return this;
+          },
+          translate() {
+            return this;
+          },
+          scale() {
+            return this;
+          },
         };
       };
     }
@@ -149,16 +186,30 @@ function createTransformList() {
   return {
     numberOfItems: 0,
     _items: [] as any[],
-    consolidate() { return null; },
-    clear() { this._items = []; this.numberOfItems = 0; },
-    initialize(newItem: any) { this._items = [newItem]; this.numberOfItems = 1; return newItem; },
-    getItem(index: number) { return this._items[index]; },
+    consolidate() {
+      return null;
+    },
+    clear() {
+      this._items = [];
+      this.numberOfItems = 0;
+    },
+    initialize(newItem: any) {
+      this._items = [newItem];
+      this.numberOfItems = 1;
+      return newItem;
+    },
+    getItem(index: number) {
+      return this._items[index];
+    },
     insertItemBefore(newItem: any, index: number) {
       this._items.splice(index, 0, newItem);
       this.numberOfItems = this._items.length;
       return newItem;
     },
-    replaceItem(newItem: any, index: number) { this._items[index] = newItem; return newItem; },
+    replaceItem(newItem: any, index: number) {
+      this._items[index] = newItem;
+      return newItem;
+    },
     removeItem(index: number) {
       const item = this._items.splice(index, 1)[0];
       this.numberOfItems = this._items.length;
@@ -169,6 +220,8 @@ function createTransformList() {
       this.numberOfItems = this._items.length;
       return newItem;
     },
-    createSVGTransformFromMatrix(matrix: any) { return { type: 1, matrix, angle: 0 }; },
+    createSVGTransformFromMatrix(matrix: any) {
+      return { type: 1, matrix, angle: 0 };
+    },
   };
 }

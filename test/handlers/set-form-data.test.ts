@@ -1,16 +1,16 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { handleSetFormData, handleExportXml, handleGetProperties } from "../../src/handlers";
-import { parseResult, createDiagram, addElement, clearDiagrams } from "../helpers";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { handleSetFormData, handleExportXml, handleGetProperties } from '../../src/handlers';
+import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
-describe("handleSetFormData", () => {
+describe('handleSetFormData', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("creates form data on a user task with basic fields", async () => {
+  it('creates form data on a user task with basic fields', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:UserTask", {
-      name: "Fill Form",
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Fill Form',
     });
 
     const res = parseResult(
@@ -18,27 +18,27 @@ describe("handleSetFormData", () => {
         diagramId,
         elementId: taskId,
         fields: [
-          { id: "name", label: "Full Name", type: "string", defaultValue: "John" },
-          { id: "age", label: "Age", type: "long" },
-          { id: "active", label: "Is Active", type: "boolean", defaultValue: "true" },
+          { id: 'name', label: 'Full Name', type: 'string', defaultValue: 'John' },
+          { id: 'age', label: 'Age', type: 'long' },
+          { id: 'active', label: 'Is Active', type: 'boolean', defaultValue: 'true' },
         ],
-      }),
+      })
     );
     expect(res.success).toBe(true);
     expect(res.fieldCount).toBe(3);
 
     const xml = (await handleExportXml({ diagramId })).content[0].text;
-    expect(xml).toContain("camunda:formData");
-    expect(xml).toContain("camunda:formField");
+    expect(xml).toContain('camunda:formData');
+    expect(xml).toContain('camunda:formField');
     expect(xml).toContain('id="name"');
     expect(xml).toContain('label="Full Name"');
     expect(xml).toContain('defaultValue="John"');
   });
 
-  it("supports enum fields with values", async () => {
+  it('supports enum fields with values', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:UserTask", {
-      name: "Select",
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Select',
     });
 
     const res = parseResult(
@@ -47,27 +47,27 @@ describe("handleSetFormData", () => {
         elementId: taskId,
         fields: [
           {
-            id: "priority",
-            label: "Priority",
-            type: "enum",
+            id: 'priority',
+            label: 'Priority',
+            type: 'enum',
             values: [
-              { id: "low", name: "Low" },
-              { id: "high", name: "High" },
+              { id: 'low', name: 'Low' },
+              { id: 'high', name: 'High' },
             ],
           },
         ],
-      }),
+      })
     );
     expect(res.success).toBe(true);
 
     const xml = (await handleExportXml({ diagramId })).content[0].text;
-    expect(xml).toContain("camunda:value");
+    expect(xml).toContain('camunda:value');
   });
 
-  it("supports validation constraints", async () => {
+  it('supports validation constraints', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:UserTask", {
-      name: "Validated",
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Validated',
     });
 
     await handleSetFormData({
@@ -75,85 +75,74 @@ describe("handleSetFormData", () => {
       elementId: taskId,
       fields: [
         {
-          id: "email",
-          label: "Email",
-          type: "string",
-          validation: [
-            { name: "required" },
-            { name: "minlength", config: "5" },
-          ],
+          id: 'email',
+          label: 'Email',
+          type: 'string',
+          validation: [{ name: 'required' }, { name: 'minlength', config: '5' }],
         },
       ],
     });
 
     const xml = (await handleExportXml({ diagramId })).content[0].text;
-    expect(xml).toContain("camunda:validation");
-    expect(xml).toContain("camunda:constraint");
-    expect(xml).toContain("required");
-    expect(xml).toContain("minlength");
+    expect(xml).toContain('camunda:validation');
+    expect(xml).toContain('camunda:constraint');
+    expect(xml).toContain('required');
+    expect(xml).toContain('minlength');
   });
 
-  it("supports businessKey", async () => {
+  it('supports businessKey', async () => {
     const diagramId = await createDiagram();
-    const startId = await addElement(diagramId, "bpmn:StartEvent", {
-      name: "Start",
+    const startId = await addElement(diagramId, 'bpmn:StartEvent', {
+      name: 'Start',
     });
 
     const res = parseResult(
       await handleSetFormData({
         diagramId,
         elementId: startId,
-        businessKey: "orderId",
-        fields: [
-          { id: "orderId", label: "Order ID", type: "string" },
-        ],
-      }),
+        businessKey: 'orderId',
+        fields: [{ id: 'orderId', label: 'Order ID', type: 'string' }],
+      })
     );
     expect(res.success).toBe(true);
-    expect(res.businessKey).toBe("orderId");
+    expect(res.businessKey).toBe('orderId');
 
     const xml = (await handleExportXml({ diagramId })).content[0].text;
-    expect(xml).toContain("camunda:formData");
+    expect(xml).toContain('camunda:formData');
   });
 
-  it("throws for non-UserTask/StartEvent elements", async () => {
+  it('throws for non-UserTask/StartEvent elements', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "Service",
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Service',
     });
 
     await expect(
       handleSetFormData({
         diagramId,
         elementId: taskId,
-        fields: [{ id: "f1", label: "F1", type: "string" }],
-      }),
+        fields: [{ id: 'f1', label: 'F1', type: 'string' }],
+      })
     ).rejects.toThrow(/only supported on/);
   });
 
-  it("is visible via get_element_properties", async () => {
+  it('is visible via get_element_properties', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:UserTask", {
-      name: "Props Test",
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Props Test',
     });
 
     await handleSetFormData({
       diagramId,
       elementId: taskId,
-      fields: [
-        { id: "f1", label: "Field 1", type: "string", defaultValue: "abc" },
-      ],
+      fields: [{ id: 'f1', label: 'Field 1', type: 'string', defaultValue: 'abc' }],
     });
 
-    const props = parseResult(
-      await handleGetProperties({ diagramId, elementId: taskId }),
-    );
+    const props = parseResult(await handleGetProperties({ diagramId, elementId: taskId }));
     expect(props.extensionElements).toBeDefined();
-    const fd = props.extensionElements.find(
-      (e: any) => e.type === "camunda:FormData",
-    );
+    const fd = props.extensionElements.find((e: any) => e.type === 'camunda:FormData');
     expect(fd).toBeDefined();
     expect(fd.fields.length).toBe(1);
-    expect(fd.fields[0].id).toBe("f1");
+    expect(fd.fields[0].id).toBe('f1');
   });
 });

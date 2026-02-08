@@ -6,30 +6,35 @@
  * Forms" (as opposed to "Embedded or External Task Forms" via formKey).
  */
 
-import { type SetFormDataArgs, type ToolResult } from "../types";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { requireDiagram, requireElement, jsonResult, syncXml, upsertExtensionElement, validateArgs } from "./helpers";
-import { appendLintFeedback } from "../linter";
+import { type SetFormDataArgs, type ToolResult } from '../types';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  upsertExtensionElement,
+  validateArgs,
+} from './helpers';
+import { appendLintFeedback } from '../linter';
 
-export async function handleSetFormData(
-  args: SetFormDataArgs,
-): Promise<ToolResult> {
-  validateArgs(args, ["diagramId", "elementId", "fields"]);
+export async function handleSetFormData(args: SetFormDataArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'elementId', 'fields']);
   const { diagramId, elementId, businessKey, fields } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get("elementRegistry");
-  const modeling = diagram.modeler.get("modeling");
-  const moddle = diagram.modeler.get("moddle");
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = diagram.modeler.get('modeling');
+  const moddle = diagram.modeler.get('moddle');
 
   const element = requireElement(elementRegistry, elementId);
   const bo = element.businessObject;
 
   // Verify element is a UserTask or StartEvent
-  if (bo.$type !== "bpmn:UserTask" && bo.$type !== "bpmn:StartEvent") {
+  if (bo.$type !== 'bpmn:UserTask' && bo.$type !== 'bpmn:StartEvent') {
     throw new McpError(
       ErrorCode.InvalidRequest,
-      `set_form_data is only supported on bpmn:UserTask and bpmn:StartEvent (got: ${bo.$type})`,
+      `set_form_data is only supported on bpmn:UserTask and bpmn:StartEvent (got: ${bo.$type})`
     );
   }
 
@@ -46,7 +51,7 @@ export async function handleSetFormData(
     // Enum values (camunda:Value entries)
     if (f.values?.length) {
       fieldAttrs.values = f.values.map((v) =>
-        moddle.create("camunda:Value", { id: v.id, name: v.name }),
+        moddle.create('camunda:Value', { id: v.id, name: v.name })
       );
     }
 
@@ -55,9 +60,9 @@ export async function handleSetFormData(
       const constraints = f.validation.map((v) => {
         const cAttrs: Record<string, any> = { name: v.name };
         if (v.config !== undefined) cAttrs.config = v.config;
-        return moddle.create("camunda:Constraint", cAttrs);
+        return moddle.create('camunda:Constraint', cAttrs);
       });
-      fieldAttrs.validation = moddle.create("camunda:Validation", {
+      fieldAttrs.validation = moddle.create('camunda:Validation', {
         constraints,
       });
     }
@@ -65,22 +70,22 @@ export async function handleSetFormData(
     // Properties (camunda:Properties > camunda:Property)
     if (f.properties && Object.keys(f.properties).length > 0) {
       const props = Object.entries(f.properties).map(([id, value]) =>
-        moddle.create("camunda:Property", { id, value }),
+        moddle.create('camunda:Property', { id, value })
       );
-      fieldAttrs.properties = moddle.create("camunda:Properties", {
+      fieldAttrs.properties = moddle.create('camunda:Properties', {
         values: props,
       });
     }
 
-    return moddle.create("camunda:FormField", fieldAttrs);
+    return moddle.create('camunda:FormField', fieldAttrs);
   });
 
   // Build camunda:FormData
   const formDataAttrs: Record<string, any> = { fields: formFields };
   if (businessKey) formDataAttrs.businessKey = businessKey;
-  const formData = moddle.create("camunda:FormData", formDataAttrs);
+  const formData = moddle.create('camunda:FormData', formDataAttrs);
 
-  upsertExtensionElement(moddle, bo, modeling, element, "camunda:FormData", formData);
+  upsertExtensionElement(moddle, bo, modeling, element, 'camunda:FormData', formData);
 
   await syncXml(diagram);
 
@@ -95,85 +100,83 @@ export async function handleSetFormData(
 }
 
 export const TOOL_DEFINITION = {
-  name: "set_form_data",
+  name: 'set_form_data',
   description:
-    "Create camunda:FormData with camunda:FormField children as extension elements on User Tasks and Start Events (Generated Task Forms). Supports field types: string, long, boolean, date, enum. Fields can have validation constraints, enum values, default values, and custom properties.",
+    'Create camunda:FormData with camunda:FormField children as extension elements on User Tasks and Start Events (Generated Task Forms). Supports field types: string, long, boolean, date, enum. Fields can have validation constraints, enum values, default values, and custom properties.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      diagramId: { type: "string", description: "The diagram ID" },
+      diagramId: { type: 'string', description: 'The diagram ID' },
       elementId: {
-        type: "string",
-        description:
-          "The ID of the element to update (must be bpmn:UserTask or bpmn:StartEvent)",
+        type: 'string',
+        description: 'The ID of the element to update (must be bpmn:UserTask or bpmn:StartEvent)',
       },
       businessKey: {
-        type: "string",
-        description:
-          "Optional field ID to use as the business key for the process instance",
+        type: 'string',
+        description: 'Optional field ID to use as the business key for the process instance',
       },
       fields: {
-        type: "array",
+        type: 'array',
         items: {
-          type: "object",
+          type: 'object',
           properties: {
-            id: { type: "string", description: "Field ID (unique within the form)" },
-            label: { type: "string", description: "Display label for the field" },
+            id: { type: 'string', description: 'Field ID (unique within the form)' },
+            label: { type: 'string', description: 'Display label for the field' },
             type: {
-              type: "string",
-              enum: ["string", "long", "boolean", "date", "enum"],
-              description: "Field type",
+              type: 'string',
+              enum: ['string', 'long', 'boolean', 'date', 'enum'],
+              description: 'Field type',
             },
             defaultValue: {
-              type: "string",
-              description: "Default value for the field",
+              type: 'string',
+              description: 'Default value for the field',
             },
             datePattern: {
-              type: "string",
+              type: 'string',
               description: "Date pattern for date fields (e.g. 'dd/MM/yyyy')",
             },
             properties: {
-              type: "object",
-              description: "Custom key-value properties on the field",
-              additionalProperties: { type: "string" },
+              type: 'object',
+              description: 'Custom key-value properties on the field',
+              additionalProperties: { type: 'string' },
             },
             validation: {
-              type: "array",
+              type: 'array',
               items: {
-                type: "object",
+                type: 'object',
                 properties: {
                   name: {
-                    type: "string",
+                    type: 'string',
                     description:
                       "Constraint name (e.g. 'required', 'minlength', 'maxlength', 'min', 'max', 'readonly', 'regex')",
                   },
                   config: {
-                    type: "string",
+                    type: 'string',
                     description: "Constraint config value (e.g. '5' for minlength)",
                   },
                 },
-                required: ["name"],
+                required: ['name'],
               },
-              description: "Validation constraints for the field",
+              description: 'Validation constraints for the field',
             },
             values: {
-              type: "array",
+              type: 'array',
               items: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  id: { type: "string", description: "Enum value ID" },
-                  name: { type: "string", description: "Enum value display name" },
+                  id: { type: 'string', description: 'Enum value ID' },
+                  name: { type: 'string', description: 'Enum value display name' },
                 },
-                required: ["id", "name"],
+                required: ['id', 'name'],
               },
               description: "Enum values (required when type is 'enum')",
             },
           },
-          required: ["id", "label", "type"],
+          required: ['id', 'label', 'type'],
         },
-        description: "Array of form field definitions",
+        description: 'Array of form field definitions',
       },
     },
-    required: ["diagramId", "elementId", "fields"],
+    required: ['diagramId', 'elementId', 'fields'],
   },
 } as const;

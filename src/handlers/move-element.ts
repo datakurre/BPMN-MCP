@@ -2,17 +2,15 @@
  * Handler for move_bpmn_element tool.
  */
 
-import { type MoveElementArgs, type ToolResult } from "../types";
-import { requireDiagram, requireElement, jsonResult, syncXml } from "./helpers";
+import { type MoveElementArgs, type ToolResult } from '../types';
+import { requireDiagram, requireElement, jsonResult, syncXml } from './helpers';
 
-export async function handleMoveElement(
-  args: MoveElementArgs,
-): Promise<ToolResult> {
+export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResult> {
   const { diagramId, elementId, x, y } = args;
   const diagram = requireDiagram(diagramId);
 
-  const modeling = diagram.modeler.get("modeling");
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
 
   const element = requireElement(elementRegistry, elementId);
   const deltaX = x - element.x;
@@ -30,25 +28,25 @@ export async function handleMoveElement(
 }
 
 export const TOOL_DEFINITION = {
-  name: "move_bpmn_element",
-  description: "Move an element to a new position in the diagram.",
+  name: 'move_bpmn_element',
+  description: 'Move an element to a new position in the diagram.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      diagramId: { type: "string", description: "The diagram ID" },
+      diagramId: { type: 'string', description: 'The diagram ID' },
       elementId: {
-        type: "string",
-        description: "The ID of the element to move",
+        type: 'string',
+        description: 'The ID of the element to move',
       },
       x: {
-        type: "number",
-        description: "New X coordinate (absolute position)",
+        type: 'number',
+        description: 'New X coordinate (absolute position)',
       },
       y: {
-        type: "number",
-        description: "New Y coordinate (absolute position)",
+        type: 'number',
+        description: 'New Y coordinate (absolute position)',
       },
     },
-    required: ["diagramId", "elementId", "x", "y"],
+    required: ['diagramId', 'elementId', 'x', 'y'],
   },
 } as const;

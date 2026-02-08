@@ -6,18 +6,37 @@
  * event definitions for a given element.
  */
 
-import { type GetPropertiesArgs, type ToolResult } from "../types";
-import { requireDiagram, requireElement, jsonResult } from "./helpers";
+import { type GetPropertiesArgs, type ToolResult } from '../types';
+import { requireDiagram, requireElement, jsonResult } from './helpers';
 
 // ── Sub-function: Camunda extension attributes ─────────────────────────────
 
 /** Known Camunda properties that may appear directly on the business object. */
 const CAMUNDA_DIRECT_PROPS = [
-  "assignee", "candidateGroups", "candidateUsers", "dueDate", "followUpDate",
-  "formKey", "formRef", "priority", "class", "delegateExpression", "expression",
-  "resultVariable", "topic", "type", "errorCodeVariable", "errorMessageVariable",
-  "asyncBefore", "asyncAfter", "exclusive", "jobPriority", "taskPriority",
-  "historyTimeToLive", "isStartableInTasklist", "versionTag",
+  'assignee',
+  'candidateGroups',
+  'candidateUsers',
+  'dueDate',
+  'followUpDate',
+  'formKey',
+  'formRef',
+  'priority',
+  'class',
+  'delegateExpression',
+  'expression',
+  'resultVariable',
+  'topic',
+  'type',
+  'errorCodeVariable',
+  'errorMessageVariable',
+  'asyncBefore',
+  'asyncAfter',
+  'exclusive',
+  'jobPriority',
+  'taskPriority',
+  'historyTimeToLive',
+  'isStartableInTasklist',
+  'versionTag',
 ] as const;
 
 function serializeCamundaAttrs(bo: any): Record<string, any> | undefined {
@@ -25,7 +44,7 @@ function serializeCamundaAttrs(bo: any): Record<string, any> | undefined {
   // From $attrs (explicit namespace prefixed attributes)
   if (bo.$attrs) {
     for (const [key, value] of Object.entries(bo.$attrs)) {
-      if (key.startsWith("camunda:")) {
+      if (key.startsWith('camunda:')) {
         camundaAttrs[key] = value;
       }
     }
@@ -42,7 +61,7 @@ function serializeCamundaAttrs(bo: any): Record<string, any> | undefined {
 // ── Sub-function: InputOutput extension serialisation ──────────────────────
 
 function serializeInputOutput(ext: any): Record<string, any> {
-  const io: any = { type: "camunda:InputOutput" };
+  const io: any = { type: 'camunda:InputOutput' };
   if (ext.inputParameters) {
     io.inputParameters = ext.inputParameters.map((p: any) => ({
       name: p.name,
@@ -78,19 +97,16 @@ function serializeFormField(f: any): Record<string, any> {
     }));
   }
   if (f.properties?.values?.length) {
-    field.properties = f.properties.values.reduce(
-      (acc: Record<string, string>, p: any) => {
-        acc[p.id] = p.value;
-        return acc;
-      },
-      {},
-    );
+    field.properties = f.properties.values.reduce((acc: Record<string, string>, p: any) => {
+      acc[p.id] = p.value;
+      return acc;
+    }, {});
   }
   return field;
 }
 
 function serializeFormData(ext: any): Record<string, any> {
-  const fd: any = { type: "camunda:FormData" };
+  const fd: any = { type: 'camunda:FormData' };
   if (ext.fields) {
     fd.fields = ext.fields.map(serializeFormField);
   }
@@ -105,9 +121,9 @@ function serializeExtensionElements(bo: any): any[] | undefined {
 
   const extensions: any[] = [];
   for (const ext of bo.extensionElements.values) {
-    if (ext.$type === "camunda:InputOutput") {
+    if (ext.$type === 'camunda:InputOutput') {
       extensions.push(serializeInputOutput(ext));
-    } else if (ext.$type === "camunda:FormData") {
+    } else if (ext.$type === 'camunda:FormData') {
       extensions.push(serializeFormData(ext));
     } else {
       extensions.push({ type: ext.$type });
@@ -118,9 +134,7 @@ function serializeExtensionElements(bo: any): any[] | undefined {
 
 // ── Sub-function: connections ──────────────────────────────────────────────
 
-function serializeConnections(
-  element: any,
-): { incoming?: any[]; outgoing?: any[] } {
+function serializeConnections(element: any): { incoming?: any[]; outgoing?: any[] } {
   const result: { incoming?: any[]; outgoing?: any[] } = {};
   if (element.incoming?.length) {
     result.incoming = element.incoming.map((c: any) => ({
@@ -158,13 +172,11 @@ function serializeEventDefinitions(bo: any): any[] | undefined {
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
-export async function handleGetProperties(
-  args: GetPropertiesArgs,
-): Promise<ToolResult> {
+export async function handleGetProperties(args: GetPropertiesArgs): Promise<ToolResult> {
   const { diagramId, elementId } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const elementRegistry = diagram.modeler.get('elementRegistry');
   const element = requireElement(elementRegistry, elementId);
   const bo = element.businessObject;
 
@@ -195,18 +207,18 @@ export async function handleGetProperties(
 }
 
 export const TOOL_DEFINITION = {
-  name: "get_element_properties",
+  name: 'get_element_properties',
   description:
-    "Get all properties of an element, including standard BPMN attributes and Camunda extension properties.",
+    'Get all properties of an element, including standard BPMN attributes and Camunda extension properties.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      diagramId: { type: "string", description: "The diagram ID" },
+      diagramId: { type: 'string', description: 'The diagram ID' },
       elementId: {
-        type: "string",
-        description: "The ID of the element to inspect",
+        type: 'string',
+        description: 'The ID of the element to inspect',
       },
     },
-    required: ["diagramId", "elementId"],
+    required: ['diagramId', 'elementId'],
   },
 } as const;

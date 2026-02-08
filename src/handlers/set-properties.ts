@@ -10,9 +10,9 @@
  * For loop characteristics, use the dedicated set_loop_characteristics tool.
  */
 
-import { type SetPropertiesArgs, type ToolResult } from "../types";
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from "./helpers";
-import { appendLintFeedback } from "../linter";
+import { type SetPropertiesArgs, type ToolResult } from '../types';
+import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
+import { appendLintFeedback } from '../linter';
 
 // ── Sub-functions for special-case property handling ───────────────────────
 
@@ -23,19 +23,19 @@ import { appendLintFeedback } from "../linter";
 function handleDefaultOnGateway(
   element: any,
   standardProps: Record<string, any>,
-  elementRegistry: any,
+  elementRegistry: any
 ): void {
-  if (standardProps["default"] == null) return;
+  if (standardProps['default'] == null) return;
 
-  const elType = element.type || element.businessObject?.$type || "";
-  if (!elType.includes("ExclusiveGateway") && !elType.includes("InclusiveGateway")) return;
+  const elType = element.type || element.businessObject?.$type || '';
+  if (!elType.includes('ExclusiveGateway') && !elType.includes('InclusiveGateway')) return;
 
-  const flowId = standardProps["default"];
-  if (typeof flowId === "string") {
+  const flowId = standardProps['default'];
+  if (typeof flowId === 'string') {
     const flowEl = elementRegistry.get(flowId);
     if (flowEl) {
       element.businessObject.default = flowEl.businessObject;
-      delete standardProps["default"];
+      delete standardProps['default'];
     }
   }
 }
@@ -44,30 +44,22 @@ function handleDefaultOnGateway(
  * Handle `conditionExpression` — wraps plain string into a FormalExpression.
  * Mutates `standardProps` in-place.
  */
-function handleConditionExpression(
-  standardProps: Record<string, any>,
-  moddle: any,
-): void {
-  const ceValue = standardProps["conditionExpression"];
-  if (ceValue == null || typeof ceValue !== "string") return;
+function handleConditionExpression(standardProps: Record<string, any>, moddle: any): void {
+  const ceValue = standardProps['conditionExpression'];
+  if (ceValue == null || typeof ceValue !== 'string') return;
 
-  standardProps["conditionExpression"] = moddle.create(
-    "bpmn:FormalExpression",
-    { body: ceValue },
-  );
+  standardProps['conditionExpression'] = moddle.create('bpmn:FormalExpression', { body: ceValue });
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
-export async function handleSetProperties(
-  args: SetPropertiesArgs,
-): Promise<ToolResult> {
-  validateArgs(args, ["diagramId", "elementId", "properties"]);
+export async function handleSetProperties(args: SetPropertiesArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'elementId', 'properties']);
   const { diagramId, elementId, properties: props } = args;
   const diagram = requireDiagram(diagramId);
 
-  const modeling = diagram.modeler.get("modeling");
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
 
   const element = requireElement(elementRegistry, elementId);
 
@@ -75,7 +67,7 @@ export async function handleSetProperties(
   const camundaProps: Record<string, any> = {};
 
   for (const [key, value] of Object.entries(props)) {
-    if (key.startsWith("camunda:")) {
+    if (key.startsWith('camunda:')) {
       camundaProps[key] = value;
     } else {
       standardProps[key] = value;
@@ -83,12 +75,12 @@ export async function handleSetProperties(
   }
 
   // Auto-set camunda:type="external" when camunda:topic is provided
-  if (camundaProps["camunda:topic"] && !camundaProps["camunda:type"]) {
-    camundaProps["camunda:type"] = "external";
+  if (camundaProps['camunda:topic'] && !camundaProps['camunda:type']) {
+    camundaProps['camunda:type'] = 'external';
   }
 
   handleDefaultOnGateway(element, standardProps, elementRegistry);
-  handleConditionExpression(standardProps, diagram.modeler.get("moddle"));
+  handleConditionExpression(standardProps, diagram.modeler.get('moddle'));
 
   if (Object.keys(standardProps).length > 0) {
     modeling.updateProperties(element, standardProps);
@@ -109,24 +101,24 @@ export async function handleSetProperties(
 }
 
 export const TOOL_DEFINITION = {
-  name: "set_element_properties",
+  name: 'set_element_properties',
   description:
     "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable) and Camunda extensions (e.g. camunda:assignee, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:asyncBefore, camunda:topic, camunda:type). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). For loop characteristics, use the dedicated set_loop_characteristics tool.",
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      diagramId: { type: "string", description: "The diagram ID" },
+      diagramId: { type: 'string', description: 'The diagram ID' },
       elementId: {
-        type: "string",
-        description: "The ID of the element to update",
+        type: 'string',
+        description: 'The ID of the element to update',
       },
       properties: {
-        type: "object",
+        type: 'object',
         description:
           "Key-value pairs of properties to set. Use 'camunda:' prefix for Camunda extension attributes (e.g. { 'camunda:assignee': 'john', 'camunda:formKey': 'embedded:app:forms/task.html' }).",
         additionalProperties: true,
       },
     },
-    required: ["diagramId", "elementId", "properties"],
+    required: ['diagramId', 'elementId', 'properties'],
   },
 } as const;

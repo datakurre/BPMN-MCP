@@ -4,38 +4,38 @@
  * Individual handler modules live in src/handlers/<name>.ts.
  */
 
-import { type ToolResult } from "../types";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { type ToolResult } from '../types';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
-import { handleCreateDiagram } from "./create-diagram";
-import { handleAddElement } from "./add-element";
-import { handleConnect } from "./connect";
-import { handleDeleteElement } from "./delete-element";
-import { handleMoveElement } from "./move-element";
-import { handleGetProperties } from "./get-properties";
-import { handleExportBpmn } from "./export";
+import { handleCreateDiagram } from './create-diagram';
+import { handleAddElement } from './add-element';
+import { handleConnect } from './connect';
+import { handleDeleteElement } from './delete-element';
+import { handleMoveElement } from './move-element';
+import { handleGetProperties } from './get-properties';
+import { handleExportBpmn } from './export';
 
 /** @deprecated Use handleExportBpmn with format: "xml" */
-const handleExportXml = (args: any) => handleExportBpmn({ ...args, format: "xml" });
+const handleExportXml = (args: any) => handleExportBpmn({ ...args, format: 'xml' });
 /** @deprecated Use handleExportBpmn with format: "svg" */
-const handleExportSvg = (args: any) => handleExportBpmn({ ...args, format: "svg" });
-import { handleListElements } from "./list-elements";
-import { handleSetProperties } from "./set-properties";
-import { handleImportXml } from "./import-xml";
-import { handleDeleteDiagram } from "./delete-diagram";
-import { handleListDiagrams } from "./list-diagrams";
-import { handleCloneDiagram } from "./clone-diagram";
-import { handleValidate } from "./validate";
-import { handleAlignElements } from "./align-elements";
-import { handleDistributeElements } from "./distribute-elements";
-import { handleSetInputOutput } from "./set-input-output";
-import { handleSetEventDefinition } from "./set-event-definition";
-import { handleSetFormData } from "./set-form-data";
-import { handleLayoutDiagram } from "./layout-diagram";
-import { handleSetCamundaErrorEventDefinition } from "./set-camunda-error";
-import { handleSetLoopCharacteristics } from "./set-loop-characteristics";
-import { handleLintDiagram } from "./lint";
-import { handleAdjustLabels } from "./adjust-labels-handler";
+const handleExportSvg = (args: any) => handleExportBpmn({ ...args, format: 'svg' });
+import { handleListElements } from './list-elements';
+import { handleSetProperties } from './set-properties';
+import { handleImportXml } from './import-xml';
+import { handleDeleteDiagram } from './delete-diagram';
+import { handleListDiagrams } from './list-diagrams';
+import { handleCloneDiagram } from './clone-diagram';
+import { handleValidate } from './validate';
+import { handleAlignElements } from './align-elements';
+import { handleDistributeElements } from './distribute-elements';
+import { handleSetInputOutput } from './set-input-output';
+import { handleSetEventDefinition } from './set-event-definition';
+import { handleSetFormData } from './set-form-data';
+import { handleLayoutDiagram } from './layout-diagram';
+import { handleSetCamundaErrorEventDefinition } from './set-camunda-error';
+import { handleSetLoopCharacteristics } from './set-loop-characteristics';
+import { handleLintDiagram } from './lint';
+import { handleAdjustLabels } from './adjust-labels-handler';
 
 // Re-export every handler so existing imports keep working
 export {
@@ -84,8 +84,8 @@ const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
   move_bpmn_element: handleMoveElement,
   get_element_properties: handleGetProperties,
   export_bpmn: handleExportBpmn,
-  export_bpmn_xml: (args: any) => handleExportBpmn({ ...args, format: "xml" }),
-  export_bpmn_svg: (args: any) => handleExportBpmn({ ...args, format: "svg" }),
+  export_bpmn_xml: (args: any) => handleExportBpmn({ ...args, format: 'xml' }),
+  export_bpmn_svg: (args: any) => handleExportBpmn({ ...args, format: 'svg' }),
   list_bpmn_elements: handleListElements,
   set_element_properties: handleSetProperties,
   import_bpmn_xml: handleImportXml,
@@ -107,10 +107,7 @@ const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
 };
 
 /** Route a CallTool request to the correct handler. */
-export async function dispatchToolCall(
-  name: string,
-  args: any,
-): Promise<ToolResult> {
+export async function dispatchToolCall(name: string, args: any): Promise<ToolResult> {
   const handler = handlers[name];
   if (!handler) {
     throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
@@ -120,9 +117,6 @@ export async function dispatchToolCall(
     return await handler(args);
   } catch (error: any) {
     if (error instanceof McpError) throw error;
-    throw new McpError(
-      ErrorCode.InternalError,
-      `Error executing ${name}: ${error.message}`,
-    );
+    throw new McpError(ErrorCode.InternalError, `Error executing ${name}: ${error.message}`);
   }
 }

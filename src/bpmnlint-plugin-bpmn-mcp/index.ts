@@ -13,8 +13,8 @@
 export const configs = {
   recommended: {
     rules: {
-      "bpmn-mcp/camunda-topic-without-external-type": "warn",
-      "bpmn-mcp/gateway-missing-default": "warn",
+      'bpmn-mcp/camunda-topic-without-external-type': 'warn',
+      'bpmn-mcp/gateway-missing-default': 'warn',
     },
   },
 };

@@ -1,16 +1,16 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { handleSetInputOutput, handleExportXml, handleGetProperties } from "../../src/handlers";
-import { parseResult, createDiagram, addElement, clearDiagrams } from "../helpers";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { handleSetInputOutput, handleExportXml, handleGetProperties } from '../../src/handlers';
+import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
-describe("handleSetInputOutput", () => {
+describe('handleSetInputOutput', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("sets input/output parameters on a task", async () => {
+  it('sets input/output parameters on a task', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "External",
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'External',
     });
 
     const res = parseResult(
@@ -18,11 +18,11 @@ describe("handleSetInputOutput", () => {
         diagramId,
         elementId: taskId,
         inputParameters: [
-          { name: "orderId", value: "123" },
-          { name: "amount", value: "${order.total}" },
+          { name: 'orderId', value: '123' },
+          { name: 'amount', value: '${order.total}' },
         ],
-        outputParameters: [{ name: "result", value: "ok" }],
-      }),
+        outputParameters: [{ name: 'result', value: 'ok' }],
+      })
     );
     expect(res.success).toBe(true);
     expect(res.inputParameterCount).toBe(2);
@@ -30,80 +30,68 @@ describe("handleSetInputOutput", () => {
 
     // Verify it shows up in XML
     const xml = (await handleExportXml({ diagramId })).content[0].text;
-    expect(xml).toContain("camunda:inputOutput");
-    expect(xml).toContain("orderId");
+    expect(xml).toContain('camunda:inputOutput');
+    expect(xml).toContain('orderId');
   });
 
-  it("works with get_element_properties", async () => {
+  it('works with get_element_properties', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "IO Task",
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'IO Task',
     });
 
     await handleSetInputOutput({
       diagramId,
       elementId: taskId,
-      inputParameters: [{ name: "var1", value: "val1" }],
+      inputParameters: [{ name: 'var1', value: 'val1' }],
     });
 
-    const props = parseResult(
-      await handleGetProperties({ diagramId, elementId: taskId }),
-    );
+    const props = parseResult(await handleGetProperties({ diagramId, elementId: taskId }));
     expect(props.extensionElements).toBeDefined();
-    const io = props.extensionElements.find(
-      (e: any) => e.type === "camunda:InputOutput",
-    );
+    const io = props.extensionElements.find((e: any) => e.type === 'camunda:InputOutput');
     expect(io).toBeDefined();
-    expect(io.inputParameters[0].name).toBe("var1");
+    expect(io.inputParameters[0].name).toBe('var1');
   });
 });
 
-describe("handleSetInputOutput — value expressions", () => {
+describe('handleSetInputOutput — value expressions', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("produces correct XML for expression values", async () => {
+  it('produces correct XML for expression values', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "Expr Test",
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Expr Test',
     });
 
     await handleSetInputOutput({
       diagramId,
       elementId: taskId,
-      inputParameters: [
-        { name: "myInput", value: "${processVariable}" },
-      ],
+      inputParameters: [{ name: 'myInput', value: '${processVariable}' }],
     });
 
     const xml = (await handleExportXml({ diagramId })).content[0].text;
     // Should produce body text content, not a source attribute
-    expect(xml).toContain("${processVariable}");
+    expect(xml).toContain('${processVariable}');
     expect(xml).not.toMatch(/source="/);
   });
 
-  it("does not accept source or sourceExpression attributes", async () => {
+  it('does not accept source or sourceExpression attributes', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "No Source",
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'No Source',
     });
 
     // Even if someone passes source-like data as value, it should just set value
     await handleSetInputOutput({
       diagramId,
       elementId: taskId,
-      inputParameters: [
-        { name: "var1", value: "static" },
-      ],
+      inputParameters: [{ name: 'var1', value: 'static' }],
     });
 
-    const props = parseResult(
-      await handleGetProperties({ diagramId, elementId: taskId }),
-    );
-    const io = props.extensionElements.find(
-      (e: any) => e.type === "camunda:InputOutput",
-    );
-    expect(io.inputParameters[0].value).toBe("static");
+    const props = parseResult(await handleGetProperties({ diagramId, elementId: taskId }));
+    const io = props.extensionElements.find((e: any) => e.type === 'camunda:InputOutput');
+    expect(io.inputParameters[0].value).toBe('static');
   });
 });

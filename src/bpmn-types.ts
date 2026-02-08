@@ -78,21 +78,11 @@ export interface Modeling {
     shape: BpmnElement | Record<string, unknown>,
     position: { x: number; y: number },
     target: BpmnElement | Record<string, unknown>,
-    hints?: Record<string, unknown>,
+    hints?: Record<string, unknown>
   ): BpmnElement;
-  moveElements(
-    elements: BpmnElement[],
-    delta: { x: number; y: number },
-  ): void;
-  connect(
-    source: BpmnElement,
-    target: BpmnElement,
-    attrs?: Record<string, unknown>,
-  ): BpmnElement;
-  updateProperties(
-    element: BpmnElement,
-    properties: Record<string, unknown>,
-  ): void;
+  moveElements(elements: BpmnElement[], delta: { x: number; y: number }): void;
+  connect(source: BpmnElement, target: BpmnElement, attrs?: Record<string, unknown>): BpmnElement;
+  updateProperties(element: BpmnElement, properties: Record<string, unknown>): void;
   removeElements(elements: BpmnElement[]): void;
 }
 

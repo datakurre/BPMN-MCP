@@ -1,23 +1,23 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   handleSetProperties,
   handleSetInputOutput,
   handleSetEventDefinition,
   handleExportXml,
-} from "../../src/handlers";
-import { createDiagram, addElement, clearDiagrams } from "../helpers";
+} from '../../src/handlers';
+import { createDiagram, addElement, clearDiagrams } from '../helpers';
 
-describe("Camunda 7 External Task workflow", () => {
+describe('Camunda 7 External Task workflow', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("creates a full external task with topic, I/O mapping, and boundary error", async () => {
-    const diagramId = await createDiagram("External Task Process");
+  it('creates a full external task with topic, I/O mapping, and boundary error', async () => {
+    const diagramId = await createDiagram('External Task Process');
 
     // 1. Create service task with external task type
-    const serviceTaskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "Process Order",
+    const serviceTaskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Process Order',
       x: 300,
       y: 200,
     });
@@ -25,8 +25,8 @@ describe("Camunda 7 External Task workflow", () => {
       diagramId,
       elementId: serviceTaskId,
       properties: {
-        "camunda:type": "external",
-        "camunda:topic": "order-processing",
+        'camunda:type': 'external',
+        'camunda:topic': 'order-processing',
       },
     });
 
@@ -34,14 +34,12 @@ describe("Camunda 7 External Task workflow", () => {
     await handleSetInputOutput({
       diagramId,
       elementId: serviceTaskId,
-      inputParameters: [
-        { name: "orderId", value: "${execution.getVariable('orderId')}" },
-      ],
-      outputParameters: [{ name: "result", value: "${orderResult}" }],
+      inputParameters: [{ name: 'orderId', value: "${execution.getVariable('orderId')}" }],
+      outputParameters: [{ name: 'result', value: '${orderResult}' }],
     });
 
     // 3. Attach boundary error event
-    const boundaryId = await addElement(diagramId, "bpmn:BoundaryEvent", {
+    const boundaryId = await addElement(diagramId, 'bpmn:BoundaryEvent', {
       hostElementId: serviceTaskId,
       x: 320,
       y: 260,
@@ -49,11 +47,11 @@ describe("Camunda 7 External Task workflow", () => {
     await handleSetEventDefinition({
       diagramId,
       elementId: boundaryId,
-      eventDefinitionType: "bpmn:ErrorEventDefinition",
+      eventDefinitionType: 'bpmn:ErrorEventDefinition',
       errorRef: {
-        id: "Error_OrderFailed",
-        name: "Order Failed",
-        errorCode: "ORDER_ERR",
+        id: 'Error_OrderFailed',
+        name: 'Order Failed',
+        errorCode: 'ORDER_ERR',
       },
     });
 
@@ -61,15 +59,15 @@ describe("Camunda 7 External Task workflow", () => {
     const xml = (await handleExportXml({ diagramId })).content[0].text;
     expect(xml).toContain('camunda:type="external"');
     expect(xml).toContain('camunda:topic="order-processing"');
-    expect(xml).toContain("camunda:inputOutput");
-    expect(xml).toContain("orderId");
-    expect(xml).toContain("errorEventDefinition");
+    expect(xml).toContain('camunda:inputOutput');
+    expect(xml).toContain('orderId');
+    expect(xml).toContain('errorEventDefinition');
   });
 
-  it("auto-sets camunda:type=external when only camunda:topic is provided", async () => {
+  it('auto-sets camunda:type=external when only camunda:topic is provided', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "Auto External",
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Auto External',
     });
 
     // Only set topic — type should be auto-set to "external"
@@ -77,7 +75,7 @@ describe("Camunda 7 External Task workflow", () => {
       diagramId,
       elementId: taskId,
       properties: {
-        "camunda:topic": "my-topic",
+        'camunda:topic': 'my-topic',
       },
     });
 

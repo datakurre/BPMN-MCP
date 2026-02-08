@@ -7,26 +7,26 @@
  * - `adjustElementLabel(diagram, elementId)` — adjusts a single element's label
  */
 
-import { type DiagramState } from "../types";
-import { FLOW_LABEL_INDENT } from "../constants";
+import { type DiagramState } from '../types';
+import { FLOW_LABEL_INDENT } from '../constants';
 import {
   type Point,
   type Rect,
   getLabelCandidatePositions,
   scoreLabelPosition,
   rectsOverlap,
-} from "./label-utils";
-import { getVisibleElements, syncXml } from "./helpers";
+} from './label-utils';
+import { getVisibleElements, syncXml } from './helpers';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /** Check whether an element type has an external label. */
 function hasExternalLabel(type: string): boolean {
   return (
-    type.includes("Event") ||
-    type.includes("Gateway") ||
-    type === "bpmn:DataStoreReference" ||
-    type === "bpmn:DataObjectReference"
+    type.includes('Event') ||
+    type.includes('Gateway') ||
+    type === 'bpmn:DataStoreReference' ||
+    type === 'bpmn:DataObjectReference'
   );
 }
 
@@ -35,9 +35,9 @@ function collectConnectionSegments(elements: any[]): [Point, Point][] {
   const segments: [Point, Point][] = [];
   for (const el of elements) {
     if (
-      (el.type === "bpmn:SequenceFlow" ||
-        el.type === "bpmn:MessageFlow" ||
-        el.type === "bpmn:Association") &&
+      (el.type === 'bpmn:SequenceFlow' ||
+        el.type === 'bpmn:MessageFlow' ||
+        el.type === 'bpmn:Association') &&
       el.waypoints?.length >= 2
     ) {
       for (let i = 0; i < el.waypoints.length - 1; i++) {
@@ -70,15 +70,15 @@ function getLabelRect(label: any): Rect {
  * Returns the number of labels that were moved.
  */
 export async function adjustDiagramLabels(diagram: DiagramState): Promise<number> {
-  const modeling = diagram.modeler.get("modeling");
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
   const connectionSegments = collectConnectionSegments(allElements);
 
   // Collect all elements with external labels
   const labelBearers = allElements.filter(
-    (el: any) => hasExternalLabel(el.type) && el.label && el.businessObject?.name,
+    (el: any) => hasExternalLabel(el.type) && el.label && el.businessObject?.name
   );
 
   if (labelBearers.length === 0) return 0;
@@ -104,7 +104,7 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
 
     // Host rect for boundary events
     let hostRect: Rect | undefined;
-    if (el.type === "bpmn:BoundaryEvent" && el.host) {
+    if (el.type === 'bpmn:BoundaryEvent' && el.host) {
       hostRect = {
         x: el.host.x,
         y: el.host.y,
@@ -118,7 +118,7 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
       currentRect,
       connectionSegments,
       otherLabelRects,
-      hostRect,
+      hostRect
     );
 
     if (currentScore === 0) continue; // already fine
@@ -126,14 +126,14 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
     // Try all candidate positions
     const candidates = getLabelCandidatePositions(el);
     let bestScore = currentScore;
-    let bestCandidate: typeof candidates[0] | null = null;
+    let bestCandidate: (typeof candidates)[0] | null = null;
 
     for (const candidate of candidates) {
       const score = scoreLabelPosition(
         candidate.rect,
         connectionSegments,
         otherLabelRects,
-        hostRect,
+        hostRect
       );
       if (score < bestScore) {
         bestScore = score;
@@ -168,10 +168,10 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
  */
 export async function adjustElementLabel(
   diagram: DiagramState,
-  elementId: string,
+  elementId: string
 ): Promise<boolean> {
-  const modeling = diagram.modeler.get("modeling");
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
   const el = elementRegistry.get(elementId);
 
   if (!el || !el.label || !hasExternalLabel(el.type) || !el.businessObject?.name) {
@@ -188,19 +188,24 @@ export async function adjustElementLabel(
 
   // Host rect for boundary events
   let hostRect: Rect | undefined;
-  if (el.type === "bpmn:BoundaryEvent" && el.host) {
+  if (el.type === 'bpmn:BoundaryEvent' && el.host) {
     hostRect = { x: el.host.x, y: el.host.y, width: el.host.width, height: el.host.height };
   }
 
   const label = el.label;
   const currentRect = getLabelRect(label);
-  const currentScore = scoreLabelPosition(currentRect, connectionSegments, otherLabelRects, hostRect);
+  const currentScore = scoreLabelPosition(
+    currentRect,
+    connectionSegments,
+    otherLabelRects,
+    hostRect
+  );
 
   if (currentScore === 0) return false;
 
   const candidates = getLabelCandidatePositions(el);
   let bestScore = currentScore;
-  let bestCandidate: typeof candidates[0] | null = null;
+  let bestCandidate: (typeof candidates)[0] | null = null;
 
   for (const candidate of candidates) {
     const score = scoreLabelPosition(candidate.rect, connectionSegments, otherLabelRects, hostRect);
@@ -234,8 +239,8 @@ export async function adjustElementLabel(
  * Returns the number of flow labels moved.
  */
 export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
-  const modeling = diagram.modeler.get("modeling");
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
   // Collect all shape rects (non-connections)
@@ -243,19 +248,20 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     .filter(
       (el: any) =>
         el.type &&
-        !el.type.includes("SequenceFlow") &&
-        !el.type.includes("MessageFlow") &&
-        !el.type.includes("Association") &&
-        el.width && el.height,
+        !el.type.includes('SequenceFlow') &&
+        !el.type.includes('MessageFlow') &&
+        !el.type.includes('Association') &&
+        el.width &&
+        el.height
     )
     .map((el: any) => ({ x: el.x, y: el.y, width: el.width, height: el.height }));
 
   // Find connections with labels
   const labeledFlows = allElements.filter(
     (el: any) =>
-      (el.type === "bpmn:SequenceFlow" || el.type === "bpmn:MessageFlow") &&
+      (el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow') &&
       el.label &&
-      el.businessObject?.name,
+      el.businessObject?.name
   );
 
   let movedCount = 0;

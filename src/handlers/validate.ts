@@ -7,20 +7,20 @@
  * the McpPluginResolver in src/linter.ts).
  */
 
-import { type ValidateArgs, type ToolResult } from "../types";
-import { requireDiagram, jsonResult, validateArgs } from "./helpers";
-import { lintDiagramFlat } from "../linter";
-import type { FlatLintIssue } from "../bpmnlint-types";
+import { type ValidateArgs, type ToolResult } from '../types';
+import { requireDiagram, jsonResult, validateArgs } from './helpers';
+import { lintDiagramFlat } from '../linter';
+import type { FlatLintIssue } from '../bpmnlint-types';
 
 interface ValidationIssue {
-  severity: "error" | "warning" | "info";
+  severity: 'error' | 'warning' | 'info';
   message: string;
   elementId?: string;
   rule?: string;
 }
 
 export async function handleValidate(args: ValidateArgs): Promise<ToolResult> {
-  validateArgs(args, ["diagramId"]);
+  validateArgs(args, ['diagramId']);
   const diagram = requireDiagram(args.diagramId);
 
   // Run bpmnlint — the default config extends bpmnlint:recommended,
@@ -42,21 +42,21 @@ export async function handleValidate(args: ValidateArgs): Promise<ToolResult> {
 
   return jsonResult({
     success: true,
-    valid: issues.filter((i) => i.severity === "error").length === 0,
+    valid: issues.filter((i) => i.severity === 'error').length === 0,
     issues,
     issueCount: issues.length,
   });
 }
 
 export const TOOL_DEFINITION = {
-  name: "validate_bpmn_diagram",
+  name: 'validate_bpmn_diagram',
   description:
-    "Validate a BPMN diagram using bpmnlint rules (recommended + Camunda 7 compat + custom MCP rules). Returns structured issues with severities, element IDs, and rule names.",
+    'Validate a BPMN diagram using bpmnlint rules (recommended + Camunda 7 compat + custom MCP rules). Returns structured issues with severities, element IDs, and rule names.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      diagramId: { type: "string", description: "The diagram ID" },
+      diagramId: { type: 'string', description: 'The diagram ID' },
     },
-    required: ["diagramId"],
+    required: ['diagramId'],
   },
 } as const;

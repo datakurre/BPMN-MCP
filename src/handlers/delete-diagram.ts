@@ -2,21 +2,16 @@
  * Handler for delete_diagram tool.
  */
 
-import { type DeleteDiagramArgs, type ToolResult } from "../types";
-import { deleteDiagram as deleteDiagramFromStore } from "../diagram-manager";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { jsonResult } from "./helpers";
+import { type DeleteDiagramArgs, type ToolResult } from '../types';
+import { deleteDiagram as deleteDiagramFromStore } from '../diagram-manager';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { jsonResult } from './helpers';
 
-export async function handleDeleteDiagram(
-  args: DeleteDiagramArgs,
-): Promise<ToolResult> {
+export async function handleDeleteDiagram(args: DeleteDiagramArgs): Promise<ToolResult> {
   const { diagramId } = args;
   const deleted = deleteDiagramFromStore(diagramId);
   if (!deleted) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Diagram not found: ${diagramId}`,
-    );
+    throw new McpError(ErrorCode.InvalidRequest, `Diagram not found: ${diagramId}`);
   }
   return jsonResult({
     success: true,
@@ -26,16 +21,16 @@ export async function handleDeleteDiagram(
 }
 
 export const TOOL_DEFINITION = {
-  name: "delete_diagram",
-  description: "Remove a diagram from the in-memory store.",
+  name: 'delete_diagram',
+  description: 'Remove a diagram from the in-memory store.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
       diagramId: {
-        type: "string",
-        description: "The ID of the diagram to delete",
+        type: 'string',
+        description: 'The ID of the diagram to delete',
       },
     },
-    required: ["diagramId"],
+    required: ['diagramId'],
   },
 } as const;

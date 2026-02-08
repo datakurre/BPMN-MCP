@@ -3,9 +3,9 @@
  * for creating / retrieving / importing diagrams.
  */
 
-import { type DiagramState } from "./types";
-import { createHeadlessCanvas, getBpmnModeler } from "./headless-canvas";
-import camundaModdle from "camunda-bpmn-moddle/resources/camunda.json";
+import { type DiagramState } from './types';
+import { createHeadlessCanvas, getBpmnModeler } from './headless-canvas';
+import camundaModdle from 'camunda-bpmn-moddle/resources/camunda.json';
 
 /** Default BPMN XML used when creating a brand-new diagram. */
 export const INITIAL_XML = `<?xml version="1.0" encoding="UTF-8"?>

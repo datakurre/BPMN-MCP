@@ -9,7 +9,7 @@
 export interface LintReport {
   id: string;
   message: string;
-  category: "error" | "warn" | "info" | "rule-error";
+  category: 'error' | 'warn' | 'info' | 'rule-error';
   meta?: { documentation?: { url?: string } };
 }
 
@@ -25,7 +25,7 @@ export interface LintConfig {
 /** Flattened lint issue for easy consumption. */
 export interface FlatLintIssue {
   rule: string;
-  severity: "error" | "warning" | "info";
+  severity: 'error' | 'warning' | 'info';
   message: string;
   elementId?: string;
   documentationUrl?: string;

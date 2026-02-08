@@ -1,0 +1,42 @@
+# Build outputs
+dist/
+*.js.map
+
+# Dependencies
+node_modules/
+
+# Coverage
+coverage/
+*.lcov
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Example files that might have custom formatting
+example.bpmn
+*.bpmn
+
+# Generated files
+*.d.ts
+!src/**/*.d.ts
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Nix
+result
+.devenv/
+.direnv/

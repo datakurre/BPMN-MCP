@@ -1,21 +1,23 @@
-.PHONY: help install build typecheck lint check watch start clean prepare test test-watch coverage all
+.PHONY: help install build typecheck lint check format format-check watch start clean prepare test test-watch coverage all
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  make install    - Install dependencies (npm install)"
-	@echo "  make build      - Bundle with esbuild → dist/index.js"
-	@echo "  make typecheck  - Type-check with tsc (no emit)"
-	@echo "  make lint       - Lint with ESLint"
-	@echo "  make check      - Run typecheck + lint"
-	@echo "  make watch      - Rebuild on file changes"
-	@echo "  make start      - Start the MCP server (node dist/index.js)"
-	@echo "  make prepare    - Run prepare script (npm run build)"
-	@echo "  make test       - Run tests (vitest)"
-	@echo "  make test-watch - Run tests in watch mode"
-	@echo "  make coverage   - Run tests with coverage report"
-	@echo "  make clean      - Remove dist/ and node_modules/"
-	@echo "  make all        - Install and build"
+	@echo "  make install      - Install dependencies (npm install)"
+	@echo "  make build        - Bundle with esbuild → dist/index.js"
+	@echo "  make typecheck    - Type-check with tsc (no emit)"
+	@echo "  make format       - Format code with Prettier"
+	@echo "  make format-check - Check code formatting with Prettier"
+	@echo "  make lint         - Lint with ESLint"
+	@echo "  make check        - Run typecheck + lint"
+	@echo "  make watch        - Rebuild on file changes"
+	@echo "  make start        - Start the MCP server (node dist/index.js)"
+	@echo "  make prepare      - Run prepare script (npm run build)"
+	@echo "  make test         - Run tests (vitest)"
+	@echo "  make test-watch   - Run tests in watch mode"
+	@echo "  make coverage     - Run tests with coverage report"
+	@echo "  make clean        - Remove dist/ and node_modules/"
+	@echo "  make all          - Install and build"
 
 # Install dependencies
 install:
@@ -28,6 +30,14 @@ build:
 # Type-check (no emit)
 typecheck:
 	npm run typecheck
+
+# Format code with Prettier
+format:
+	npm run format
+
+# Check code formatting with Prettier
+format-check:
+	npm run format:check
 
 # Lint with ESLint
 lint:

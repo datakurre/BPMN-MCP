@@ -5,36 +5,36 @@
  * elements along the perpendicular axis with ~50px edge-to-edge gaps.
  */
 
-import { type AlignElementsArgs, type ToolResult } from "../types";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from "./helpers";
-import { STANDARD_BPMN_GAP } from "../constants";
+import { type AlignElementsArgs, type ToolResult } from '../types';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
+import { STANDARD_BPMN_GAP } from '../constants';
 
 // ── Pure alignment computation ─────────────────────────────────────────────
 
-interface Delta { x: number; y: number }
+interface Delta {
+  x: number;
+  y: number;
+}
 
 /**
  * Compute the move delta for each element to satisfy the given alignment.
  * Returns a map from element index to its {dx, dy}.
  */
-function computeAlignmentDeltas(
-  elements: any[],
-  alignment: string,
-): Delta[] {
+function computeAlignmentDeltas(elements: any[], alignment: string): Delta[] {
   let targetValue: number;
 
   switch (alignment) {
-    case "left":
+    case 'left':
       targetValue = Math.min(...elements.map((el: any) => el.x));
       return elements.map((el: any) => ({ x: targetValue - el.x, y: 0 }));
-    case "right":
+    case 'right':
       targetValue = Math.max(...elements.map((el: any) => el.x + (el.width || 0)));
       return elements.map((el: any) => ({
         x: targetValue - (el.x + (el.width || 0)),
         y: 0,
       }));
-    case "center": {
+    case 'center': {
       const minX = Math.min(...elements.map((el: any) => el.x));
       const maxX = Math.max(...elements.map((el: any) => el.x + (el.width || 0)));
       const centerX = (minX + maxX) / 2;
@@ -43,16 +43,16 @@ function computeAlignmentDeltas(
         y: 0,
       }));
     }
-    case "top":
+    case 'top':
       targetValue = Math.min(...elements.map((el: any) => el.y));
       return elements.map((el: any) => ({ x: 0, y: targetValue - el.y }));
-    case "bottom":
+    case 'bottom':
       targetValue = Math.max(...elements.map((el: any) => el.y + (el.height || 0)));
       return elements.map((el: any) => ({
         x: 0,
         y: targetValue - (el.y + (el.height || 0)),
       }));
-    case "middle": {
+    case 'middle': {
       const minY = Math.min(...elements.map((el: any) => el.y));
       const maxY = Math.max(...elements.map((el: any) => el.y + (el.height || 0)));
       const centerY = (minY + maxY) / 2;
@@ -71,12 +71,8 @@ function computeAlignmentDeltas(
 /**
  * Redistribute elements along the perpendicular axis with STANDARD_BPMN_GAP.
  */
-function applyCompactRedistribution(
-  elements: any[],
-  alignment: string,
-  modeling: any,
-): void {
-  const isHorizontalAlignment = ["top", "middle", "bottom"].includes(alignment);
+function applyCompactRedistribution(elements: any[], alignment: string, modeling: any): void {
+  const isHorizontalAlignment = ['top', 'middle', 'bottom'].includes(alignment);
 
   if (isHorizontalAlignment) {
     const sorted = [...elements].sort((a: any, b: any) => a.x - b.x);
@@ -105,22 +101,17 @@ function applyCompactRedistribution(
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
-export async function handleAlignElements(
-  args: AlignElementsArgs,
-): Promise<ToolResult> {
-  validateArgs(args, ["diagramId", "elementIds", "alignment"]);
+export async function handleAlignElements(args: AlignElementsArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'elementIds', 'alignment']);
   const { diagramId, elementIds, alignment, compact } = args;
   const diagram = requireDiagram(diagramId);
 
   if (elementIds.length < 2) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      "Alignment requires at least 2 elements",
-    );
+    throw new McpError(ErrorCode.InvalidRequest, 'Alignment requires at least 2 elements');
   }
 
-  const elementRegistry = diagram.modeler.get("elementRegistry");
-  const modeling = diagram.modeler.get("modeling");
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = diagram.modeler.get('modeling');
   const elements = elementIds.map((id) => requireElement(elementRegistry, id));
 
   // Compute and apply alignment moves
@@ -144,34 +135,34 @@ export async function handleAlignElements(
     alignment,
     compact: compact || false,
     alignedCount: elements.length,
-    message: `Aligned ${elements.length} elements to ${alignment}${compact ? " (compact)" : ""}`,
+    message: `Aligned ${elements.length} elements to ${alignment}${compact ? ' (compact)' : ''}`,
   });
 }
 
 export const TOOL_DEFINITION = {
-  name: "align_bpmn_elements",
+  name: 'align_bpmn_elements',
   description:
-    "Align selected elements along a given axis (left, center, right, top, middle, bottom). Requires at least 2 elements. Use compact=true to also redistribute elements with ~50px gaps along the perpendicular axis, or call distribute_bpmn_elements separately.",
+    'Align selected elements along a given axis (left, center, right, top, middle, bottom). Requires at least 2 elements. Use compact=true to also redistribute elements with ~50px gaps along the perpendicular axis, or call distribute_bpmn_elements separately.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      diagramId: { type: "string", description: "The diagram ID" },
+      diagramId: { type: 'string', description: 'The diagram ID' },
       elementIds: {
-        type: "array",
-        items: { type: "string" },
-        description: "Array of element IDs to align",
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Array of element IDs to align',
       },
       alignment: {
-        type: "string",
-        enum: ["left", "center", "right", "top", "middle", "bottom"],
-        description: "The alignment direction",
+        type: 'string',
+        enum: ['left', 'center', 'right', 'top', 'middle', 'bottom'],
+        description: 'The alignment direction',
       },
       compact: {
-        type: "boolean",
+        type: 'boolean',
         description:
-          "When true, also redistributes elements along the perpendicular axis with ~50px edge-to-edge gaps for a cleaner layout.",
+          'When true, also redistributes elements along the perpendicular axis with ~50px edge-to-edge gaps for a cleaner layout.',
       },
     },
-    required: ["diagramId", "elementIds", "alignment"],
+    required: ['diagramId', 'elementIds', 'alignment'],
   },
 } as const;

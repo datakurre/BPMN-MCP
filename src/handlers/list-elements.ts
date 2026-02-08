@@ -2,23 +2,21 @@
  * Handler for list_bpmn_elements tool.
  */
 
-import { type ListElementsArgs, type ToolResult } from "../types";
-import { requireDiagram, jsonResult, getVisibleElements } from "./helpers";
+import { type ListElementsArgs, type ToolResult } from '../types';
+import { requireDiagram, jsonResult, getVisibleElements } from './helpers';
 
-export async function handleListElements(
-  args: ListElementsArgs,
-): Promise<ToolResult> {
+export async function handleListElements(args: ListElementsArgs): Promise<ToolResult> {
   const { diagramId } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get("elementRegistry");
+  const elementRegistry = diagram.modeler.get('elementRegistry');
   const elements = getVisibleElements(elementRegistry);
 
   const elementList = elements.map((el: any) => {
     const entry: Record<string, any> = {
       id: el.id,
       type: el.type,
-      name: el.businessObject?.name || "(unnamed)",
+      name: el.businessObject?.name || '(unnamed)',
       x: el.x,
       y: el.y,
       width: el.width,
@@ -42,7 +40,7 @@ export async function handleListElements(
     if (bo?.$attrs) {
       const camundaAttrs: Record<string, any> = {};
       for (const [key, value] of Object.entries(bo.$attrs)) {
-        if (key.startsWith("camunda:")) {
+        if (key.startsWith('camunda:')) {
           camundaAttrs[key] = value;
         }
       }
@@ -62,14 +60,14 @@ export async function handleListElements(
 }
 
 export const TOOL_DEFINITION = {
-  name: "list_bpmn_elements",
+  name: 'list_bpmn_elements',
   description:
-    "List all elements in a BPMN diagram with their types, names, positions, connections, and properties.",
+    'List all elements in a BPMN diagram with their types, names, positions, connections, and properties.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      diagramId: { type: "string", description: "The diagram ID" },
+      diagramId: { type: 'string', description: 'The diagram ID' },
     },
-    required: ["diagramId"],
+    required: ['diagramId'],
   },
 } as const;

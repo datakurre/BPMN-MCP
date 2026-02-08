@@ -2,37 +2,29 @@
  * Handler for create_bpmn_diagram tool.
  */
 
-import { type CreateDiagramArgs, type ToolResult } from "../types";
-import {
-  storeDiagram,
-  generateDiagramId,
-  createModeler,
-} from "../diagram-manager";
-import { jsonResult } from "./helpers";
+import { type CreateDiagramArgs, type ToolResult } from '../types';
+import { storeDiagram, generateDiagramId, createModeler } from '../diagram-manager';
+import { jsonResult } from './helpers';
 
 /** Convert a human name into a valid BPMN process id (XML NCName). */
 function toProcessId(name: string): string {
   const sanitized = name
-    .replace(/\s+/g, "_")
-    .replace(/[^a-zA-Z0-9_-]/g, "")
-    .replace(/^[^a-zA-Z_]/, "_");
-  return `Process_${sanitized || "1"}`;
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .replace(/^[^a-zA-Z_]/, '_');
+  return `Process_${sanitized || '1'}`;
 }
 
-export async function handleCreateDiagram(
-  args: CreateDiagramArgs,
-): Promise<ToolResult> {
+export async function handleCreateDiagram(args: CreateDiagramArgs): Promise<ToolResult> {
   const diagramId = generateDiagramId();
   const modeler = await createModeler();
   const { xml } = await modeler.saveXML({ format: true });
 
   // If a name was provided, set it on the process along with a meaningful id
   if (args.name) {
-    const elementRegistry = modeler.get("elementRegistry");
-    const modeling = modeler.get("modeling");
-    const process = elementRegistry.filter(
-      (el: any) => el.type === "bpmn:Process",
-    )[0];
+    const elementRegistry = modeler.get('elementRegistry');
+    const modeling = modeler.get('modeling');
+    const process = elementRegistry.filter((el: any) => el.type === 'bpmn:Process')[0];
     if (process) {
       modeling.updateProperties(process, {
         name: args.name,
@@ -41,9 +33,7 @@ export async function handleCreateDiagram(
     }
   }
 
-  const savedXml = args.name
-    ? (await modeler.saveXML({ format: true })).xml || ""
-    : xml || "";
+  const savedXml = args.name ? (await modeler.saveXML({ format: true })).xml || '' : xml || '';
 
   storeDiagram(diagramId, {
     modeler,
@@ -60,15 +50,14 @@ export async function handleCreateDiagram(
 }
 
 export const TOOL_DEFINITION = {
-  name: "create_bpmn_diagram",
-  description:
-    "Create a new BPMN diagram. Returns a diagram ID that can be used with other tools.",
+  name: 'create_bpmn_diagram',
+  description: 'Create a new BPMN diagram. Returns a diagram ID that can be used with other tools.',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
       name: {
-        type: "string",
-        description: "Optional name for the diagram / process",
+        type: 'string',
+        description: 'Optional name for the diagram / process',
       },
     },
   },

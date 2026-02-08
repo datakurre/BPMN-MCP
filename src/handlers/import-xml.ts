@@ -2,18 +2,12 @@
  * Handler for import_bpmn_xml tool.
  */
 
-import { type ImportXmlArgs, type ToolResult } from "../types";
-import {
-  storeDiagram,
-  generateDiagramId,
-  createModelerFromXml,
-} from "../diagram-manager";
-import { jsonResult } from "./helpers";
-import { appendLintFeedback } from "../linter";
+import { type ImportXmlArgs, type ToolResult } from '../types';
+import { storeDiagram, generateDiagramId, createModelerFromXml } from '../diagram-manager';
+import { jsonResult } from './helpers';
+import { appendLintFeedback } from '../linter';
 
-export async function handleImportXml(
-  args: ImportXmlArgs,
-): Promise<ToolResult> {
+export async function handleImportXml(args: ImportXmlArgs): Promise<ToolResult> {
   const { xml } = args;
   const diagramId = generateDiagramId();
   const modeler = await createModelerFromXml(xml);
@@ -30,13 +24,13 @@ export async function handleImportXml(
 }
 
 export const TOOL_DEFINITION = {
-  name: "import_bpmn_xml",
-  description: "Import an existing BPMN XML diagram",
+  name: 'import_bpmn_xml',
+  description: 'Import an existing BPMN XML diagram',
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
-      xml: { type: "string", description: "The BPMN XML to import" },
+      xml: { type: 'string', description: 'The BPMN XML to import' },
     },
-    required: ["xml"],
+    required: ['xml'],
   },
 } as const;

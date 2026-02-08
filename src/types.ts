@@ -101,14 +101,14 @@ export interface ValidateArgs {
 export interface AlignElementsArgs {
   diagramId: string;
   elementIds: string[];
-  alignment: "left" | "center" | "right" | "top" | "middle" | "bottom";
+  alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
   compact?: boolean;
 }
 
 export interface DistributeElementsArgs {
   diagramId: string;
   elementIds: string[];
-  orientation: "horizontal" | "vertical";
+  orientation: 'horizontal' | 'vertical';
   gap?: number;
 }
 
@@ -164,11 +164,13 @@ export interface LintDiagramArgs {
     rules?: Record<string, string | number | [string | number, any]>;
   };
 }
-export interface AdjustLabelsArgs { diagramId: string; }
+export interface AdjustLabelsArgs {
+  diagramId: string;
+}
 export interface SetLoopCharacteristicsArgs {
   diagramId: string;
   elementId: string;
-  loopType: "none" | "standard" | "parallel" | "sequential";
+  loopType: 'none' | 'standard' | 'parallel' | 'sequential';
   loopCondition?: string;
   loopMaximum?: number;
   loopCardinality?: string;
@@ -176,4 +178,3 @@ export interface SetLoopCharacteristicsArgs {
   collection?: string;
   elementVariable?: string;
 }
-

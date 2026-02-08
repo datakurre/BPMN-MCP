@@ -32,5 +32,4 @@ export {
   handleSetCamundaErrorEventDefinition,
   handleSetLoopCharacteristics,
   dispatchToolCall,
-} from "./handlers/index";
-
+} from './handlers/index';

@@ -1,19 +1,19 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { handleAlignElements, handleGetProperties } from "../../src/handlers";
-import { parseResult, createDiagram, addElement, clearDiagrams } from "../helpers";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { handleAlignElements, handleGetProperties } from '../../src/handlers';
+import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
-describe("handleAlignElements", () => {
+describe('handleAlignElements', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("aligns elements to the left", async () => {
+  it('aligns elements to the left', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", {
+    const aId = await addElement(diagramId, 'bpmn:Task', {
       x: 100,
       y: 100,
     });
-    const bId = await addElement(diagramId, "bpmn:Task", {
+    const bId = await addElement(diagramId, 'bpmn:Task', {
       x: 300,
       y: 200,
     });
@@ -22,110 +22,110 @@ describe("handleAlignElements", () => {
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "left",
-      }),
+        alignment: 'left',
+      })
     );
     expect(res.success).toBe(true);
     expect(res.alignedCount).toBe(2);
   });
 
-  it("aligns elements right", async () => {
+  it('aligns elements right', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 100 });
-    const bId = await addElement(diagramId, "bpmn:Task", { x: 300, y: 200 });
+    const aId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:Task', { x: 300, y: 200 });
     const res = parseResult(
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "right",
-      }),
+        alignment: 'right',
+      })
     );
     expect(res.success).toBe(true);
   });
 
-  it("aligns elements center", async () => {
+  it('aligns elements center', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 100 });
-    const bId = await addElement(diagramId, "bpmn:Task", { x: 300, y: 200 });
+    const aId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:Task', { x: 300, y: 200 });
     const res = parseResult(
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "center",
-      }),
+        alignment: 'center',
+      })
     );
     expect(res.success).toBe(true);
   });
 
-  it("aligns elements top", async () => {
+  it('aligns elements top', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 100 });
-    const bId = await addElement(diagramId, "bpmn:Task", { x: 300, y: 300 });
+    const aId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:Task', { x: 300, y: 300 });
     const res = parseResult(
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "top",
-      }),
+        alignment: 'top',
+      })
     );
     expect(res.success).toBe(true);
   });
 
-  it("aligns elements bottom", async () => {
+  it('aligns elements bottom', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 100 });
-    const bId = await addElement(diagramId, "bpmn:Task", { x: 300, y: 300 });
+    const aId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:Task', { x: 300, y: 300 });
     const res = parseResult(
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "bottom",
-      }),
+        alignment: 'bottom',
+      })
     );
     expect(res.success).toBe(true);
   });
 
-  it("aligns elements middle", async () => {
+  it('aligns elements middle', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 100 });
-    const bId = await addElement(diagramId, "bpmn:Task", { x: 300, y: 300 });
+    const aId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:Task', { x: 300, y: 300 });
     const res = parseResult(
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "middle",
-      }),
+        alignment: 'middle',
+      })
     );
     expect(res.success).toBe(true);
   });
 
-  it("compact mode redistributes along perpendicular axis (horizontal)", async () => {
+  it('compact mode redistributes along perpendicular axis (horizontal)', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 100 });
-    const bId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 300 });
+    const aId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 300 });
     const res = parseResult(
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "top",
+        alignment: 'top',
         compact: true,
-      }),
+      })
     );
     expect(res.success).toBe(true);
     expect(res.compact).toBe(true);
   });
 
-  it("compact mode redistributes along perpendicular axis (vertical)", async () => {
+  it('compact mode redistributes along perpendicular axis (vertical)', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", { x: 100, y: 100 });
-    const bId = await addElement(diagramId, "bpmn:Task", { x: 300, y: 100 });
+    const aId = await addElement(diagramId, 'bpmn:Task', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:Task', { x: 300, y: 100 });
     const res = parseResult(
       await handleAlignElements({
         diagramId,
         elementIds: [aId, bId],
-        alignment: "left",
+        alignment: 'left',
         compact: true,
-      }),
+      })
     );
     expect(res.success).toBe(true);
     expect(res.compact).toBe(true);
@@ -135,9 +135,9 @@ describe("handleAlignElements", () => {
     expect(propsB.y).toBeGreaterThan(propsA.y);
   });
 
-  it("throws with fewer than 2 elements", async () => {
+  it('throws with fewer than 2 elements', async () => {
     const diagramId = await createDiagram();
-    const aId = await addElement(diagramId, "bpmn:Task", {
+    const aId = await addElement(diagramId, 'bpmn:Task', {
       x: 100,
       y: 100,
     });
@@ -145,8 +145,8 @@ describe("handleAlignElements", () => {
       handleAlignElements({
         diagramId,
         elementIds: [aId],
-        alignment: "top",
-      }),
+        alignment: 'top',
+      })
     ).rejects.toThrow(/at least 2/);
   });
 });

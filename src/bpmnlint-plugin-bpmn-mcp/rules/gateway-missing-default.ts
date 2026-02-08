@@ -11,22 +11,20 @@ const isType = (node: any, type: string): boolean =>
 
 function ruleFactory() {
   function check(node: any, reporter: any) {
-    if (!isType(node, "bpmn:ExclusiveGateway") && !isType(node, "bpmn:InclusiveGateway")) {
+    if (!isType(node, 'bpmn:ExclusiveGateway') && !isType(node, 'bpmn:InclusiveGateway')) {
       return;
     }
 
     const outgoing = node.outgoing || [];
     if (outgoing.length < 2) return;
 
-    const hasConditions = outgoing.some(
-      (flow: any) => flow.conditionExpression,
-    );
+    const hasConditions = outgoing.some((flow: any) => flow.conditionExpression);
     const hasDefault = node.default != null;
 
     if (hasConditions && !hasDefault) {
       reporter.report(
         node.id,
-        "Gateway has conditional flows but no default flow — engine will error if no condition matches",
+        'Gateway has conditional flows but no default flow — engine will error if no condition matches'
       );
     }
   }

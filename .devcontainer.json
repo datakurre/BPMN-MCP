@@ -24,8 +24,6 @@
   "remoteEnv": {
     "GPG_TTY": "/dev/pts/0"
   },
-  "runArgs": [
-    "--userns=keep-id"
-  ],
+  "runArgs": ["--userns=keep-id"],
   "updateContentCommand": "devenv shell -- echo Ready."
 }

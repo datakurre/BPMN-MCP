@@ -2,9 +2,9 @@
  * Shared helpers used by individual tool handler modules.
  */
 
-import { type ToolResult } from "../types";
-import { getDiagram } from "../diagram-manager";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { type ToolResult } from '../types';
+import { getDiagram } from '../diagram-manager';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 // ── Runtime argument validation ────────────────────────────────────────────
 
@@ -12,17 +12,12 @@ import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
  * Validate that all `requiredKeys` are present and non-undefined in `args`.
  * Throws an MCP InvalidParams error with a clear message listing missing keys.
  */
-export function validateArgs<T extends object>(
-  args: T,
-  requiredKeys: (keyof T & string)[],
-): void {
-  const missing = requiredKeys.filter(
-    (key) => args[key] === undefined || args[key] === null,
-  );
+export function validateArgs<T extends object>(args: T, requiredKeys: (keyof T & string)[]): void {
+  const missing = requiredKeys.filter((key) => args[key] === undefined || args[key] === null);
   if (missing.length > 0) {
     throw new McpError(
       ErrorCode.InvalidParams,
-      `Missing required argument(s): ${missing.join(", ")}`,
+      `Missing required argument(s): ${missing.join(', ')}`
     );
   }
 }
@@ -35,28 +30,28 @@ export function validateArgs<T extends object>(
  */
 function toPascalSlug(name: string): string {
   return name
-    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .replace(/[^a-zA-Z0-9\s]/g, '')
     .trim()
     .split(/\s+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join("");
+    .join('');
 }
 
 /** Map full BPMN type to a short prefix for element IDs. */
 function typePrefix(bpmnType: string): string {
   // e.g. "bpmn:UserTask" → "UserTask", "bpmn:ExclusiveGateway" → "Gateway"
-  const short = bpmnType.replace("bpmn:", "");
-  if (short.includes("Gateway")) return "Gateway";
-  if (short === "StartEvent" || short === "EndEvent") return short;
-  if (short.includes("Event")) return "Event";
-  if (short === "SubProcess") return "SubProcess";
-  if (short === "CallActivity") return "CallActivity";
-  if (short.includes("Task")) return short;           // UserTask, ServiceTask…
-  if (short === "TextAnnotation") return "Annotation";
-  if (short === "DataObjectReference") return "DataObject";
-  if (short === "DataStoreReference") return "DataStore";
-  if (short === "Participant") return "Participant";
-  if (short === "Lane") return "Lane";
+  const short = bpmnType.replace('bpmn:', '');
+  if (short.includes('Gateway')) return 'Gateway';
+  if (short === 'StartEvent' || short === 'EndEvent') return short;
+  if (short.includes('Event')) return 'Event';
+  if (short === 'SubProcess') return 'SubProcess';
+  if (short === 'CallActivity') return 'CallActivity';
+  if (short.includes('Task')) return short; // UserTask, ServiceTask…
+  if (short === 'TextAnnotation') return 'Annotation';
+  if (short === 'DataObjectReference') return 'DataObject';
+  if (short === 'DataStoreReference') return 'DataStore';
+  if (short === 'Participant') return 'Participant';
+  if (short === 'Lane') return 'Lane';
   return short;
 }
 
@@ -70,7 +65,7 @@ function typePrefix(bpmnType: string): string {
 export function generateDescriptiveId(
   elementRegistry: any,
   bpmnType: string,
-  name?: string,
+  name?: string
 ): string | undefined {
   if (!name) return undefined; // let bpmn-js assign a default
   const prefix = typePrefix(bpmnType);
@@ -91,7 +86,7 @@ export function generateFlowId(
   elementRegistry: any,
   sourceName?: string,
   targetName?: string,
-  label?: string,
+  label?: string
 ): string | undefined {
   let slug: string;
   if (label) {
@@ -115,10 +110,7 @@ export function generateFlowId(
 export function requireDiagram(diagramId: string) {
   const diagram = getDiagram(diagramId);
   if (!diagram) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Diagram not found: ${diagramId}`,
-    );
+    throw new McpError(ErrorCode.InvalidRequest, `Diagram not found: ${diagramId}`);
   }
   return diagram;
 }
@@ -127,10 +119,7 @@ export function requireDiagram(diagramId: string) {
 export function requireElement(elementRegistry: any, elementId: string) {
   const element = elementRegistry.get(elementId);
   if (!element) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Element not found: ${elementId}`,
-    );
+    throw new McpError(ErrorCode.InvalidRequest, `Element not found: ${elementId}`);
   }
   return element;
 }
@@ -138,7 +127,7 @@ export function requireElement(elementRegistry: any, elementId: string) {
 /** Wrap a plain object into the MCP tool-result envelope. */
 export function jsonResult(data: Record<string, any>): ToolResult {
   return {
-    content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+    content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
   };
 }
 
@@ -147,26 +136,24 @@ export function buildConnectivityWarnings(elementRegistry: any): string[] {
   const elements = elementRegistry.filter(
     (el: any) =>
       el.type &&
-      (el.type.includes("Event") ||
-        el.type.includes("Task") ||
-        el.type.includes("Gateway") ||
-        el.type.includes("SubProcess") ||
-        el.type.includes("CallActivity")),
+      (el.type.includes('Event') ||
+        el.type.includes('Task') ||
+        el.type.includes('Gateway') ||
+        el.type.includes('SubProcess') ||
+        el.type.includes('CallActivity'))
   );
   const flows = elementRegistry.filter(
-    (el: any) =>
-      el.type === "bpmn:SequenceFlow" ||
-      el.type === "bpmn:MessageFlow",
+    (el: any) => el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow'
   );
 
   const warnings: string[] = [];
   if (elements.length > 1 && flows.length === 0) {
     warnings.push(
-      `⚠️ Note: Diagram has ${elements.length} elements but no flows. Use connect_bpmn_elements to add flows.`,
+      `⚠️ Note: Diagram has ${elements.length} elements but no flows. Use connect_bpmn_elements to add flows.`
     );
   } else if (elements.length > flows.length + 1) {
     warnings.push(
-      `💡 Tip: ${elements.length} elements with ${flows.length} flows - some elements may be disconnected.`,
+      `💡 Tip: ${elements.length} elements with ${flows.length} flows - some elements may be disconnected.`
     );
   }
   return warnings;
@@ -175,7 +162,7 @@ export function buildConnectivityWarnings(elementRegistry: any): string[] {
 /** Save XML back to diagram state. */
 export async function syncXml(diagram: ReturnType<typeof requireDiagram>) {
   const { xml } = await diagram.modeler.saveXML({ format: true });
-  diagram.xml = xml || "";
+  diagram.xml = xml || '';
 }
 
 // ── Shared element-filtering helper ────────────────────────────────────────
@@ -190,11 +177,11 @@ export function getVisibleElements(elementRegistry: any): any[] {
   return elementRegistry.filter(
     (el: any) =>
       el.type &&
-      el.type !== "bpmn:Process" &&
-      el.type !== "bpmn:Collaboration" &&
-      el.type !== "label" &&
-      !el.type.includes("BPMNDiagram") &&
-      !el.type.includes("BPMNPlane"),
+      el.type !== 'bpmn:Process' &&
+      el.type !== 'bpmn:Collaboration' &&
+      el.type !== 'label' &&
+      !el.type.includes('BPMNDiagram') &&
+      !el.type.includes('BPMNPlane')
   );
 }
 
@@ -215,16 +202,16 @@ export function upsertExtensionElement(
   modeling: any,
   element: any,
   typeName: string,
-  newValue: any,
+  newValue: any
 ): void {
   let extensionElements = bo.extensionElements;
   if (!extensionElements) {
-    extensionElements = moddle.create("bpmn:ExtensionElements", { values: [] });
+    extensionElements = moddle.create('bpmn:ExtensionElements', { values: [] });
     extensionElements.$parent = bo;
   }
 
   extensionElements.values = (extensionElements.values || []).filter(
-    (v: any) => v.$type !== typeName,
+    (v: any) => v.$type !== typeName
   );
   newValue.$parent = extensionElements;
   extensionElements.values.push(newValue);
@@ -243,15 +230,15 @@ export function upsertExtensionElement(
 export function resolveOrCreateError(
   moddle: any,
   definitions: any,
-  errorRef: { id: string; name?: string; errorCode?: string },
+  errorRef: { id: string; name?: string; errorCode?: string }
 ): any {
   if (!definitions.rootElements) definitions.rootElements = [];
 
   let errorElement = definitions.rootElements.find(
-    (re: any) => re.$type === "bpmn:Error" && re.id === errorRef.id,
+    (re: any) => re.$type === 'bpmn:Error' && re.id === errorRef.id
   );
   if (!errorElement) {
-    errorElement = moddle.create("bpmn:Error", {
+    errorElement = moddle.create('bpmn:Error', {
       id: errorRef.id,
       name: errorRef.name || errorRef.id,
       errorCode: errorRef.errorCode,

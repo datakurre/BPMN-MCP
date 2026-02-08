@@ -1,48 +1,48 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { handleValidate, handleConnect, handleSetProperties } from "../../src/handlers";
-import { parseResult, createDiagram, addElement, clearDiagrams } from "../helpers";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { handleValidate, handleConnect, handleSetProperties } from '../../src/handlers';
+import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
-describe("handleValidate", () => {
+describe('handleValidate', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("warns about missing start/end events on empty diagram", async () => {
+  it('warns about missing start/end events on empty diagram', async () => {
     const diagramId = await createDiagram();
     const res = parseResult(await handleValidate({ diagramId }));
-    expect(res.issues.some((i: any) => i.message.includes("start event"))).toBe(
-      true,
-    );
-    expect(res.issues.some((i: any) => i.message.includes("end event"))).toBe(
-      true,
-    );
+    expect(res.issues.some((i: any) => i.message.includes('start event'))).toBe(true);
+    expect(res.issues.some((i: any) => i.message.includes('end event'))).toBe(true);
   });
 
-  it("warns about disconnected elements", async () => {
+  it('warns about disconnected elements', async () => {
     const diagramId = await createDiagram();
-    await addElement(diagramId, "bpmn:Task", { name: "Lonely" });
+    await addElement(diagramId, 'bpmn:Task', { name: 'Lonely' });
     const res = parseResult(await handleValidate({ diagramId }));
     expect(
-      res.issues.some((i: any) => i.message.includes("not connected") || i.rule === "no-disconnected"),
+      res.issues.some(
+        (i: any) => i.message.includes('not connected') || i.rule === 'no-disconnected'
+      )
     ).toBe(true);
   });
 
-  it("warns about unnamed tasks", async () => {
+  it('warns about unnamed tasks', async () => {
     const diagramId = await createDiagram();
-    await addElement(diagramId, "bpmn:Task");
+    await addElement(diagramId, 'bpmn:Task');
     const res = parseResult(await handleValidate({ diagramId }));
     expect(
-      res.issues.some((i: any) => i.message.includes("missing label") || i.rule === "label-required"),
+      res.issues.some(
+        (i: any) => i.message.includes('missing label') || i.rule === 'label-required'
+      )
     ).toBe(true);
   });
 
-  it("no start/end warnings when both present and connected", async () => {
+  it('no start/end warnings when both present and connected', async () => {
     const diagramId = await createDiagram();
-    const startId = await addElement(diagramId, "bpmn:StartEvent", {
+    const startId = await addElement(diagramId, 'bpmn:StartEvent', {
       x: 100,
       y: 100,
     });
-    const endId = await addElement(diagramId, "bpmn:EndEvent", {
+    const endId = await addElement(diagramId, 'bpmn:EndEvent', {
       x: 300,
       y: 100,
     });
@@ -53,32 +53,28 @@ describe("handleValidate", () => {
     });
 
     const res = parseResult(await handleValidate({ diagramId }));
-    expect(
-      res.issues.some((i: any) => i.message.includes("No start event")),
-    ).toBe(false);
-    expect(
-      res.issues.some((i: any) => i.message.includes("No end event")),
-    ).toBe(false);
+    expect(res.issues.some((i: any) => i.message.includes('No start event'))).toBe(false);
+    expect(res.issues.some((i: any) => i.message.includes('No end event'))).toBe(false);
   });
 });
 
-describe("handleValidate — external task validation", () => {
+describe('handleValidate — external task validation', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("warns when camunda:topic is set without camunda:type=external", async () => {
+  it('warns when camunda:topic is set without camunda:type=external', async () => {
     const diagramId = await createDiagram();
-    const taskId = await addElement(diagramId, "bpmn:ServiceTask", {
-      name: "Bad External",
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Bad External',
     });
     // Manually set only topic without type (bypass auto-set by using type directly)
     await handleSetProperties({
       diagramId,
       elementId: taskId,
       properties: {
-        "camunda:type": "external",
-        "camunda:topic": "my-topic",
+        'camunda:type': 'external',
+        'camunda:topic': 'my-topic',
       },
     });
     // Now change type to something else
@@ -86,40 +82,38 @@ describe("handleValidate — external task validation", () => {
       diagramId,
       elementId: taskId,
       properties: {
-        "camunda:type": "connector",
+        'camunda:type': 'connector',
       },
     });
 
     const res = parseResult(await handleValidate({ diagramId }));
-    expect(
-      res.issues.some((i: any) => i.message.includes("camunda:topic")),
-    ).toBe(true);
+    expect(res.issues.some((i: any) => i.message.includes('camunda:topic'))).toBe(true);
   });
 });
 
-describe("handleValidate — gateway default flow warning", () => {
+describe('handleValidate — gateway default flow warning', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it("warns when exclusive gateway has conditional flows but no default", async () => {
+  it('warns when exclusive gateway has conditional flows but no default', async () => {
     const diagramId = await createDiagram();
-    const startId = await addElement(diagramId, "bpmn:StartEvent", {
+    const startId = await addElement(diagramId, 'bpmn:StartEvent', {
       x: 100,
       y: 200,
     });
-    const gwId = await addElement(diagramId, "bpmn:ExclusiveGateway", {
-      name: "Check",
+    const gwId = await addElement(diagramId, 'bpmn:ExclusiveGateway', {
+      name: 'Check',
       x: 250,
       y: 200,
     });
-    const taskAId = await addElement(diagramId, "bpmn:Task", {
-      name: "Yes",
+    const taskAId = await addElement(diagramId, 'bpmn:Task', {
+      name: 'Yes',
       x: 400,
       y: 100,
     });
-    const taskBId = await addElement(diagramId, "bpmn:Task", {
-      name: "No",
+    const taskBId = await addElement(diagramId, 'bpmn:Task', {
+      name: 'No',
       x: 400,
       y: 300,
     });
@@ -133,18 +127,16 @@ describe("handleValidate — gateway default flow warning", () => {
       diagramId,
       sourceElementId: gwId,
       targetElementId: taskAId,
-      conditionExpression: "${yes}",
+      conditionExpression: '${yes}',
     });
     await handleConnect({
       diagramId,
       sourceElementId: gwId,
       targetElementId: taskBId,
-      conditionExpression: "${!yes}",
+      conditionExpression: '${!yes}',
     });
 
     const res = parseResult(await handleValidate({ diagramId }));
-    expect(
-      res.issues.some((i: any) => i.message.includes("default flow")),
-    ).toBe(true);
+    expect(res.issues.some((i: any) => i.message.includes('default flow'))).toBe(true);
   });
 });
