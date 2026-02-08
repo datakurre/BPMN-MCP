@@ -21,7 +21,7 @@ export async function handleDeleteDiagram(args: DeleteDiagramArgs): Promise<Tool
 }
 
 export const TOOL_DEFINITION = {
-  name: 'delete_diagram',
+  name: 'delete_bpmn_diagram',
   description: 'Remove a diagram from the in-memory store.',
   inputSchema: {
     type: 'object',

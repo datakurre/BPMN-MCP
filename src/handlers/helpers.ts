@@ -59,26 +59,33 @@ function typePrefix(bpmnType: string): string {
  * Generate a descriptive element ID.
  *
  * When a name is supplied the ID looks like `UserTask_EnterName`.
- * Falls back to the bpmn-js default (random suffix) when no name is given.
+ * When no name is given, uses a sequential counter: `StartEvent_1`, `UserTask_2`.
  * Appends a numeric suffix if the ID already exists in the registry.
  */
 export function generateDescriptiveId(
   elementRegistry: any,
   bpmnType: string,
   name?: string
-): string | undefined {
-  if (!name) return undefined; // let bpmn-js assign a default
+): string {
   const prefix = typePrefix(bpmnType);
-  const slug = toPascalSlug(name);
-  if (!slug) return undefined;
 
-  const candidate = `${prefix}_${slug}`;
-  if (!elementRegistry.get(candidate)) return candidate;
+  if (name) {
+    const slug = toPascalSlug(name);
+    if (slug) {
+      const candidate = `${prefix}_${slug}`;
+      if (!elementRegistry.get(candidate)) return candidate;
 
-  // Collision – append incrementing counter
-  let counter = 2;
-  while (elementRegistry.get(`${candidate}_${counter}`)) counter++;
-  return `${candidate}_${counter}`;
+      // Collision – append incrementing counter
+      let counter = 2;
+      while (elementRegistry.get(`${candidate}_${counter}`)) counter++;
+      return `${candidate}_${counter}`;
+    }
+  }
+
+  // No name (or empty slug) – sequential counter: StartEvent_1, Gateway_2, …
+  let counter = 1;
+  while (elementRegistry.get(`${prefix}_${counter}`)) counter++;
+  return `${prefix}_${counter}`;
 }
 
 /** Generate a descriptive ID for a sequence flow / connection. */
@@ -87,23 +94,27 @@ export function generateFlowId(
   sourceName?: string,
   targetName?: string,
   label?: string
-): string | undefined {
-  let slug: string;
+): string {
+  let slug: string | undefined;
   if (label) {
     slug = toPascalSlug(label);
   } else if (sourceName && targetName) {
     slug = `${toPascalSlug(sourceName)}_to_${toPascalSlug(targetName)}`;
-  } else {
-    return undefined;
   }
-  if (!slug) return undefined;
 
-  const candidate = `Flow_${slug}`;
-  if (!elementRegistry.get(candidate)) return candidate;
+  if (slug) {
+    const candidate = `Flow_${slug}`;
+    if (!elementRegistry.get(candidate)) return candidate;
 
-  let counter = 2;
-  while (elementRegistry.get(`${candidate}_${counter}`)) counter++;
-  return `${candidate}_${counter}`;
+    let counter = 2;
+    while (elementRegistry.get(`${candidate}_${counter}`)) counter++;
+    return `${candidate}_${counter}`;
+  }
+
+  // No names available – sequential counter: Flow_1, Flow_2, …
+  let counter = 1;
+  while (elementRegistry.get(`Flow_${counter}`)) counter++;
+  return `Flow_${counter}`;
 }
 
 /** Look up a diagram by ID, throwing an MCP error if not found. */

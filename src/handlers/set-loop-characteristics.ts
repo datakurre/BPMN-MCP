@@ -102,7 +102,7 @@ export async function handleSetLoopCharacteristics(
 }
 
 export const TOOL_DEFINITION = {
-  name: 'set_loop_characteristics',
+  name: 'set_bpmn_loop_characteristics',
   description:
     "Set loop characteristics on tasks, subprocesses, or call activities. Supports standard loops, parallel multi-instance, and sequential multi-instance. Use loopType 'none' to remove loop markers.",
   inputSchema: {

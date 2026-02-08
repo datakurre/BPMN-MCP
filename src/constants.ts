@@ -25,8 +25,15 @@ export const ELEMENT_SIZES: Readonly<Record<string, { width: number; height: num
 /** Look up the default size for a given BPMN element type string. */
 // ── Label positioning constants ────────────────────────────────────────────
 
-/** Distance between element edge and external label (matches bpmn-js). */
+/** Distance between element edge and external label. */
 export const ELEMENT_LABEL_DISTANCE = 10;
+
+/**
+ * Extra distance for labels placed below events.
+ * Start/End event labels placed at the default gap look vertically
+ * too close, so we add extra spacing for the bottom position.
+ */
+export const ELEMENT_LABEL_BOTTOM_EXTRA = 5;
 
 /** Default external label dimensions (matches bpmn-js). */
 export const DEFAULT_LABEL_SIZE = { width: 90, height: 20 };

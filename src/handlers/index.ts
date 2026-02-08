@@ -14,11 +14,6 @@ import { handleDeleteElement } from './delete-element';
 import { handleMoveElement } from './move-element';
 import { handleGetProperties } from './get-properties';
 import { handleExportBpmn } from './export';
-
-/** @deprecated Use handleExportBpmn with format: "xml" */
-const handleExportXml = (args: any) => handleExportBpmn({ ...args, format: 'xml' });
-/** @deprecated Use handleExportBpmn with format: "svg" */
-const handleExportSvg = (args: any) => handleExportBpmn({ ...args, format: 'svg' });
 import { handleListElements } from './list-elements';
 import { handleSetProperties } from './set-properties';
 import { handleImportXml } from './import-xml';
@@ -36,6 +31,14 @@ import { handleSetCamundaErrorEventDefinition } from './set-camunda-error';
 import { handleSetLoopCharacteristics } from './set-loop-characteristics';
 import { handleLintDiagram } from './lint';
 import { handleAdjustLabels } from './adjust-labels-handler';
+import { handleExportSubprocess } from './export-subprocess';
+import { handleSetScript } from './set-script';
+import { handleCreateDataAssociation } from './create-data-association';
+import { handleCreateCollaboration } from './create-collaboration';
+import { handleUndoChange } from './undo';
+import { handleRedoChange } from './redo';
+import { handleDiffDiagrams } from './diff-diagrams';
+import { handleBatchOperations } from './batch-operations';
 
 // Re-export every handler so existing imports keep working
 export {
@@ -46,8 +49,6 @@ export {
   handleMoveElement,
   handleGetProperties,
   handleExportBpmn,
-  handleExportXml,
-  handleExportSvg,
   handleListElements,
   handleSetProperties,
   handleImportXml,
@@ -65,16 +66,19 @@ export {
   handleSetLoopCharacteristics,
   handleLintDiagram,
   handleAdjustLabels,
+  handleExportSubprocess,
+  handleSetScript,
+  handleCreateDataAssociation,
+  handleCreateCollaboration,
+  handleUndoChange,
+  handleRedoChange,
+  handleDiffDiagrams,
+  handleBatchOperations,
 };
 
 // ── Dispatch map ───────────────────────────────────────────────────────────
 //
-// Naming convention:
-//   - Core structural BPMN tools use `bpmn_` infix (add_bpmn_element, etc.)
-//   - Camunda-specific tools use `set_` / `camunda_` prefixes
-//   - Utility tools (clone, delete, layout, validate) use a flat namespace
-//   - Backward-compat aliases (auto_layout, export_bpmn_xml/svg) are kept
-//     in the dispatch map for existing callers.
+// Every tool name includes "bpmn" to avoid clashes with other MCPs.
 
 const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
   create_bpmn_diagram: handleCreateDiagram,
@@ -82,28 +86,33 @@ const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
   connect_bpmn_elements: handleConnect,
   delete_bpmn_element: handleDeleteElement,
   move_bpmn_element: handleMoveElement,
-  get_element_properties: handleGetProperties,
+  get_bpmn_element_properties: handleGetProperties,
+  set_bpmn_element_properties: handleSetProperties,
   export_bpmn: handleExportBpmn,
-  export_bpmn_xml: (args: any) => handleExportBpmn({ ...args, format: 'xml' }),
-  export_bpmn_svg: (args: any) => handleExportBpmn({ ...args, format: 'svg' }),
-  list_bpmn_elements: handleListElements,
-  set_element_properties: handleSetProperties,
   import_bpmn_xml: handleImportXml,
-  delete_diagram: handleDeleteDiagram,
-  list_diagrams: handleListDiagrams,
-  clone_diagram: handleCloneDiagram,
+  list_bpmn_elements: handleListElements,
+  delete_bpmn_diagram: handleDeleteDiagram,
+  list_bpmn_diagrams: handleListDiagrams,
+  clone_bpmn_diagram: handleCloneDiagram,
   validate_bpmn_diagram: handleValidate,
   align_bpmn_elements: handleAlignElements,
   distribute_bpmn_elements: handleDistributeElements,
-  set_input_output_mapping: handleSetInputOutput,
-  set_event_definition: handleSetEventDefinition,
-  set_form_data: handleSetFormData,
-  layout_diagram: handleLayoutDiagram,
-  auto_layout: handleLayoutDiagram, // backward compat alias
-  set_camunda_error_event_definition: handleSetCamundaErrorEventDefinition,
-  set_loop_characteristics: handleSetLoopCharacteristics,
+  layout_bpmn_diagram: handleLayoutDiagram,
   lint_bpmn_diagram: handleLintDiagram,
-  adjust_labels: handleAdjustLabels,
+  adjust_bpmn_labels: handleAdjustLabels,
+  set_bpmn_input_output_mapping: handleSetInputOutput,
+  set_bpmn_event_definition: handleSetEventDefinition,
+  set_bpmn_form_data: handleSetFormData,
+  set_bpmn_camunda_error: handleSetCamundaErrorEventDefinition,
+  set_bpmn_loop_characteristics: handleSetLoopCharacteristics,
+  export_bpmn_subprocess: handleExportSubprocess,
+  set_bpmn_script: handleSetScript,
+  create_bpmn_data_association: handleCreateDataAssociation,
+  create_bpmn_collaboration: handleCreateCollaboration,
+  undo_bpmn_change: handleUndoChange,
+  redo_bpmn_change: handleRedoChange,
+  diff_bpmn_diagrams: handleDiffDiagrams,
+  batch_bpmn_operations: handleBatchOperations,
 };
 
 /** Route a CallTool request to the correct handler. */

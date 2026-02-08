@@ -14,8 +14,6 @@ export {
   handleMoveElement,
   handleGetProperties,
   handleExportBpmn,
-  handleExportXml,
-  handleExportSvg,
   handleListElements,
   handleSetProperties,
   handleImportXml,

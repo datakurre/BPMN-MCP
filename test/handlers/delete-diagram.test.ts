@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleDeleteDiagram, handleExportXml } from '../../src/handlers';
+import { handleDeleteDiagram, handleExportBpmn } from '../../src/handlers';
 import { parseResult, createDiagram, clearDiagrams } from '../helpers';
 
 describe('handleDeleteDiagram', () => {
@@ -13,7 +13,9 @@ describe('handleDeleteDiagram', () => {
     expect(res.success).toBe(true);
 
     // Attempting to use the deleted diagram should fail
-    await expect(handleExportXml({ diagramId })).rejects.toThrow(/Diagram not found/);
+    await expect(handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).rejects.toThrow(
+      /Diagram not found/
+    );
   });
 
   it('throws for unknown diagram', async () => {

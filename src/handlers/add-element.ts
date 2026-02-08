@@ -42,6 +42,48 @@ function shiftDownstreamElements(
   }
 }
 
+/**
+ * Find the lane that contains a given (x, y) coordinate.
+ * Returns the lane element or undefined if no lane covers the point.
+ */
+function findContainingLane(elementRegistry: any, x: number, y: number): any {
+  const lanes = elementRegistry.filter((el: any) => el.type === 'bpmn:Lane');
+  for (const lane of lanes) {
+    const lx = lane.x ?? 0;
+    const ly = lane.y ?? 0;
+    const lw = lane.width ?? 0;
+    const lh = lane.height ?? 0;
+    if (x >= lx && x <= lx + lw && y >= ly && y <= ly + lh) {
+      return lane;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Snap a Y coordinate into a lane's vertical boundaries if lanes exist.
+ * Ensures the element center stays within the lane.
+ */
+function snapToLane(
+  elementRegistry: any,
+  x: number,
+  y: number,
+  elementHeight: number
+): { y: number; laneId?: string } {
+  const lane = findContainingLane(elementRegistry, x, y);
+  if (!lane) return { y };
+
+  const laneTop = lane.y ?? 0;
+  const laneBottom = laneTop + (lane.height ?? 0);
+  const halfH = elementHeight / 2;
+
+  let snappedY = y;
+  if (y - halfH < laneTop) snappedY = laneTop + halfH + 5;
+  if (y + halfH > laneBottom) snappedY = laneBottom - halfH - 5;
+
+  return { y: snappedY, laneId: lane.id };
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 export async function handleAddElement(args: AddElementArgs): Promise<ToolResult> {
@@ -74,10 +116,16 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     }
   }
 
-  // Generate a descriptive ID when a name is given
+  // Generate a descriptive ID (named → UserTask_EnterName, unnamed → UserTask_1)
   const descriptiveId = generateDescriptiveId(elementRegistry, elementType, elementName);
-  const shapeOpts: Record<string, any> = { type: elementType };
-  if (descriptiveId) shapeOpts.id = descriptiveId;
+
+  // Lane-aware Y snapping: if the target position is inside a lane,
+  // ensure the element stays within lane boundaries.
+  const elementSize = getElementSize(elementType);
+  const laneSnap = snapToLane(elementRegistry, x, y, elementSize.height);
+  y = laneSnap.y;
+
+  const shapeOpts: Record<string, any> = { type: elementType, id: descriptiveId };
 
   const shape = elementFactory.createShape(shapeOpts);
   let createdElement: any;

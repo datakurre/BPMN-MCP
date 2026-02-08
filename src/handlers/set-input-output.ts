@@ -65,7 +65,7 @@ export async function handleSetInputOutput(args: SetInputOutputArgs): Promise<To
 }
 
 export const TOOL_DEFINITION = {
-  name: 'set_input_output_mapping',
+  name: 'set_bpmn_input_output_mapping',
   description:
     "Set Camunda input/output parameter mappings on an element. Creates camunda:InputOutput extension elements with camunda:InputParameter and camunda:OutputParameter children. The 'value' field accepts both static values (e.g. '123') and expressions (e.g. '${myVar}', '${execution.getVariable('name')}').",
   inputSchema: {

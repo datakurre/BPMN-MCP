@@ -207,7 +207,7 @@ export async function handleGetProperties(args: GetPropertiesArgs): Promise<Tool
 }
 
 export const TOOL_DEFINITION = {
-  name: 'get_element_properties',
+  name: 'get_bpmn_element_properties',
   description:
     'Get all properties of an element, including standard BPMN attributes and Camunda extension properties.',
   inputSchema: {

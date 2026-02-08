@@ -32,15 +32,14 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
     throw new McpError(ErrorCode.InvalidRequest, `Target element not found: ${targetElementId}`);
   }
 
-  // Generate a descriptive flow ID
+  // Generate a descriptive flow ID (named → Flow_EnterName_to_HasSurname, unnamed → Flow_1)
   const flowId = generateFlowId(
     elementRegistry,
     source.businessObject?.name,
     target.businessObject?.name,
     label
   );
-  const connectOpts: Record<string, any> = { type: connectionType };
-  if (flowId) connectOpts.id = flowId;
+  const connectOpts: Record<string, any> = { type: connectionType, id: flowId };
 
   const connection = modeling.connect(source, target, connectOpts);
 

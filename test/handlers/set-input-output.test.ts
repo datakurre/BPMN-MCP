@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleSetInputOutput, handleExportXml, handleGetProperties } from '../../src/handlers';
+import { handleSetInputOutput, handleExportBpmn, handleGetProperties } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
 describe('handleSetInputOutput', () => {
@@ -29,7 +29,8 @@ describe('handleSetInputOutput', () => {
     expect(res.outputParameterCount).toBe(1);
 
     // Verify it shows up in XML
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:inputOutput');
     expect(xml).toContain('orderId');
   });
@@ -71,7 +72,8 @@ describe('handleSetInputOutput — value expressions', () => {
       inputParameters: [{ name: 'myInput', value: '${processVariable}' }],
     });
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     // Should produce body text content, not a source attribute
     expect(xml).toContain('${processVariable}');
     expect(xml).not.toMatch(/source="/);

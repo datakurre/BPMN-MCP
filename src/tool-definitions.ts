@@ -29,6 +29,14 @@ import { TOOL_DEFINITION as SET_CAMUNDA_ERROR } from './handlers/set-camunda-err
 import { TOOL_DEFINITION as SET_LOOP_CHARACTERISTICS } from './handlers/set-loop-characteristics';
 import { TOOL_DEFINITION as LINT_DIAGRAM } from './handlers/lint';
 import { TOOL_DEFINITION as ADJUST_LABELS } from './handlers/adjust-labels-handler';
+import { TOOL_DEFINITION as EXPORT_SUBPROCESS } from './handlers/export-subprocess';
+import { TOOL_DEFINITION as SET_SCRIPT } from './handlers/set-script';
+import { TOOL_DEFINITION as CREATE_DATA_ASSOCIATION } from './handlers/create-data-association';
+import { TOOL_DEFINITION as CREATE_COLLABORATION } from './handlers/create-collaboration';
+import { TOOL_DEFINITION as UNDO_CHANGE } from './handlers/undo';
+import { TOOL_DEFINITION as REDO_CHANGE } from './handlers/redo';
+import { TOOL_DEFINITION as DIFF_DIAGRAMS } from './handlers/diff-diagrams';
+import { TOOL_DEFINITION as BATCH_OPERATIONS } from './handlers/batch-operations';
 
 export const TOOL_DEFINITIONS = [
   CREATE_DIAGRAM,
@@ -55,4 +63,12 @@ export const TOOL_DEFINITIONS = [
   SET_LOOP_CHARACTERISTICS,
   LINT_DIAGRAM,
   ADJUST_LABELS,
+  EXPORT_SUBPROCESS,
+  SET_SCRIPT,
+  CREATE_DATA_ASSOCIATION,
+  CREATE_COLLABORATION,
+  UNDO_CHANGE,
+  REDO_CHANGE,
+  DIFF_DIAGRAMS,
+  BATCH_OPERATIONS,
 ] as const;

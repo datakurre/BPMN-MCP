@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleSetProperties, handleExportXml } from '../../src/handlers';
+import { handleSetProperties, handleExportBpmn } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
 describe('handleSetProperties', () => {
@@ -23,7 +23,8 @@ describe('handleSetProperties', () => {
     expect(res.success).toBe(true);
     expect(res.updatedProperties).toContain('camunda:assignee');
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:assignee');
   });
 

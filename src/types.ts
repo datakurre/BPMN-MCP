@@ -66,6 +66,7 @@ export interface SetPropertiesArgs {
 
 export interface ImportXmlArgs {
   xml: string;
+  autoLayout?: boolean;
 }
 
 export interface DeleteElementArgs {
@@ -177,4 +178,53 @@ export interface SetLoopCharacteristicsArgs {
   completionCondition?: string;
   collection?: string;
   elementVariable?: string;
+}
+
+export interface ExportSubprocessArgs {
+  diagramId: string;
+  elementId: string;
+  format?: 'xml' | 'svg';
+}
+
+export interface SetScriptArgs {
+  diagramId: string;
+  elementId: string;
+  scriptFormat: string;
+  script: string;
+  resultVariable?: string;
+}
+
+export interface CreateDataAssociationArgs {
+  diagramId: string;
+  sourceElementId: string;
+  targetElementId: string;
+}
+
+export interface CreateCollaborationArgs {
+  diagramId: string;
+  participants: Array<{
+    name: string;
+    processId?: string;
+  }>;
+}
+
+export interface UndoChangeArgs {
+  diagramId: string;
+}
+
+export interface RedoChangeArgs {
+  diagramId: string;
+}
+
+export interface DiffDiagramsArgs {
+  diagramIdA: string;
+  diagramIdB: string;
+}
+
+export interface BatchOperationsArgs {
+  operations: Array<{
+    tool: string;
+    args: Record<string, any>;
+  }>;
+  stopOnError?: boolean;
 }

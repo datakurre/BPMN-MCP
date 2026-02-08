@@ -30,7 +30,7 @@ export async function handleCloneDiagram(args: CloneDiagramArgs): Promise<ToolRe
 }
 
 export const TOOL_DEFINITION = {
-  name: 'clone_diagram',
+  name: 'clone_bpmn_diagram',
   description: 'Duplicate an existing diagram for experimentation. Returns a new diagram ID.',
   inputSchema: {
     type: 'object',

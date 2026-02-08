@@ -6,8 +6,7 @@ import {
   handleDeleteElement,
   handleMoveElement,
   handleGetProperties,
-  handleExportXml,
-  handleExportSvg,
+  handleExportBpmn,
   handleListElements,
   handleSetProperties,
   handleImportXml,
@@ -59,7 +58,8 @@ describe('tool-handlers', () => {
 
     it('sets process name when provided', async () => {
       const diagramId = await createDiagram('My Process');
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('My Process');
     });
   });
@@ -302,10 +302,10 @@ describe('tool-handlers', () => {
 
   // ── export XML ──────────────────────────────────────────────────────────
 
-  describe('handleExportXml', () => {
+  describe('export_bpmn (xml)', () => {
     it('returns BPMN XML string', async () => {
       const diagramId = await createDiagram();
-      const res = await handleExportXml({ diagramId });
+      const res = await handleExportBpmn({ format: 'xml', diagramId, skipLint: true });
       expect(res.content[0].text).toContain('<bpmn:definitions');
     });
 
@@ -314,7 +314,7 @@ describe('tool-handlers', () => {
       await addElement(diagramId, 'bpmn:StartEvent', { x: 100, y: 100 });
       await addElement(diagramId, 'bpmn:EndEvent', { x: 300, y: 100 });
 
-      const res = await handleExportXml({ diagramId });
+      const res = await handleExportBpmn({ format: 'xml', diagramId, skipLint: true });
       expect(res.content.length).toBeGreaterThan(1);
       expect(res.content[1].text).toContain('flows');
     });
@@ -322,10 +322,10 @@ describe('tool-handlers', () => {
 
   // ── export SVG ──────────────────────────────────────────────────────────
 
-  describe('handleExportSvg', () => {
+  describe('export_bpmn (svg)', () => {
     it('returns SVG markup', async () => {
       const diagramId = await createDiagram();
-      const res = await handleExportSvg({ diagramId });
+      const res = await handleExportBpmn({ format: 'svg', diagramId, skipLint: true });
       expect(res.content[0].text).toContain('<svg');
     });
 
@@ -334,7 +334,7 @@ describe('tool-handlers', () => {
       await addElement(diagramId, 'bpmn:StartEvent', { x: 100, y: 100 });
       await addElement(diagramId, 'bpmn:EndEvent', { x: 300, y: 100 });
 
-      const res = await handleExportSvg({ diagramId });
+      const res = await handleExportBpmn({ format: 'svg', diagramId, skipLint: true });
       expect(res.content.length).toBeGreaterThan(1);
       expect(res.content[1].text).toContain('flows');
     });
@@ -419,7 +419,8 @@ describe('tool-handlers', () => {
       expect(res.success).toBe(true);
       expect(res.updatedProperties).toContain('camunda:assignee');
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:assignee');
     });
 
@@ -454,7 +455,9 @@ describe('tool-handlers', () => {
       expect(res.success).toBe(true);
 
       // Attempting to use the deleted diagram should fail
-      await expect(handleExportXml({ diagramId })).rejects.toThrow(/Diagram not found/);
+      await expect(handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).rejects.toThrow(
+        /Diagram not found/
+      );
     });
 
     it('throws for unknown diagram', async () => {
@@ -674,7 +677,8 @@ describe('tool-handlers', () => {
       expect(res.outputParameterCount).toBe(1);
 
       // Verify it shows up in XML
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:inputOutput');
       expect(xml).toContain('orderId');
     });
@@ -730,7 +734,8 @@ describe('tool-handlers', () => {
       expect(res.success).toBe(true);
 
       // Verify via XML
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('errorEventDefinition');
     });
 
@@ -751,7 +756,8 @@ describe('tool-handlers', () => {
       );
       expect(res.success).toBe(true);
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('timerEventDefinition');
     });
 
@@ -818,7 +824,8 @@ describe('tool-handlers', () => {
       });
 
       // Verify the full XML
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:type="external"');
       expect(xml).toContain('camunda:topic="order-processing"');
       expect(xml).toContain('camunda:inputOutput');
@@ -841,7 +848,8 @@ describe('tool-handlers', () => {
         },
       });
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:type="external"');
       expect(xml).toContain('camunda:topic="my-topic"');
     });
@@ -870,7 +878,8 @@ describe('tool-handlers', () => {
       expect(res.success).toBe(true);
       expect(res.fieldCount).toBe(3);
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:formData');
       expect(xml).toContain('camunda:formField');
       expect(xml).toContain('id="name"');
@@ -903,7 +912,8 @@ describe('tool-handlers', () => {
       );
       expect(res.success).toBe(true);
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:value');
     });
 
@@ -926,7 +936,8 @@ describe('tool-handlers', () => {
         ],
       });
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:validation');
       expect(xml).toContain('camunda:constraint');
       expect(xml).toContain('required');
@@ -950,7 +961,8 @@ describe('tool-handlers', () => {
       expect(res.success).toBe(true);
       expect(res.businessKey).toBe('orderId');
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:formData');
     });
 
@@ -1036,7 +1048,8 @@ describe('tool-handlers', () => {
         inputParameters: [{ name: 'myInput', value: '${processVariable}' }],
       });
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       // Should produce body text content, not a source attribute
       expect(xml).toContain('${processVariable}');
       expect(xml).not.toMatch(/source="/);
@@ -1066,14 +1079,16 @@ describe('tool-handlers', () => {
   describe('handleCreateDiagram — meaningful process id', () => {
     it('sets a meaningful process id based on the name', async () => {
       const diagramId = await createDiagram('Order Fulfillment');
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('id="Process_Order_Fulfillment"');
       expect(xml).toContain('Order Fulfillment');
     });
 
     it('does not change process id when no name is provided', async () => {
       const diagramId = await createDiagram();
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('id="Process_1"');
     });
   });
@@ -1105,7 +1120,7 @@ describe('tool-handlers', () => {
       expect(res.elementId).toBe('Gateway_HasSurname');
     });
 
-    it('falls back to default ID when no name is provided', async () => {
+    it('generates sequential ID when no name is provided', async () => {
       const diagramId = await createDiagram();
       const res = parseResult(
         await handleAddElement({
@@ -1113,9 +1128,8 @@ describe('tool-handlers', () => {
           elementType: 'bpmn:Task',
         })
       );
-      // Default IDs from bpmn-js contain Activity_ or similar
-      expect(res.elementId).toBeDefined();
-      expect(res.elementId).not.toBe('');
+      // Sequential IDs: Task_1, Task_2, …
+      expect(res.elementId).toBe('Task_1');
     });
 
     it('appends counter on ID collision', async () => {
@@ -1232,7 +1246,8 @@ describe('tool-handlers', () => {
         properties: { default: connB.connectionId },
       });
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('default=');
     });
 
@@ -1261,7 +1276,8 @@ describe('tool-handlers', () => {
         elementId: conn.connectionId,
         properties: { conditionExpression: '${approved == true}' },
       });
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('${approved == true}');
       expect(xml).toContain('bpmn:conditionExpression');
     });
@@ -1289,7 +1305,8 @@ describe('tool-handlers', () => {
       );
       expect(conn.isDefault).toBe(true);
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('default=');
     });
   });
@@ -1429,7 +1446,8 @@ describe('tool-handlers', () => {
       expect(res.success).toBe(true);
       expect(res.definitionCount).toBe(1);
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('camunda:errorEventDefinition');
     });
 
@@ -1469,7 +1487,8 @@ describe('tool-handlers', () => {
       expect(res.success).toBe(true);
       expect(res.loopType).toBe('parallel');
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('multiInstanceLoopCharacteristics');
     });
 
@@ -1490,7 +1509,8 @@ describe('tool-handlers', () => {
       );
       expect(res.success).toBe(true);
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('isSequential="true"');
     });
 
@@ -1510,7 +1530,8 @@ describe('tool-handlers', () => {
       );
       expect(res.success).toBe(true);
 
-      const xml = (await handleExportXml({ diagramId })).content[0].text;
+      const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml).toContain('standardLoopCharacteristics');
     });
 
@@ -1525,7 +1546,8 @@ describe('tool-handlers', () => {
         elementId: taskId,
         loopType: 'parallel',
       });
-      const xml1 = (await handleExportXml({ diagramId })).content[0].text;
+      const xml1 = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml1).toContain('multiInstanceLoopCharacteristics');
 
       await handleSetLoopCharacteristics({
@@ -1533,7 +1555,8 @@ describe('tool-handlers', () => {
         elementId: taskId,
         loopType: 'none',
       });
-      const xml2 = (await handleExportXml({ diagramId })).content[0].text;
+      const xml2 = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+        .text;
       expect(xml2).not.toContain('multiInstanceLoopCharacteristics');
     });
 
@@ -1565,8 +1588,8 @@ describe('tool-handlers', () => {
       const createRes = parseResult(await dispatchToolCall('create_bpmn_diagram', {}));
       const diagramId = createRes.diagramId;
 
-      // list_diagrams
-      const listRes = parseResult(await dispatchToolCall('list_diagrams', {}));
+      // list_bpmn_diagrams
+      const listRes = parseResult(await dispatchToolCall('list_bpmn_diagrams', {}));
       expect(listRes.count).toBe(1);
 
       // validate_bpmn_diagram
@@ -1575,21 +1598,13 @@ describe('tool-handlers', () => {
       );
       expect(validateRes.issues).toBeDefined();
 
-      // delete_diagram
-      const deleteRes = parseResult(await dispatchToolCall('delete_diagram', { diagramId }));
+      // delete_bpmn_diagram
+      const deleteRes = parseResult(await dispatchToolCall('delete_bpmn_diagram', { diagramId }));
       expect(deleteRes.success).toBe(true);
     });
 
     it('throws for unknown tool', async () => {
       await expect(dispatchToolCall('no_such_tool', {})).rejects.toThrow(/Unknown tool/);
-    });
-
-    it('routes auto_layout backward alias to layout_diagram', async () => {
-      const createRes = parseResult(await dispatchToolCall('create_bpmn_diagram', {}));
-      const diagramId = createRes.diagramId;
-      const res = parseResult(await dispatchToolCall('auto_layout', { diagramId }));
-      expect(res.success).toBe(true);
-      expect(res.elementCount).toBeDefined();
     });
   });
 });

@@ -106,7 +106,7 @@ describe('descriptive element IDs', () => {
     expect(res.elementId).toBe('Gateway_HasSurname');
   });
 
-  it('falls back to default ID when no name is provided', async () => {
+  it('generates sequential ID when no name is provided', async () => {
     const diagramId = await createDiagram();
     const res = parseResult(
       await handleAddElement({
@@ -114,9 +114,20 @@ describe('descriptive element IDs', () => {
         elementType: 'bpmn:Task',
       })
     );
-    // Default IDs from bpmn-js contain Activity_ or similar
-    expect(res.elementId).toBeDefined();
-    expect(res.elementId).not.toBe('');
+    // Sequential IDs: Task_1, Task_2, …
+    expect(res.elementId).toBe('Task_1');
+  });
+
+  it('generates sequential IDs that increment', async () => {
+    const diagramId = await createDiagram();
+    const res1 = parseResult(
+      await handleAddElement({ diagramId, elementType: 'bpmn:ServiceTask' })
+    );
+    const res2 = parseResult(
+      await handleAddElement({ diagramId, elementType: 'bpmn:ServiceTask' })
+    );
+    expect(res1.elementId).toBe('ServiceTask_1');
+    expect(res2.elementId).toBe('ServiceTask_2');
   });
 
   it('appends counter on ID collision', async () => {

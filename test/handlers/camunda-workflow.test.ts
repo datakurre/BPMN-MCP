@@ -3,7 +3,7 @@ import {
   handleSetProperties,
   handleSetInputOutput,
   handleSetEventDefinition,
-  handleExportXml,
+  handleExportBpmn,
 } from '../../src/handlers';
 import { createDiagram, addElement, clearDiagrams } from '../helpers';
 
@@ -56,7 +56,8 @@ describe('Camunda 7 External Task workflow', () => {
     });
 
     // Verify the full XML
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:type="external"');
     expect(xml).toContain('camunda:topic="order-processing"');
     expect(xml).toContain('camunda:inputOutput');
@@ -79,7 +80,8 @@ describe('Camunda 7 External Task workflow', () => {
       },
     });
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:type="external"');
     expect(xml).toContain('camunda:topic="my-topic"');
   });

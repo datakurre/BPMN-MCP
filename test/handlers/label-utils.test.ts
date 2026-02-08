@@ -100,6 +100,16 @@ describe('label-utils', () => {
       expect(bottom.rect.y).toBeGreaterThanOrEqual(element.y + element.height);
     });
 
+    it('bottom label includes ELEMENT_LABEL_BOTTOM_EXTRA spacing', () => {
+      const element = { x: 100, y: 100, width: 36, height: 36 };
+      const candidates = getLabelCandidatePositions(element);
+      const bottom = candidates.find((c) => c.orientation === 'bottom')!;
+
+      // Bottom gap should be ELEMENT_LABEL_DISTANCE + ELEMENT_LABEL_BOTTOM_EXTRA = 15
+      const actualGap = bottom.rect.y - (element.y + element.height);
+      expect(actualGap).toBe(15); // 10 + 5
+    });
+
     it('candidates have proper width and height', () => {
       const element = { x: 100, y: 100, width: 50, height: 50 };
       const candidates = getLabelCandidatePositions(element);

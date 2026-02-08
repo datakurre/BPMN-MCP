@@ -4,7 +4,12 @@
  * Pure functions — no bpmn-js dependency, just math.
  */
 
-import { ELEMENT_LABEL_DISTANCE, DEFAULT_LABEL_SIZE, LABEL_POSITION_PRIORITY } from '../constants';
+import {
+  ELEMENT_LABEL_DISTANCE,
+  ELEMENT_LABEL_BOTTOM_EXTRA,
+  DEFAULT_LABEL_SIZE,
+  LABEL_POSITION_PRIORITY,
+} from '../constants';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,12 +46,16 @@ export function rectsOverlap(a: Rect, b: Rect): boolean {
  */
 function outcode(px: number, py: number, rect: Rect): number {
   let code = 0;
-  if (px < rect.x)
+  if (px < rect.x) {
     code |= 1; // LEFT
-  else if (px > rect.x + rect.width) code |= 2; // RIGHT
-  if (py < rect.y)
+  } else if (px > rect.x + rect.width) {
+    code |= 2; // RIGHT
+  }
+  if (py < rect.y) {
     code |= 4; // TOP
-  else if (py > rect.y + rect.height) code |= 8; // BOTTOM
+  } else if (py > rect.y + rect.height) {
+    code |= 8; // BOTTOM
+  }
   return code;
 }
 
@@ -131,7 +140,12 @@ export function getLabelCandidatePositions(element: {
         rect = { x: midX - lw / 2, y: element.y - gap - lh, width: lw, height: lh };
         break;
       case 'bottom':
-        rect = { x: midX - lw / 2, y: element.y + element.height + gap, width: lw, height: lh };
+        rect = {
+          x: midX - lw / 2,
+          y: element.y + element.height + gap + ELEMENT_LABEL_BOTTOM_EXTRA,
+          width: lw,
+          height: lh,
+        };
         break;
       case 'left':
         rect = { x: element.x - gap - lw, y: midY - lh / 2, width: lw, height: lh };

@@ -101,7 +101,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
 }
 
 export const TOOL_DEFINITION = {
-  name: 'set_element_properties',
+  name: 'set_bpmn_element_properties',
   description:
     "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable) and Camunda extensions (e.g. camunda:assignee, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:asyncBefore, camunda:topic, camunda:type). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). For loop characteristics, use the dedicated set_loop_characteristics tool.",
   inputSchema: {

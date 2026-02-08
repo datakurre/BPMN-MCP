@@ -37,8 +37,21 @@ export async function handleSetEventDefinition(args: SetEventDefinitionArgs): Pr
   // Create the event definition
   const eventDefAttrs: Record<string, any> = {};
 
-  // Handle timer-specific properties
+  // Handle timer-specific properties with validation
   if (eventDefinitionType === 'bpmn:TimerEventDefinition') {
+    const timerKeys = ['timeDuration', 'timeDate', 'timeCycle'].filter((k) => defProps[k]);
+    if (timerKeys.length > 1) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Timer events accept only one of timeDuration, timeDate, or timeCycle — got: ${timerKeys.join(', ')}`
+      );
+    }
+    if (timerKeys.length === 0) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'TimerEventDefinition requires one of: timeDuration (ISO 8601 duration, e.g. PT15M), timeDate (ISO 8601 date, e.g. 2025-12-31T23:59:00Z), or timeCycle (ISO 8601 repeating interval, e.g. R3/PT10M)'
+      );
+    }
     if (defProps.timeDuration) {
       eventDefAttrs.timeDuration = moddle.create('bpmn:FormalExpression', {
         body: defProps.timeDuration,
@@ -87,7 +100,7 @@ export async function handleSetEventDefinition(args: SetEventDefinitionArgs): Pr
 }
 
 export const TOOL_DEFINITION = {
-  name: 'set_event_definition',
+  name: 'set_bpmn_event_definition',
   description:
     'Add or replace an event definition on an event element (e.g. bpmn:ErrorEventDefinition, bpmn:TimerEventDefinition, bpmn:MessageEventDefinition, bpmn:SignalEventDefinition, bpmn:TerminateEventDefinition, bpmn:EscalationEventDefinition). For error events, optionally creates/references a bpmn:Error root element.',
   inputSchema: {
@@ -113,7 +126,7 @@ export const TOOL_DEFINITION = {
       properties: {
         type: 'object',
         description:
-          'Type-specific properties: for Timer: { timeDuration?, timeDate?, timeCycle? }. For Camunda error on service tasks use set_element_properties with camunda extensions.',
+          'Type-specific properties. For Timer events, provide exactly ONE of: timeDuration (ISO 8601 duration, e.g. "PT15M" for 15 minutes, "PT1H30M" for 1.5 hours, "P1D" for 1 day), timeDate (ISO 8601 date-time, e.g. "2025-12-31T23:59:00Z"), or timeCycle (ISO 8601 repeating interval, e.g. "R3/PT10M" for 3 repetitions every 10 minutes, "R/P1D" for daily). Camunda expressions are also supported (e.g. "${myDuration}").',
         additionalProperties: true,
       },
       errorRef: {

@@ -49,7 +49,7 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
 }
 
 export const TOOL_DEFINITION = {
-  name: 'layout_diagram',
+  name: 'layout_bpmn_diagram',
   description:
     'Automatically arrange all elements in a BPMN diagram using bpmn-auto-layout, producing a clean left-to-right layout. Use this after structural changes (adding gateways, splitting flows) to automatically clean up the layout.',
   inputSchema: {

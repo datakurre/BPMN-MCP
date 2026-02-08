@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleSetEventDefinition, handleExportXml } from '../../src/handlers';
+import { handleSetEventDefinition, handleExportBpmn } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
 describe('handleSetEventDefinition', () => {
@@ -35,7 +35,8 @@ describe('handleSetEventDefinition', () => {
     expect(res.success).toBe(true);
 
     // Verify via XML
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('errorEventDefinition');
   });
 
@@ -53,7 +54,8 @@ describe('handleSetEventDefinition', () => {
     );
     expect(res.success).toBe(true);
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('timerEventDefinition');
   });
 

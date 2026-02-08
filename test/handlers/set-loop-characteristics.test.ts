@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleSetLoopCharacteristics, handleExportXml } from '../../src/handlers';
+import { handleSetLoopCharacteristics, handleExportBpmn } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
 describe('handleSetLoopCharacteristics', () => {
@@ -24,7 +24,8 @@ describe('handleSetLoopCharacteristics', () => {
     expect(res.success).toBe(true);
     expect(res.loopType).toBe('parallel');
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('multiInstanceLoopCharacteristics');
   });
 
@@ -45,7 +46,8 @@ describe('handleSetLoopCharacteristics', () => {
     );
     expect(res.success).toBe(true);
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('isSequential="true"');
   });
 
@@ -65,7 +67,8 @@ describe('handleSetLoopCharacteristics', () => {
     );
     expect(res.success).toBe(true);
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('standardLoopCharacteristics');
   });
 
@@ -80,7 +83,8 @@ describe('handleSetLoopCharacteristics', () => {
       elementId: taskId,
       loopType: 'parallel',
     });
-    const xml1 = (await handleExportXml({ diagramId })).content[0].text;
+    const xml1 = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml1).toContain('multiInstanceLoopCharacteristics');
 
     await handleSetLoopCharacteristics({
@@ -88,7 +92,8 @@ describe('handleSetLoopCharacteristics', () => {
       elementId: taskId,
       loopType: 'none',
     });
-    const xml2 = (await handleExportXml({ diagramId })).content[0].text;
+    const xml2 = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml2).not.toContain('multiInstanceLoopCharacteristics');
   });
 

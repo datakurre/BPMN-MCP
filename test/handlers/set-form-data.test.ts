@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleSetFormData, handleExportXml, handleGetProperties } from '../../src/handlers';
+import { handleSetFormData, handleExportBpmn, handleGetProperties } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
 describe('handleSetFormData', () => {
@@ -27,7 +27,8 @@ describe('handleSetFormData', () => {
     expect(res.success).toBe(true);
     expect(res.fieldCount).toBe(3);
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:formData');
     expect(xml).toContain('camunda:formField');
     expect(xml).toContain('id="name"');
@@ -60,7 +61,8 @@ describe('handleSetFormData', () => {
     );
     expect(res.success).toBe(true);
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:value');
   });
 
@@ -83,7 +85,8 @@ describe('handleSetFormData', () => {
       ],
     });
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:validation');
     expect(xml).toContain('camunda:constraint');
     expect(xml).toContain('required');
@@ -107,7 +110,8 @@ describe('handleSetFormData', () => {
     expect(res.success).toBe(true);
     expect(res.businessKey).toBe('orderId');
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('camunda:formData');
   });
 

@@ -91,7 +91,7 @@ export async function handleSetCamundaErrorEventDefinition(
 }
 
 export const TOOL_DEFINITION = {
-  name: 'set_camunda_error_event_definition',
+  name: 'set_bpmn_camunda_error',
   description:
     'Set camunda:ErrorEventDefinition extension elements on a Service Task for Camunda 7 External Task error handling. These are distinct from standard bpmn:ErrorEventDefinition on boundary events \u2014 they define error-handling expressions directly on the Service Task with an id, expression, and optional errorRef.',
   inputSchema: {

@@ -33,7 +33,7 @@ export async function handleAdjustLabels(args: AdjustLabelsArgs): Promise<ToolRe
 }
 
 export const TOOL_DEFINITION = {
-  name: 'adjust_labels',
+  name: 'adjust_bpmn_labels',
   description:
     'Adjust external labels on elements and connections to reduce overlap with sequence flows and other labels. Useful after importing diagrams or manual positioning.',
   inputSchema: {

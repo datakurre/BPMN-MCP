@@ -100,7 +100,7 @@ export async function handleSetFormData(args: SetFormDataArgs): Promise<ToolResu
 }
 
 export const TOOL_DEFINITION = {
-  name: 'set_form_data',
+  name: 'set_bpmn_form_data',
   description:
     'Create camunda:FormData with camunda:FormField children as extension elements on User Tasks and Start Events (Generated Task Forms). Supports field types: string, long, boolean, date, enum. Fields can have validation constraints, enum values, default values, and custom properties.',
   inputSchema: {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleConnect, handleSetProperties, handleExportXml } from '../../src/handlers';
+import { handleConnect, handleSetProperties, handleExportBpmn } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
 describe('gateway default flow', () => {
@@ -48,7 +48,8 @@ describe('gateway default flow', () => {
       properties: { default: connB.connectionId },
     });
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('default=');
   });
 
@@ -77,7 +78,8 @@ describe('gateway default flow', () => {
       elementId: conn.connectionId,
       properties: { conditionExpression: '${approved == true}' },
     });
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('${approved == true}');
     expect(xml).toContain('bpmn:conditionExpression');
   });
@@ -105,7 +107,8 @@ describe('gateway default flow', () => {
     );
     expect(conn.isDefault).toBe(true);
 
-    const xml = (await handleExportXml({ diagramId })).content[0].text;
+    const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
+      .text;
     expect(xml).toContain('default=');
   });
 });

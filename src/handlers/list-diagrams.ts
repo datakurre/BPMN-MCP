@@ -28,7 +28,7 @@ export async function handleListDiagrams(): Promise<ToolResult> {
 }
 
 export const TOOL_DEFINITION = {
-  name: 'list_diagrams',
+  name: 'list_bpmn_diagrams',
   description:
     'List all diagrams currently held in memory with their IDs, names, and element counts.',
   inputSchema: {
