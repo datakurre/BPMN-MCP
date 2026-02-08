@@ -49,20 +49,16 @@ export function getBpmnModeler(): any {
 // Polyfills
 // ---------------------------------------------------------------------------
 
-function applyPolyfills(instance: any): void {
-  const win = instance.window;
-
-  // CSS.escape
+/** Polyfill CSS.escape, structuredClone, and SVGMatrix on the jsdom window. */
+function applyGlobalPolyfills(win: any): void {
   win.CSS = {
     escape: (str: string) => str.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&'),
   };
 
-  // structuredClone
   if (!win.structuredClone) {
     win.structuredClone = (obj: any) => JSON.parse(JSON.stringify(obj));
   }
 
-  // SVGMatrix constructor
   win.SVGMatrix = function () {
     return {
       a: 1,
@@ -89,16 +85,17 @@ function applyPolyfills(instance: any): void {
       },
     };
   };
+}
 
+/** Polyfill SVGElement methods: getBBox, getScreenCTM, transform. */
+function applySvgElementPolyfills(win: any): void {
   const SVGElement = win.SVGElement;
   const SVGGraphicsElement = win.SVGGraphicsElement;
 
-  // getBBox
   if (SVGElement && !SVGElement.prototype.getBBox) {
     SVGElement.prototype.getBBox = () => ({ x: 0, y: 0, width: 100, height: 100 });
   }
 
-  // getScreenCTM
   if (SVGElement && !SVGElement.prototype.getScreenCTM) {
     SVGElement.prototype.getScreenCTM = function () {
       return {
@@ -121,7 +118,6 @@ function applyPolyfills(instance: any): void {
     };
   }
 
-  // transform property
   const transformProp = {
     get(this: any): any {
       if (!this._transform) {
@@ -138,48 +134,57 @@ function applyPolyfills(instance: any): void {
   if (SVGElement) {
     Object.defineProperty(SVGElement.prototype, 'transform', transformProp);
   }
+}
 
-  // SVGSVGElement helpers
+/** Polyfill SVGSVGElement.createSVGMatrix and createSVGTransform. */
+function applySvgSvgElementPolyfills(win: any): void {
   const SVGSVGElement = win.SVGSVGElement;
-  if (SVGSVGElement) {
-    if (!SVGSVGElement.prototype.createSVGMatrix) {
-      SVGSVGElement.prototype.createSVGMatrix = function () {
-        return {
-          a: 1,
-          b: 0,
-          c: 0,
-          d: 1,
-          e: 0,
-          f: 0,
-          inverse() {
-            return this;
-          },
-          multiply() {
-            return this;
-          },
-          translate() {
-            return this;
-          },
-          scale() {
-            return this;
-          },
-        };
+  if (!SVGSVGElement) return;
+
+  if (!SVGSVGElement.prototype.createSVGMatrix) {
+    SVGSVGElement.prototype.createSVGMatrix = function () {
+      return {
+        a: 1,
+        b: 0,
+        c: 0,
+        d: 1,
+        e: 0,
+        f: 0,
+        inverse() {
+          return this;
+        },
+        multiply() {
+          return this;
+        },
+        translate() {
+          return this;
+        },
+        scale() {
+          return this;
+        },
       };
-    }
-    if (!SVGSVGElement.prototype.createSVGTransform) {
-      SVGSVGElement.prototype.createSVGTransform = function () {
-        return {
-          type: 0,
-          matrix: this.createSVGMatrix(),
-          angle: 0,
-          setMatrix() {},
-          setTranslate() {},
-          setScale() {},
-          setRotate() {},
-        };
-      };
-    }
+    };
   }
+  if (!SVGSVGElement.prototype.createSVGTransform) {
+    SVGSVGElement.prototype.createSVGTransform = function () {
+      return {
+        type: 0,
+        matrix: this.createSVGMatrix(),
+        angle: 0,
+        setMatrix() {},
+        setTranslate() {},
+        setScale() {},
+        setRotate() {},
+      };
+    };
+  }
+}
+
+function applyPolyfills(instance: any): void {
+  const win = instance.window;
+  applyGlobalPolyfills(win);
+  applySvgElementPolyfills(win);
+  applySvgSvgElementPolyfills(win);
 }
 
 function createTransformList() {

@@ -18,9 +18,9 @@ export default tseslint.config(
     files: ['src/**/*.ts', 'test/**/*.ts'],
     rules: {
       // ── Code-quality ────────────────────────────────────────────────────
-      // Warn on `any` — the codebase uses it extensively for bpmn-js APIs
-      // but we want to progressively reduce usage.
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // Disabled — bpmn-js APIs are largely untyped; `any` is unavoidable
+      // at the boundary.  Type-safety is enforced within our own interfaces.
+      '@typescript-eslint/no-explicit-any': 'off',
 
       // Catch unused vars (ignore those starting with _)
       '@typescript-eslint/no-unused-vars': [
