@@ -4,6 +4,8 @@ A Model Context Protocol (MCP) server for creating and manipulating BPMN 2.0 wor
 
 ![BPMN Diagram Example](./docs/images/bpmn.png)
 
+[!WARNING] This fork is primarily developed with the assistance of AI coding agents.
+
 ## Features
 
 - **Create BPMN Diagrams**: Generate new workflow diagrams from scratch
