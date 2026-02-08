@@ -1,0 +1,94 @@
+// @ts-check
+
+import eslint from "@eslint/js";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  // ── Global ignores ────────────────────────────────────────────────────────
+  { ignores: ["dist/", "node_modules/", "*.config.*"] },
+
+  // ── Base JS recommended rules ─────────────────────────────────────────────
+  eslint.configs.recommended,
+
+  // ── TypeScript recommended (type-aware off — no parserOptions.project) ────
+  ...tseslint.configs.recommended,
+
+  // ── Project-wide overrides ────────────────────────────────────────────────
+  {
+    files: ["src/**/*.ts", "test/**/*.ts"],
+    rules: {
+      // ── Code-quality ────────────────────────────────────────────────────
+      // Warn on `any` — the codebase uses it extensively for bpmn-js APIs
+      // but we want to progressively reduce usage.
+      "@typescript-eslint/no-explicit-any": "warn",
+
+      // Catch unused vars (ignore those starting with _)
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+
+      // Prefer type-only imports where possible (tree-shaking, clarity)
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+
+      // ── Maintainability ─────────────────────────────────────────────────
+      // Enforce consistent return types on exported functions
+      "@typescript-eslint/explicit-function-export-return-type": "off",
+
+      // Disallow duplicate imports from the same module
+      "no-duplicate-imports": "error",
+
+      // Require === and !==
+      eqeqeq: ["error", "always", { null: "ignore" }],
+
+      // No console.log (allow console.error for MCP stdio server)
+      "no-console": ["error", { allow: ["error"] }],
+
+      // Limit function complexity to keep handlers comprehensible
+      complexity: ["warn", 20],
+
+      // Limit file length — signals when a module should be split
+      "max-lines": ["warn", { max: 300, skipBlankLines: true, skipComments: true }],
+
+      // Limit function length — keep handlers focused
+      "max-lines-per-function": [
+        "warn",
+        { max: 80, skipBlankLines: true, skipComments: true },
+      ],
+
+      // Prefer const over let when variable is never reassigned
+      "prefer-const": "error",
+
+      // No var — use let/const
+      "no-var": "error",
+
+      // No parameter reassignment (helps reason about data flow)
+      "no-param-reassign": ["warn", { props: false }],
+
+      // ── Style consistency ───────────────────────────────────────────────
+      // Consistent brace style
+      curly: ["error", "multi-line"],
+
+      // No trailing spaces in template literals or elsewhere (handled by formatter)
+      "no-trailing-spaces": "off",
+    },
+  },
+
+  // ── Test-specific relaxations ─────────────────────────────────────────────
+  {
+    files: ["test/**/*.ts"],
+    rules: {
+      // Tests often use any for mock objects
+      "@typescript-eslint/no-explicit-any": "off",
+      // Tests can have longer functions (setup + assertions)
+      "max-lines-per-function": "off",
+      // Tests can be longer files
+      "max-lines": "off",
+      // Tests sometimes reassign for setup
+      "no-param-reassign": "off",
+    },
+  },
+);

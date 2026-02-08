@@ -4,10 +4,17 @@
   "description": "MCP server for creating and manipulating BPMN diagrams using bpmn-js",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node16 --format=cjs --outfile=dist/index.js --external:jsdom --external:bpmn-js --external:bpmn-auto-layout --banner:js='#!/usr/bin/env node'",
+    "typecheck": "tsc --noEmit",
     "prepare": "npm run build",
-    "watch": "tsc --watch",
-    "start": "node dist/index.js"
+    "watch": "npm run build -- --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src/ test/",
+    "lint:fix": "eslint src/ test/ --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage"
   },
   "keywords": [
     "mcp",
@@ -20,13 +27,22 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "@types/bpmn-moddle": "^9.0.0",
+    "bpmn-auto-layout": "^1.2.0",
     "bpmn-js": "^18.8.0",
+    "camunda-bpmn-moddle": "^7.0.1",
     "jsdom": "^25.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.10.2",
-    "typescript": "^5.7.2"
+    "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.27.3",
+    "eslint": "^9.39.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.54.0",
+    "vitest": "^4.0.18"
   },
   "bin": {
     "bpmn-js-mcp": "./dist/index.js"
