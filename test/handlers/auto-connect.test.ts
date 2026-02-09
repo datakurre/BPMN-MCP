@@ -42,7 +42,7 @@ describe('handleAutoConnect', () => {
     const diagramId = await createDiagram('Too Few');
     const start = await addElement(diagramId, 'bpmn:StartEvent');
 
-    await expect(handleAutoConnect({ diagramId, elementIds: [start] })).rejects.toThrow(
+    await expect(handleAutoConnect({ diagramId, elementIds: [start] } as any)).rejects.toThrow(
       /at least 2/
     );
   });

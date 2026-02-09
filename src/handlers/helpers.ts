@@ -192,7 +192,7 @@ export function buildConnectivityWarnings(elementRegistry: any): string[] {
     if (orphaned.length > 0) {
       const names = orphaned.map((a: any) => `${a.id} (${a.type.replace('bpmn:', '')})`).join(', ');
       warnings.push(
-        `⚠️ Disconnected artifact(s): ${names}. Use connect_bpmn_elements (Association) or create_bpmn_data_association to link them.`
+        `⚠️ Disconnected artifact(s): ${names}. Use connect_bpmn_elements to link them (auto-detects Association or DataAssociation).`
       );
     }
   }

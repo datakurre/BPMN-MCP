@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleExportSubprocess } from '../../src/handlers';
+import { handleExportBpmn as handleExportSubprocess } from '../../src/handlers';
 import { createDiagram, addElement, clearDiagrams } from '../helpers';
 import { getDiagram } from '../../src/diagram-manager';
 
@@ -12,7 +12,7 @@ describe('handleExportSubprocess', () => {
     const diagramId = await createDiagram();
     const taskId = await addElement(diagramId, 'bpmn:UserTask');
 
-    const res = await handleExportSubprocess({ diagramId, elementId: taskId });
+    const res = await handleExportSubprocess({ diagramId, format: 'xml', elementId: taskId });
     expect(res.content[0].text).toContain('not a SubProcess or Participant');
   });
 
@@ -37,7 +37,7 @@ describe('handleExportSubprocess', () => {
     const { xml } = await diagram.modeler.saveXML({ format: true });
     diagram.xml = xml || '';
 
-    const res = await handleExportSubprocess({ diagramId, elementId: subId });
+    const res = await handleExportSubprocess({ diagramId, format: 'xml', elementId: subId });
     // Should contain XML definitions
     expect(res.content[0].text).toContain('definitions');
   });
@@ -46,7 +46,7 @@ describe('handleExportSubprocess', () => {
     const diagramId = await createDiagram();
     const subId = await addElement(diagramId, 'bpmn:SubProcess', { name: 'Empty' });
 
-    const res = await handleExportSubprocess({ diagramId, elementId: subId });
+    const res = await handleExportSubprocess({ diagramId, format: 'xml', elementId: subId });
     expect(res.content[0].text).toContain('no flow elements');
   });
 });

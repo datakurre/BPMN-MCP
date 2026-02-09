@@ -4,8 +4,8 @@
  * Verifies that connect_bpmn_elements correctly auto-detects the connection
  * type based on source/target element types:
  * - TextAnnotation → auto-corrects to Association
- * - DataObjectReference → refuses with error pointing to create_bpmn_data_association
- * - DataStoreReference → refuses with error pointing to create_bpmn_data_association
+ * - DataObjectReference → auto-detects DataAssociation
+ * - DataStoreReference → auto-detects DataAssociation
  * - Task → Task → defaults to SequenceFlow
  */
 
@@ -97,7 +97,7 @@ describe('connect_bpmn_elements auto-detection', () => {
 
   // ── DataObjectReference / DataStoreReference → error ─────────────────
 
-  it('refuses SequenceFlow to DataObjectReference', async () => {
+  it('auto-detects DataAssociation for Task→DataObjectReference', async () => {
     const diagramId = await createDiagram();
     const taskId = await addElement(diagramId, 'bpmn:UserTask', {
       name: 'Task',
@@ -110,16 +110,18 @@ describe('connect_bpmn_elements auto-detection', () => {
       y: 300,
     });
 
-    await expect(
-      handleConnect({
+    const conn = parseResult(
+      await handleConnect({
         diagramId,
         sourceElementId: taskId,
         targetElementId: dataId,
       })
-    ).rejects.toThrow(/create_bpmn_data_association/);
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionId).toBeDefined();
   });
 
-  it('refuses SequenceFlow from DataObjectReference', async () => {
+  it('auto-detects DataAssociation for DataObjectReference→Task', async () => {
     const diagramId = await createDiagram();
     const dataId = await addElement(diagramId, 'bpmn:DataObjectReference', {
       name: 'Data',
@@ -132,16 +134,18 @@ describe('connect_bpmn_elements auto-detection', () => {
       y: 100,
     });
 
-    await expect(
-      handleConnect({
+    const conn = parseResult(
+      await handleConnect({
         diagramId,
         sourceElementId: dataId,
         targetElementId: taskId,
       })
-    ).rejects.toThrow(/create_bpmn_data_association/);
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionId).toBeDefined();
   });
 
-  it('refuses SequenceFlow to DataStoreReference', async () => {
+  it('auto-detects DataAssociation for Task→DataStoreReference', async () => {
     const diagramId = await createDiagram();
     const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
       name: 'Service',
@@ -154,16 +158,18 @@ describe('connect_bpmn_elements auto-detection', () => {
       y: 300,
     });
 
-    await expect(
-      handleConnect({
+    const conn = parseResult(
+      await handleConnect({
         diagramId,
         sourceElementId: taskId,
         targetElementId: storeId,
       })
-    ).rejects.toThrow(/create_bpmn_data_association/);
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionId).toBeDefined();
   });
 
-  it('refuses SequenceFlow from DataStoreReference', async () => {
+  it('auto-detects DataAssociation for DataStoreReference→Task', async () => {
     const diagramId = await createDiagram();
     const storeId = await addElement(diagramId, 'bpmn:DataStoreReference', {
       name: 'DB',
@@ -176,13 +182,15 @@ describe('connect_bpmn_elements auto-detection', () => {
       y: 100,
     });
 
-    await expect(
-      handleConnect({
+    const conn = parseResult(
+      await handleConnect({
         diagramId,
         sourceElementId: storeId,
         targetElementId: taskId,
       })
-    ).rejects.toThrow(/create_bpmn_data_association/);
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionId).toBeDefined();
   });
 
   // ── Normal flow ─────────────────────────────────────────────────────

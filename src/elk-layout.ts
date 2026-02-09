@@ -911,6 +911,106 @@ export async function elkLayout(
   return { crossingFlows };
 }
 
+// ── Partial (subset) layout ────────────────────────────────────────────────
+
+/**
+ * Run ELK layered layout on a subset of elements in a BPMN diagram.
+ *
+ * Builds a sub-graph from the specified element IDs and their
+ * inter-connections, runs ELK layout on that sub-graph, and applies
+ * positions back — leaving all other elements untouched.
+ */
+export async function elkLayoutSubset(
+  diagram: DiagramState,
+  elementIds: string[],
+  options?: Omit<ElkLayoutOptions, 'scopeElementId'>
+): Promise<{ crossingFlows?: number }> {
+  const ELK = (await import('elkjs')).default;
+  const elk = new ELK();
+
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = diagram.modeler.get('modeling');
+
+  const idSet = new Set(elementIds);
+
+  // Collect shapes from the element registry
+  const shapes: any[] = [];
+  for (const id of elementIds) {
+    const el = elementRegistry.get(id);
+    if (el && !isConnection(el.type) && !isInfrastructure(el.type)) {
+      shapes.push(el);
+    }
+  }
+
+  if (shapes.length === 0) return {};
+
+  // Build ELK children nodes
+  const children: ElkNode[] = shapes.map((s: any) => ({
+    id: s.id,
+    width: s.width || 100,
+    height: s.height || 80,
+  }));
+
+  // Find inter-connections between the specified elements
+  const allElements: any[] = elementRegistry.getAll();
+  const edges: ElkExtendedEdge[] = [];
+  for (const el of allElements) {
+    if (
+      isConnection(el.type) &&
+      el.source &&
+      el.target &&
+      idSet.has(el.source.id) &&
+      idSet.has(el.target.id)
+    ) {
+      edges.push({
+        id: el.id,
+        sources: [el.source.id],
+        targets: [el.target.id],
+      });
+    }
+  }
+
+  // Build ELK layout options
+  const layoutOptions: LayoutOptions = { ...ELK_LAYOUT_OPTIONS };
+  if (options?.direction) {
+    layoutOptions['elk.direction'] = options.direction;
+  }
+  if (options?.nodeSpacing !== undefined) {
+    layoutOptions['elk.spacing.nodeNode'] = String(options.nodeSpacing);
+  }
+  if (options?.layerSpacing !== undefined) {
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = String(options.layerSpacing);
+  }
+
+  const elkGraph: ElkNode = {
+    id: 'root',
+    layoutOptions,
+    children,
+    edges,
+  };
+
+  const result = await elk.layout(elkGraph);
+
+  // Use the minimum existing position as offset origin so elements
+  // stay roughly in the same area of the canvas
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const s of shapes) {
+    if (s.x < minX) minX = s.x;
+    if (s.y < minY) minY = s.y;
+  }
+  const offsetX = minX;
+  const offsetY = minY;
+
+  // Apply positions
+  applyElkPositions(elementRegistry, modeling, result, offsetX, offsetY);
+
+  // Apply edge routes for the subset connections
+  applyElkEdgeRoutes(elementRegistry, modeling, result, offsetX, offsetY);
+
+  return {};
+}
+
 // ── Post-layout crossing flow detection ────────────────────────────────────
 
 /**

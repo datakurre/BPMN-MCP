@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleLintDiagram } from '../../src/handlers/lint';
+import { handleValidate as handleLintDiagram } from '../../src/handlers/validate';
 import { handleConnect } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 

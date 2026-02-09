@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleSearchElements } from '../../src/handlers';
+import { handleListElements as handleSearchElements } from '../../src/handlers';
 import { createDiagram, addElement, parseResult, clearDiagrams } from '../helpers';
 
 describe('handleSearchElements', () => {

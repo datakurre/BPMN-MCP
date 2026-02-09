@@ -41,17 +41,21 @@ describe('handleCreateDataAssociation', () => {
     expect(res.connectionId).toBeDefined();
   });
 
-  it('throws when neither element is a data element', async () => {
+  it('connects two non-data elements as SequenceFlow (no data elements involved)', async () => {
     const diagramId = await createDiagram();
     const task1 = await addElement(diagramId, 'bpmn:UserTask');
     const task2 = await addElement(diagramId, 'bpmn:ServiceTask');
 
-    await expect(
-      handleCreateDataAssociation({
+    const res = parseResult(
+      await handleCreateDataAssociation({
         diagramId,
         sourceElementId: task1,
         targetElementId: task2,
       })
-    ).rejects.toThrow(/DataObjectReference or DataStoreReference/);
+    );
+
+    // With no data elements, connects as SequenceFlow through the unified connect handler
+    expect(res.success).toBe(true);
+    expect(res.connectionId).toBeDefined();
   });
 });

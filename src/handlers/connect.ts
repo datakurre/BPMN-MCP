@@ -1,5 +1,12 @@
 /**
  * Handler for connect_bpmn_elements tool.
+ *
+ * Merges the former connect_bpmn_elements, create_bpmn_data_association,
+ * and auto_connect_bpmn_elements tools into one.
+ *
+ * - Pair mode: sourceElementId + targetElementId (original connect)
+ * - Chain mode: elementIds array (former auto_connect)
+ * - Data associations: auto-detected when source/target is a data object/store
  */
 
 import { type ConnectArgs, type ToolResult } from '../types';
@@ -37,13 +44,15 @@ function resolveConnectionType(
   source?: any,
   target?: any
 ): { connectionType: string; autoHint?: string } {
-  // Data objects/stores must use create_bpmn_data_association
+  // Data objects/stores → auto-detect DataInputAssociation / DataOutputAssociation
   if (DATA_TYPES.has(sourceType) || DATA_TYPES.has(targetType)) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Cannot create a SequenceFlow to/from ${DATA_TYPES.has(sourceType) ? sourceType : targetType}. ` +
-        `Use the create_bpmn_data_association tool instead.`
-    );
+    // Let bpmn-js handle data association type detection
+    return {
+      connectionType: '__data_association__',
+      autoHint:
+        `Connection type auto-detected as DataAssociation ` +
+        `(${DATA_TYPES.has(sourceType) ? sourceType : targetType} involved).`,
+    };
   }
 
   // TextAnnotation / Group → auto-correct to Association
@@ -119,11 +128,6 @@ function applyConnectionProperties(
 
   if (isDefault && connectionType === 'bpmn:SequenceFlow') {
     if (sourceType.includes('ExclusiveGateway') || sourceType.includes('InclusiveGateway')) {
-      // Use updateModdleProperties instead of updateProperties to avoid
-      // ReplaceConnectionBehavior's postExecuted handler which fails in
-      // headless mode (tries to access .id on undefined elements in the
-      // changed array).  updateModdleProperties still records on the
-      // command stack for undo/redo support.
       modeling.updateModdleProperties(source, source.businessObject, {
         default: connection.businessObject,
       });
@@ -131,13 +135,90 @@ function applyConnectionProperties(
   }
 }
 
+/**
+ * Connect a single pair of elements. Used by both pair mode and chain mode.
+ */
+function connectPair(
+  diagram: ReturnType<typeof requireDiagram>,
+  source: any,
+  target: any,
+  opts: {
+    connectionType?: string;
+    label?: string;
+    conditionExpression?: string;
+    isDefault?: boolean;
+  }
+): { connection: any; connectionType: string; autoHint?: string } {
+  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+
+  const sourceType: string = source.type || source.businessObject?.$type || '';
+  const targetType: string = target.type || target.businessObject?.$type || '';
+
+  const { connectionType, autoHint } = resolveConnectionType(
+    sourceType,
+    targetType,
+    opts.connectionType,
+    source,
+    target
+  );
+
+  let connection: any;
+  if (connectionType === '__data_association__') {
+    // Data association — let bpmn-js auto-detect direction
+    connection = modeling.connect(source, target);
+  } else {
+    const flowId = generateFlowId(
+      elementRegistry,
+      source.businessObject?.name,
+      target.businessObject?.name,
+      opts.label
+    );
+    connection = modeling.connect(source, target, { type: connectionType, id: flowId });
+  }
+
+  if (connectionType !== '__data_association__') {
+    applyConnectionProperties(
+      diagram,
+      connection,
+      source,
+      sourceType,
+      connectionType,
+      opts.label,
+      opts.conditionExpression,
+      opts.isDefault
+    );
+  }
+
+  const actualType =
+    connectionType === '__data_association__'
+      ? connection.type || connection.businessObject?.$type || 'DataAssociation'
+      : connectionType;
+
+  return { connection, connectionType: actualType, autoHint };
+}
+
 export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
+  const { diagramId, label, conditionExpression, isDefault } = args;
+  const elementIds = (args as any).elementIds as string[] | undefined;
+  const sourceElementId = args.sourceElementId;
+  const targetElementId = args.targetElementId;
+
+  // Determine mode: chain or pair
+  if (elementIds && Array.isArray(elementIds)) {
+    if (elementIds.length < 2) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        'elementIds must contain at least 2 element IDs to connect in sequence'
+      );
+    }
+    return handleChainConnect(diagramId, elementIds);
+  }
+
+  // Pair mode requires sourceElementId + targetElementId
   validateArgs(args, ['diagramId', 'sourceElementId', 'targetElementId']);
-  const { diagramId, sourceElementId, targetElementId, label, conditionExpression, isDefault } =
-    args;
   const diagram = requireDiagram(diagramId);
 
-  const modeling = diagram.modeler.get('modeling');
   const elementRegistry = diagram.modeler.get('elementRegistry');
 
   const source = elementRegistry.get(sourceElementId);
@@ -149,35 +230,12 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
     throw new McpError(ErrorCode.InvalidRequest, `Target element not found: ${targetElementId}`);
   }
 
-  const sourceType: string = source.type || source.businessObject?.$type || '';
-  const targetType: string = target.type || target.businessObject?.$type || '';
-
-  const { connectionType, autoHint } = resolveConnectionType(
-    sourceType,
-    targetType,
-    args.connectionType,
-    source,
-    target
-  );
-
-  const flowId = generateFlowId(
-    elementRegistry,
-    source.businessObject?.name,
-    target.businessObject?.name,
-    label
-  );
-  const connection = modeling.connect(source, target, { type: connectionType, id: flowId });
-
-  applyConnectionProperties(
-    diagram,
-    connection,
-    source,
-    sourceType,
-    connectionType,
+  const { connection, connectionType, autoHint } = connectPair(diagram, source, target, {
+    connectionType: args.connectionType,
     label,
     conditionExpression,
-    isDefault
-  );
+    isDefault,
+  });
 
   await syncXml(diagram);
 
@@ -192,10 +250,70 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
   return appendLintFeedback(result, diagram);
 }
 
+/**
+ * Chain mode: connect a list of elements sequentially (former auto_connect).
+ */
+async function handleChainConnect(diagramId: string, elementIds: string[]): Promise<ToolResult> {
+  if (elementIds.length < 2) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      'elementIds must contain at least 2 element IDs to connect in sequence'
+    );
+  }
+
+  const diagram = requireDiagram(diagramId);
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+
+  const connections: Array<{ connectionId: string; source: string; target: string }> = [];
+
+  for (let i = 0; i < elementIds.length - 1; i++) {
+    const sourceId = elementIds[i];
+    const targetId = elementIds[i + 1];
+
+    const source = elementRegistry.get(sourceId);
+    const target = elementRegistry.get(targetId);
+
+    if (!source) {
+      throw new McpError(ErrorCode.InvalidRequest, `Element not found: ${sourceId}`);
+    }
+    if (!target) {
+      throw new McpError(ErrorCode.InvalidRequest, `Element not found: ${targetId}`);
+    }
+
+    const { connection } = connectPair(diagram, source, target, {});
+
+    connections.push({
+      connectionId: connection.id,
+      source: sourceId,
+      target: targetId,
+    });
+  }
+
+  await syncXml(diagram);
+
+  const result = jsonResult({
+    success: true,
+    connectionsCreated: connections.length,
+    connections,
+    message: `Created ${connections.length} sequential connection(s) between ${elementIds.length} elements`,
+  });
+  return appendLintFeedback(result, diagram);
+}
+
+// Backward-compatible aliases
+export const handleAutoConnect = handleConnect;
+export function handleCreateDataAssociation(args: any): Promise<ToolResult> {
+  return handleConnect({
+    diagramId: args.diagramId,
+    sourceElementId: args.sourceElementId,
+    targetElementId: args.targetElementId,
+  });
+}
+
 export const TOOL_DEFINITION = {
   name: 'connect_bpmn_elements',
   description:
-    "Connect two BPMN elements with a sequence flow, message flow, or association. Supports optional condition expressions for gateway branches. Supports isDefault flag to mark a flow as the gateway's default flow. Generates descriptive flow IDs based on element names or labels. Best practice: the default flow from an exclusive/inclusive gateway should represent the happy path (most common/expected outcome). Pair split gateways with corresponding join gateways of the same type (parallel split → parallel join, exclusive split → exclusive merge).",
+    'Connect BPMN elements. Supports pair mode (sourceElementId + targetElementId) or chain mode (elementIds array for sequential connections). Auto-detects connection type: SequenceFlow for normal flow, MessageFlow for cross-pool, Association for text annotations, and DataAssociation for data objects/stores. Supports optional condition expressions for gateway branches and isDefault flag for gateway default flows.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -205,11 +323,18 @@ export const TOOL_DEFINITION = {
       },
       sourceElementId: {
         type: 'string',
-        description: 'The ID of the source element',
+        description: 'The ID of the source element (pair mode)',
       },
       targetElementId: {
         type: 'string',
-        description: 'The ID of the target element',
+        description: 'The ID of the target element (pair mode)',
+      },
+      elementIds: {
+        type: 'array',
+        items: { type: 'string' },
+        minItems: 2,
+        description:
+          'Ordered list of element IDs to connect sequentially (chain mode). When provided, sourceElementId and targetElementId are ignored.',
       },
       label: {
         type: 'string',
@@ -218,7 +343,8 @@ export const TOOL_DEFINITION = {
       connectionType: {
         type: 'string',
         enum: ['bpmn:SequenceFlow', 'bpmn:MessageFlow', 'bpmn:Association'],
-        description: 'Type of connection (default: bpmn:SequenceFlow)',
+        description:
+          'Type of connection (default: auto-detected). Usually not needed — the tool auto-detects the correct type.',
       },
       conditionExpression: {
         type: 'string',
@@ -231,6 +357,6 @@ export const TOOL_DEFINITION = {
           "When connecting from an exclusive/inclusive gateway, set this flow as the gateway's default flow (taken when no condition matches).",
       },
     },
-    required: ['diagramId', 'sourceElementId', 'targetElementId'],
+    required: ['diagramId'],
   },
 } as const;

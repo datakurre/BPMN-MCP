@@ -9,9 +9,9 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 import { handleCreateDiagram } from './create-diagram';
 import { handleAddElement } from './add-element';
-import { handleConnect } from './connect';
+import { handleConnect, handleAutoConnect, handleCreateDataAssociation } from './connect';
 import { handleDeleteElement } from './delete-element';
-import { handleMoveElement } from './move-element';
+import { handleMoveElement, handleMoveToLane } from './move-element';
 import { handleGetProperties } from './get-properties';
 import { handleExportBpmn } from './export';
 import { handleListElements } from './list-elements';
@@ -29,32 +29,28 @@ import { handleSetFormData } from './set-form-data';
 import { handleLayoutDiagram } from './layout-diagram';
 import { handleSetCamundaErrorEventDefinition } from './set-camunda-error';
 import { handleSetLoopCharacteristics } from './set-loop-characteristics';
-import { handleLintDiagram } from './lint';
 import { handleAdjustLabels } from './adjust-labels-handler';
-import { handleExportSubprocess } from './export-subprocess';
 import { handleSetScript } from './set-script';
-import { handleCreateDataAssociation } from './create-data-association';
 import { handleCreateCollaboration } from './create-collaboration';
-import { handleUndoChange } from './undo';
-import { handleRedoChange } from './redo';
+import { handleBpmnHistory, handleUndoChange, handleRedoChange } from './undo';
 import { handleDiffDiagrams } from './diff-diagrams';
 import { handleBatchOperations } from './batch-operations';
 import { handleResizeElement } from './resize-element';
 import { handleSetCamundaListeners } from './set-camunda-listeners';
 import { handleSetCallActivityVariables } from './set-call-activity-variables';
 import { handleManageRootElements } from './manage-root-elements';
-import { handleSearchElements } from './search-elements';
-import { handleAutoConnect } from './auto-connect';
 import { handleDuplicateElement } from './duplicate-element';
-import { handleMoveToLane } from './move-to-lane';
 
 // Re-export every handler so existing imports keep working
 export {
   handleCreateDiagram,
   handleAddElement,
   handleConnect,
+  handleAutoConnect,
+  handleCreateDataAssociation,
   handleDeleteElement,
   handleMoveElement,
+  handleMoveToLane,
   handleGetProperties,
   handleExportBpmn,
   handleListElements,
@@ -72,12 +68,10 @@ export {
   handleLayoutDiagram,
   handleSetCamundaErrorEventDefinition,
   handleSetLoopCharacteristics,
-  handleLintDiagram,
   handleAdjustLabels,
-  handleExportSubprocess,
   handleSetScript,
-  handleCreateDataAssociation,
   handleCreateCollaboration,
+  handleBpmnHistory,
   handleUndoChange,
   handleRedoChange,
   handleDiffDiagrams,
@@ -86,11 +80,14 @@ export {
   handleSetCamundaListeners,
   handleSetCallActivityVariables,
   handleManageRootElements,
-  handleSearchElements,
-  handleAutoConnect,
   handleDuplicateElement,
-  handleMoveToLane,
 };
+
+// Backward-compat aliases for removed tool names
+const handleLintDiagram = handleValidate;
+const handleSearchElements = handleListElements;
+const handleExportSubprocess = handleExportBpmn;
+export { handleLintDiagram, handleSearchElements, handleExportSubprocess };
 
 // ── Dispatch map ───────────────────────────────────────────────────────────
 //
@@ -114,29 +111,22 @@ const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
   align_bpmn_elements: handleAlignElements,
   distribute_bpmn_elements: handleDistributeElements,
   layout_bpmn_diagram: handleLayoutDiagram,
-  lint_bpmn_diagram: handleLintDiagram,
   adjust_bpmn_labels: handleAdjustLabels,
   set_bpmn_input_output_mapping: handleSetInputOutput,
   set_bpmn_event_definition: handleSetEventDefinition,
   set_bpmn_form_data: handleSetFormData,
   set_bpmn_camunda_error: handleSetCamundaErrorEventDefinition,
   set_bpmn_loop_characteristics: handleSetLoopCharacteristics,
-  export_bpmn_subprocess: handleExportSubprocess,
   set_bpmn_script: handleSetScript,
-  create_bpmn_data_association: handleCreateDataAssociation,
   create_bpmn_collaboration: handleCreateCollaboration,
-  undo_bpmn_change: handleUndoChange,
-  redo_bpmn_change: handleRedoChange,
+  bpmn_history: handleBpmnHistory,
   diff_bpmn_diagrams: handleDiffDiagrams,
   batch_bpmn_operations: handleBatchOperations,
   resize_bpmn_element: handleResizeElement,
   set_bpmn_camunda_listeners: handleSetCamundaListeners,
   set_bpmn_call_activity_variables: handleSetCallActivityVariables,
   manage_bpmn_root_elements: handleManageRootElements,
-  search_bpmn_elements: handleSearchElements,
-  auto_connect_bpmn_elements: handleAutoConnect,
   duplicate_bpmn_element: handleDuplicateElement,
-  move_to_bpmn_lane: handleMoveToLane,
 };
 
 /** Route a CallTool request to the correct handler. */
