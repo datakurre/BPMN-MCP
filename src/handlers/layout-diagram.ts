@@ -19,9 +19,10 @@ import { elkLayout, elkLayoutSubset } from '../elk-layout';
 export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<ToolResult> {
   const { diagramId, direction, nodeSpacing, layerSpacing, scopeElementId } = args;
   const elementIds = (args as any).elementIds as string[] | undefined;
+  const gridSnap = (args as any).gridSnap as number | undefined;
   const diagram = requireDiagram(diagramId);
 
-  let layoutResult: { crossingFlows?: number };
+  let layoutResult: { crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> };
 
   if (elementIds && elementIds.length > 0) {
     // Partial re-layout: only specified elements
@@ -39,6 +40,26 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
       scopeElementId,
     });
   }
+
+  // Optional grid snapping after layout
+  if (gridSnap && gridSnap > 0) {
+    const elementRegistry = diagram.modeler.get('elementRegistry');
+    const modeling = diagram.modeler.get('modeling');
+    const visibleElements = getVisibleElements(elementRegistry).filter(
+      (el: any) =>
+        !el.type.includes('SequenceFlow') &&
+        !el.type.includes('MessageFlow') &&
+        !el.type.includes('Association')
+    );
+    for (const el of visibleElements) {
+      const snappedX = Math.round(el.x / gridSnap) * gridSnap;
+      const snappedY = Math.round(el.y / gridSnap) * gridSnap;
+      if (snappedX !== el.x || snappedY !== el.y) {
+        modeling.moveElements([el], { x: snappedX - el.x, y: snappedY - el.y });
+      }
+    }
+  }
+
   await syncXml(diagram);
 
   const elementRegistry = diagram.modeler.get('elementRegistry');
@@ -55,14 +76,18 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
   const labelsMoved = await adjustDiagramLabels(diagram);
   const flowLabelsMoved = await adjustFlowLabels(diagram);
 
+  const crossingCount = layoutResult.crossingFlows ?? 0;
+  const crossingPairs = layoutResult.crossingFlowPairs ?? [];
+
   const result = jsonResult({
     success: true,
     elementCount: elementIds ? elementIds.length : elements.length,
     labelsMoved: labelsMoved + flowLabelsMoved,
-    ...(layoutResult.crossingFlows ? { crossingFlows: layoutResult.crossingFlows } : {}),
-    ...(layoutResult.crossingFlows
+    ...(crossingCount > 0
       ? {
-          warning: `${layoutResult.crossingFlows} crossing sequence flow(s) detected — consider restructuring the process`,
+          crossingFlows: crossingCount,
+          crossingFlowPairs: crossingPairs,
+          warning: `${crossingCount} crossing sequence flow(s) detected — consider restructuring the process`,
         }
       : {}),
     message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''} — ${elementIds ? elementIds.length : elements.length} elements arranged`,
@@ -102,6 +127,11 @@ export const TOOL_DEFINITION = {
         items: { type: 'string' },
         description:
           'Optional list of element IDs for partial re-layout. Only these elements and their inter-connections are arranged, leaving the rest of the diagram unchanged.',
+      },
+      gridSnap: {
+        type: 'number',
+        description:
+          'Optional grid size in pixels to snap element positions to after layout (e.g. 10). Reduces near-overlaps and improves visual consistency. Off by default.',
       },
     },
     required: ['diagramId'],

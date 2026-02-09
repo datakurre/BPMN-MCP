@@ -844,7 +844,7 @@ export interface ElkLayoutOptions {
 export async function elkLayout(
   diagram: DiagramState,
   options?: ElkLayoutOptions
-): Promise<{ crossingFlows?: number }> {
+): Promise<{ crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> }> {
   // Dynamic import — elkjs is externalized in esbuild
   const ELK = (await import('elkjs')).default;
   const elk = new ELK();
@@ -934,9 +934,12 @@ export async function elkLayout(
   snapAllConnectionsOrthogonal(elementRegistry, modeling);
 
   // Step 6: Detect crossing sequence flows for diagnostics
-  const crossingFlows = detectCrossingFlows(elementRegistry);
+  const crossingFlowsResult = detectCrossingFlows(elementRegistry);
 
-  return { crossingFlows };
+  return {
+    crossingFlows: crossingFlowsResult.count,
+    crossingFlowPairs: crossingFlowsResult.pairs,
+  };
 }
 
 // ── Partial (subset) layout ────────────────────────────────────────────────
@@ -953,7 +956,7 @@ export async function elkLayoutSubset(
   diagram: DiagramState,
   elementIds: string[],
   options?: Omit<ElkLayoutOptions, 'scopeElementId'>
-): Promise<{ crossingFlows?: number }> {
+): Promise<{ crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> }> {
   const ELK = (await import('elkjs')).default;
   const elk = new ELK();
 
@@ -1072,18 +1075,24 @@ function segmentsIntersect(
   return false;
 }
 
+/** Result of crossing flow detection: count + pairs of crossing flow IDs. */
+export interface CrossingFlowsResult {
+  count: number;
+  pairs: Array<[string, string]>;
+}
+
 /**
  * Detect crossing sequence flows after layout.
  *
  * Checks all pairs of connections for segment intersections and returns
- * the count of crossing pairs.
+ * the count of crossing pairs along with their IDs.
  */
-function detectCrossingFlows(elementRegistry: any): number {
+function detectCrossingFlows(elementRegistry: any): CrossingFlowsResult {
   const connections = elementRegistry.filter(
     (el: any) => isConnection(el.type) && el.waypoints && el.waypoints.length >= 2
   );
 
-  let crossings = 0;
+  const pairs: Array<[string, string]> = [];
 
   for (let i = 0; i < connections.length; i++) {
     for (let j = i + 1; j < connections.length; j++) {
@@ -1094,7 +1103,7 @@ function detectCrossingFlows(elementRegistry: any): number {
       for (let a = 0; a < wpsA.length - 1 && !found; a++) {
         for (let b = 0; b < wpsB.length - 1 && !found; b++) {
           if (segmentsIntersect(wpsA[a], wpsA[a + 1], wpsB[b], wpsB[b + 1])) {
-            crossings++;
+            pairs.push([connections[i].id, connections[j].id]);
             found = true;
           }
         }
@@ -1102,5 +1111,5 @@ function detectCrossingFlows(elementRegistry: any): number {
     }
   }
 
-  return crossings;
+  return { count: pairs.length, pairs };
 }
