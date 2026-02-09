@@ -15,14 +15,15 @@
  * 2. Resize compound nodes to ELK-computed sizes → resizeCompoundNodes()
  * 3. Fix stranded boundary events → repositionBoundaryEvents()
  * 4. Snap same-layer elements to common Y → snapSameLayerElements()
- * 5. Reposition artifacts → repositionArtifacts()
- * 6. Apply ELK edge sections as waypoints → applyElkEdgeRoutes()
- * 7. Final orthogonal snap → snapAllConnectionsOrthogonal()
- * 8. Detect crossing flows → detectCrossingFlows()
+ * 5. Grid snap pass (uniform columns + vertical spacing) → gridSnapPass()
+ * 6. Reposition artifacts → repositionArtifacts()
+ * 7. Apply ELK edge sections as waypoints → applyElkEdgeRoutes()
+ * 8. Final orthogonal snap → snapAllConnectionsOrthogonal()
+ * 9. Detect crossing flows → detectCrossingFlows()
  */
 
 import type { DiagramState } from './types';
-import { STANDARD_BPMN_GAP } from './constants';
+import { ELK_LAYER_SPACING, ELK_NODE_SPACING, ELK_EDGE_NODE_SPACING } from './constants';
 import type { ElkNode, ElkExtendedEdge, ElkEdgeSection, LayoutOptions } from 'elkjs';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -31,8 +32,9 @@ import type { ElkNode, ElkExtendedEdge, ElkEdgeSection, LayoutOptions } from 'el
 const ELK_LAYOUT_OPTIONS: LayoutOptions = {
   'elk.algorithm': 'layered',
   'elk.direction': 'RIGHT',
-  'elk.spacing.nodeNode': String(STANDARD_BPMN_GAP),
-  'elk.layered.spacing.nodeNodeBetweenLayers': String(STANDARD_BPMN_GAP),
+  'elk.spacing.nodeNode': String(ELK_NODE_SPACING),
+  'elk.layered.spacing.nodeNodeBetweenLayers': String(ELK_LAYER_SPACING),
+  'elk.spacing.edgeNode': String(ELK_EDGE_NODE_SPACING),
   'elk.edgeRouting': 'ORTHOGONAL',
   'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
@@ -51,7 +53,7 @@ const CONTAINER_PADDING = '[top=50,left=20,bottom=20,right=20]';
 const PARTICIPANT_PADDING = '[top=50,left=50,bottom=20,right=20]';
 
 /** Offset from origin so the diagram has comfortable breathing room. */
-const ORIGIN_OFFSET_X = 150;
+const ORIGIN_OFFSET_X = 180;
 const ORIGIN_OFFSET_Y = 80;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -325,8 +327,8 @@ function snapSameLayerElements(elementRegistry: any, modeling: any): void {
   if (shapes.length < 2) return;
 
   // Group by approximate x-centre (same ELK layer = same x column).
-  // Elements within STANDARD_BPMN_GAP/2 of each other are in the same layer.
-  const layerThreshold = STANDARD_BPMN_GAP / 2;
+  // Elements within ELK_LAYER_SPACING/2 of each other are in the same layer.
+  const layerThreshold = ELK_LAYER_SPACING / 2;
   const sorted = [...shapes].sort(
     (a: any, b: any) => a.x + (a.width || 0) / 2 - (b.x + (b.width || 0) / 2)
   );
@@ -881,6 +883,347 @@ function detectHappyPath(allElements: any[]): Set<string> {
   return happyEdgeIds;
 }
 
+// ── Post-ELK grid snap pass ───────────────────────────────────────────────
+
+/**
+ * Detected layer: a group of elements sharing approximately the same
+ * x-centre, representing one ELK column.
+ */
+interface GridLayer {
+  /** Elements in this layer. */
+  elements: any[];
+  /** Leftmost x of any element in the layer. */
+  minX: number;
+  /** Rightmost edge (x + width) of any element in the layer. */
+  maxRight: number;
+  /** Maximum element width in this layer. */
+  maxWidth: number;
+}
+
+/**
+ * Detect discrete layers (columns) from element x-positions.
+ *
+ * After ELK positioning and snapSameLayerElements(), elements in the
+ * same ELK layer share approximately the same x-centre.  This function
+ * groups them into discrete layers by clustering x-centres.
+ *
+ * Only considers direct children of the given container (or the root
+ * process when no container is given).  This prevents mixing elements
+ * from different nesting levels (e.g. subprocess internals with top-level
+ * elements), which would cause cascading moves via modeling.moveElements.
+ */
+function detectLayers(elementRegistry: any, container?: any): GridLayer[] {
+  // When no container is specified, find the root process element so we
+  // only include its direct children — not children of subprocesses.
+  let parentFilter: any = container;
+  if (!parentFilter) {
+    parentFilter = elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+    )[0];
+  }
+  // If no root found (shouldn't happen), fall back to including all elements
+  if (!parentFilter) {
+    const shapes = elementRegistry.filter(
+      (el: any) =>
+        !isInfrastructure(el.type) &&
+        !isConnection(el.type) &&
+        !isArtifact(el.type) &&
+        !isLane(el.type) &&
+        el.type !== 'bpmn:BoundaryEvent' &&
+        el.type !== 'label' &&
+        el.type !== 'bpmn:Participant'
+    );
+    return shapes.length === 0 ? [] : clusterIntoLayers(shapes);
+  }
+
+  const shapes = elementRegistry.filter(
+    (el: any) =>
+      !isInfrastructure(el.type) &&
+      !isConnection(el.type) &&
+      !isArtifact(el.type) &&
+      !isLane(el.type) &&
+      el.type !== 'bpmn:BoundaryEvent' &&
+      el.type !== 'label' &&
+      el.type !== 'bpmn:Participant' &&
+      el.parent === parentFilter
+  );
+
+  return shapes.length === 0 ? [] : clusterIntoLayers(shapes);
+}
+
+/** Cluster shapes into layers by x-centre proximity. */
+function clusterIntoLayers(shapes: any[]): GridLayer[] {
+  // Sort by x-centre
+  const sorted = [...shapes].sort(
+    (a: any, b: any) => a.x + (a.width || 0) / 2 - (b.x + (b.width || 0) / 2)
+  );
+
+  // Cluster into layers: elements within layerThreshold of the first
+  // element in the current cluster are in the same layer.
+  const layerThreshold = ELK_LAYER_SPACING / 2;
+  const layers: GridLayer[] = [];
+  let currentGroup: any[] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevCx = currentGroup[0].x + (currentGroup[0].width || 0) / 2;
+    const currCx = sorted[i].x + (sorted[i].width || 0) / 2;
+    if (Math.abs(currCx - prevCx) <= layerThreshold) {
+      currentGroup.push(sorted[i]);
+    } else {
+      layers.push(buildLayer(currentGroup));
+      currentGroup = [sorted[i]];
+    }
+  }
+  layers.push(buildLayer(currentGroup));
+
+  return layers;
+}
+
+function buildLayer(elements: any[]): GridLayer {
+  let minX = Infinity;
+  let maxRight = -Infinity;
+  let maxWidth = 0;
+  for (const el of elements) {
+    const x = el.x;
+    const right = x + (el.width || 0);
+    const w = el.width || 0;
+    if (x < minX) minX = x;
+    if (right > maxRight) maxRight = right;
+    if (w > maxWidth) maxWidth = w;
+  }
+  return { elements, minX, maxRight, maxWidth };
+}
+
+/**
+ * Post-ELK grid snap pass.
+ *
+ * Quantises node coordinates to a virtual grid after ELK positioning,
+ * combining ELK's optimal topology with bpmn-auto-layout's visual
+ * regularity.
+ *
+ * Steps:
+ * 1. Detect discrete layers (columns) from element x-positions.
+ * 2. Snap layers to uniform x-columns with consistent gap.
+ * 3. Distribute elements uniformly within each layer (vertical).
+ * 4. Centre gateways on their connected branches.
+ * 5. Preserve happy-path row (pin happy-path elements, distribute others).
+ */
+function gridSnapPass(
+  elementRegistry: any,
+  modeling: any,
+  happyPathEdgeIds?: Set<string>,
+  container?: any
+): void {
+  const layers = detectLayers(elementRegistry, container);
+  if (layers.length < 2) return;
+
+  // Determine happy-path element IDs from the happy-path edges
+  const happyPathNodeIds = new Set<string>();
+  if (happyPathEdgeIds && happyPathEdgeIds.size > 0) {
+    const allElements: any[] = elementRegistry.getAll();
+    for (const el of allElements) {
+      if (isConnection(el.type) && happyPathEdgeIds.has(el.id)) {
+        if (el.source) happyPathNodeIds.add(el.source.id);
+        if (el.target) happyPathNodeIds.add(el.target.id);
+      }
+    }
+  }
+
+  // ── Step 1: Snap layers to uniform x-columns ──
+  // Compute uniform column x-positions: each layer starts at
+  // previous_layer_right_edge + gap.
+  const gap = ELK_LAYER_SPACING;
+  let columnX = layers[0].minX; // First layer stays at its current position
+
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i];
+
+    if (i > 0) {
+      // Uniform column x = previous layer right edge + gap
+      columnX = layers[i - 1].maxRight + gap;
+    }
+
+    // Centre each element in the column based on the max width
+    for (const el of layer.elements) {
+      const elW = el.width || 0;
+      const desiredX = columnX + (layer.maxWidth - elW) / 2;
+      const dx = Math.round(desiredX) - el.x;
+      if (Math.abs(dx) > 0.5) {
+        modeling.moveElements([el], { x: dx, y: 0 });
+      }
+    }
+
+    // Update layer bounds after moving
+    let newMinX = Infinity;
+    let newMaxRight = -Infinity;
+    for (const el of layer.elements) {
+      const updated = elementRegistry.get(el.id);
+      if (updated.x < newMinX) newMinX = updated.x;
+      const right = updated.x + (updated.width || 0);
+      if (right > newMaxRight) newMaxRight = right;
+    }
+    layers[i] = { ...layer, minX: newMinX, maxRight: newMaxRight };
+  }
+
+  // ── Step 2: Uniform vertical spacing within layers ──
+  const nodeSpacing = ELK_NODE_SPACING;
+
+  for (const layer of layers) {
+    if (layer.elements.length < 2) continue;
+
+    // Sort by current Y
+    const sorted = [...layer.elements].sort((a: any, b: any) => a.y - b.y);
+
+    // Identify happy-path elements in this layer
+    const happyEls = sorted.filter((el: any) => happyPathNodeIds.has(el.id));
+    const nonHappyEls = sorted.filter((el: any) => !happyPathNodeIds.has(el.id));
+
+    // If there's a happy-path element, pin it and distribute others around it
+    if (happyEls.length > 0 && nonHappyEls.length > 0) {
+      // Pin the first happy-path element's Y as the reference
+      const pinnedY = happyEls[0].y + (happyEls[0].height || 0) / 2;
+
+      // Sort non-happy elements into above and below the pinned element
+      const above = nonHappyEls.filter((el: any) => el.y + (el.height || 0) / 2 < pinnedY);
+      const below = nonHappyEls.filter((el: any) => el.y + (el.height || 0) / 2 >= pinnedY);
+
+      // Distribute above elements upward from the pinned position
+      let nextY = pinnedY - (happyEls[0].height || 0) / 2 - nodeSpacing;
+      for (let i = above.length - 1; i >= 0; i--) {
+        const el = above[i];
+        const elH = el.height || 0;
+        const desiredY = nextY - elH;
+        const dy = Math.round(desiredY) - el.y;
+        if (Math.abs(dy) > 0.5) {
+          modeling.moveElements([el], { x: 0, y: dy });
+        }
+        nextY = desiredY - nodeSpacing;
+      }
+
+      // Distribute below elements downward from the pinned position
+      nextY = pinnedY + (happyEls[0].height || 0) / 2 + nodeSpacing;
+      for (const el of below) {
+        const desiredY = nextY;
+        const dy = Math.round(desiredY) - el.y;
+        if (Math.abs(dy) > 0.5) {
+          modeling.moveElements([el], { x: 0, y: dy });
+        }
+        nextY = desiredY + (el.height || 0) + nodeSpacing;
+      }
+    } else {
+      // No happy path — just distribute uniformly
+      // Compute the vertical centre of the group
+      const totalHeight = sorted.reduce((sum: number, el: any) => sum + (el.height || 0), 0);
+      const totalGaps = (sorted.length - 1) * nodeSpacing;
+      const groupHeight = totalHeight + totalGaps;
+      const currentCentreY =
+        (sorted[0].y + sorted[sorted.length - 1].y + (sorted[sorted.length - 1].height || 0)) / 2;
+      let startY = currentCentreY - groupHeight / 2;
+
+      for (const el of sorted) {
+        const dy = Math.round(startY) - el.y;
+        if (Math.abs(dy) > 0.5) {
+          modeling.moveElements([el], { x: 0, y: dy });
+        }
+        startY += (el.height || 0) + nodeSpacing;
+      }
+    }
+  }
+
+  // ── Step 3: Centre gateways on their connected branches ──
+  // Skip gateways that are on the happy path to preserve straightness.
+  centreGatewaysOnBranches(elementRegistry, modeling, happyPathNodeIds);
+}
+
+/**
+ * After grid snapping, re-centre gateways vertically to the midpoint
+ * of their connected elements.  This matches bpmn-auto-layout's behaviour
+ * where split/join gateways sit at the visual centre of their branches.
+ *
+ * Skips gateways on the happy path to avoid breaking row alignment.
+ */
+function centreGatewaysOnBranches(
+  elementRegistry: any,
+  modeling: any,
+  happyPathNodeIds: Set<string>
+): void {
+  const gateways = elementRegistry.filter((el: any) => el.type?.includes('Gateway'));
+
+  for (const gw of gateways) {
+    // Skip gateways on the happy path to preserve row alignment
+    if (happyPathNodeIds.has(gw.id)) continue;
+
+    // Collect all directly connected elements (via outgoing + incoming flows)
+    const connectedYs: number[] = [];
+    const allElements: any[] = elementRegistry.getAll();
+
+    for (const el of allElements) {
+      if (!isConnection(el.type)) continue;
+      if (el.source?.id === gw.id && el.target) {
+        connectedYs.push(el.target.y + (el.target.height || 0) / 2);
+      }
+      if (el.target?.id === gw.id && el.source) {
+        connectedYs.push(el.source.y + (el.source.height || 0) / 2);
+      }
+    }
+
+    if (connectedYs.length < 2) continue;
+
+    const minY = Math.min(...connectedYs);
+    const maxY = Math.max(...connectedYs);
+    const midY = (minY + maxY) / 2;
+    const gwCy = gw.y + (gw.height || 0) / 2;
+
+    const dy = Math.round(midY - gwCy);
+    if (Math.abs(dy) > 2) {
+      modeling.moveElements([gw], { x: 0, y: dy });
+    }
+  }
+}
+
+/**
+ * Recursively run gridSnapPass inside expanded subprocesses.
+ *
+ * Expanded subprocesses are compound nodes whose children are laid out
+ * by ELK internally.  The grid snap pass must run separately within each
+ * expanded subprocess (scoped to its direct children) to avoid mixing
+ * nesting levels.
+ */
+function gridSnapExpandedSubprocesses(
+  elementRegistry: any,
+  modeling: any,
+  happyPathEdgeIds?: Set<string>,
+  container?: any
+): void {
+  // Find expanded subprocesses that are direct children of the given container
+  const parentFilter =
+    container ||
+    elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+    )[0];
+  if (!parentFilter) return;
+
+  const expandedSubs = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:SubProcess' &&
+      el.parent === parentFilter &&
+      // Only expanded subprocesses (those with layoutable children)
+      elementRegistry.filter(
+        (child: any) =>
+          child.parent === el &&
+          !isInfrastructure(child.type) &&
+          !isConnection(child.type) &&
+          child.type !== 'bpmn:BoundaryEvent'
+      ).length > 0
+  );
+
+  for (const sub of expandedSubs) {
+    gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, sub);
+    // Recurse into nested subprocesses
+    gridSnapExpandedSubprocesses(elementRegistry, modeling, happyPathEdgeIds, sub);
+  }
+}
+
 // ── Main entry point ───────────────────────────────────────────────────────
 
 /** Optional parameters for ELK layout. */
@@ -892,6 +1235,13 @@ export interface ElkLayoutOptions {
   scopeElementId?: string;
   /** Pin the main (happy) path to a single row for visual clarity. */
   preserveHappyPath?: boolean;
+  /**
+   * Enable post-ELK grid snap pass (default: true).
+   * When true, quantises node positions to a virtual grid for visual
+   * regularity matching bpmn-auto-layout's aesthetic.
+   * When false, preserves pure ELK positioning.
+   */
+  gridSnap?: boolean;
 }
 
 /**
@@ -906,9 +1256,10 @@ export interface ElkLayoutOptions {
  * 2. Run ELK layout (node positions + edge routes)
  * 3. Apply node positions via `modeling.moveElements`
  * 4. Snap same-layer elements to common Y (vertical alignment)
- * 5. Apply ELK edge sections as connection waypoints (bypasses
+ * 5. Post-ELK grid snap pass (uniform columns + vertical spacing)
+ * 6. Apply ELK edge sections as connection waypoints (bypasses
  *    bpmn-js ManhattanLayout entirely for ELK-routed edges)
- * 6. Detect crossing flows and report count
+ * 7. Detect crossing flows and report count
  */
 export async function elkLayout(
   diagram: DiagramState,
@@ -1018,20 +1369,41 @@ export async function elkLayout(
   // Step 4: Snap same-layer elements to common Y (fixes 5–10 px offsets)
   snapSameLayerElements(elementRegistry, modeling);
 
-  // Step 5: Reposition artifacts (data objects, data stores, annotations)
+  // Step 5: Post-ELK grid snap pass — quantises node positions to a
+  // virtual grid for visual regularity.  Runs independently within each
+  // participant for collaboration diagrams, and recursively for expanded
+  // subprocesses.
+  const shouldGridSnap = options?.gridSnap !== false;
+  if (shouldGridSnap) {
+    // For collaborations, run grid snap within each participant
+    const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+    if (participants.length > 0) {
+      for (const participant of participants) {
+        gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, participant);
+        // Also run within expanded subprocesses inside this participant
+        gridSnapExpandedSubprocesses(elementRegistry, modeling, happyPathEdgeIds, participant);
+      }
+    } else {
+      gridSnapPass(elementRegistry, modeling, happyPathEdgeIds);
+      // Also run within expanded subprocesses at the root level
+      gridSnapExpandedSubprocesses(elementRegistry, modeling, happyPathEdgeIds);
+    }
+  }
+
+  // Step 6: Reposition artifacts (data objects, data stores, annotations)
   // outside the main flow — they were excluded from the ELK graph.
   repositionArtifacts(elementRegistry, modeling);
 
-  // Step 6: Apply ELK edge routes as waypoints (orthogonal, no diagonals).
+  // Step 7: Apply ELK edge routes as waypoints (orthogonal, no diagonals).
   // Uses ELK's own edge sections instead of bpmn-js ManhattanLayout,
   // eliminating diagonals, S-curves, and gateway routing interference.
   applyElkEdgeRoutes(elementRegistry, modeling, result, offsetX, offsetY);
 
-  // Step 7: Final orthogonal snap pass on ALL connections.
+  // Step 8: Final orthogonal snap pass on ALL connections.
   // Catches residual near-diagonal segments from ELK rounding or fallback routing.
   snapAllConnectionsOrthogonal(elementRegistry, modeling);
 
-  // Step 8: Detect crossing sequence flows for diagnostics
+  // Step 9: Detect crossing sequence flows for diagnostics
   const crossingFlowsResult = detectCrossingFlows(elementRegistry);
 
   return {

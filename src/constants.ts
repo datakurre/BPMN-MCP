@@ -9,6 +9,18 @@
 export const STANDARD_BPMN_GAP = 50;
 
 /**
+ * ELK-specific spacing constants.
+ *
+ * These are tuned for visual spaciousness matching bpmn-auto-layout's
+ * 150×140 px grid cells while preserving ELK's structural advantages.
+ * Kept separate from STANDARD_BPMN_GAP which is used for auto-positioning
+ * in add-element.ts and connection routing fallbacks.
+ */
+export const ELK_LAYER_SPACING = 100;
+export const ELK_NODE_SPACING = 80;
+export const ELK_EDGE_NODE_SPACING = 25;
+
+/**
  * Default element sizes used for layout calculations.
  *
  * These mirror the bpmn-js defaults for each element category.

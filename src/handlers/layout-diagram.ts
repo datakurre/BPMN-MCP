@@ -20,7 +20,11 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
   const { diagramId, direction, nodeSpacing, layerSpacing, scopeElementId, preserveHappyPath } =
     args;
   const elementIds = (args as any).elementIds as string[] | undefined;
-  const gridSnap = (args as any).gridSnap as number | undefined;
+  const rawGridSnap = (args as any).gridSnap;
+  // gridSnap can be a boolean (enable/disable ELK grid snap pass)
+  // or a number (pixel-level snapping after layout)
+  const elkGridSnap = typeof rawGridSnap === 'boolean' ? rawGridSnap : undefined;
+  const pixelGridSnap = typeof rawGridSnap === 'number' ? rawGridSnap : undefined;
   const diagram = requireDiagram(diagramId);
 
   let layoutResult: { crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> };
@@ -40,11 +44,12 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
       layerSpacing,
       scopeElementId,
       preserveHappyPath,
+      gridSnap: elkGridSnap,
     });
   }
 
-  // Optional grid snapping after layout
-  if (gridSnap && gridSnap > 0) {
+  // Optional pixel-level grid snapping after layout
+  if (pixelGridSnap && pixelGridSnap > 0) {
     const elementRegistry = diagram.modeler.get('elementRegistry');
     const modeling = diagram.modeler.get('modeling');
     const visibleElements = getVisibleElements(elementRegistry).filter(
@@ -54,8 +59,8 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
         !el.type.includes('Association')
     );
     for (const el of visibleElements) {
-      const snappedX = Math.round(el.x / gridSnap) * gridSnap;
-      const snappedY = Math.round(el.y / gridSnap) * gridSnap;
+      const snappedX = Math.round(el.x / pixelGridSnap) * pixelGridSnap;
+      const snappedY = Math.round(el.y / pixelGridSnap) * pixelGridSnap;
       if (snappedX !== el.x || snappedY !== el.y) {
         modeling.moveElements([el], { x: snappedX - el.x, y: snappedY - el.y });
       }
@@ -113,11 +118,11 @@ export const TOOL_DEFINITION = {
       },
       nodeSpacing: {
         type: 'number',
-        description: 'Spacing in pixels between nodes in the same layer (default: 50).',
+        description: 'Spacing in pixels between nodes in the same layer (default: 80).',
       },
       layerSpacing: {
         type: 'number',
-        description: 'Spacing in pixels between layers (default: 50).',
+        description: 'Spacing in pixels between layers (default: 100).',
       },
       scopeElementId: {
         type: 'string',
