@@ -31,6 +31,37 @@ MCP server that lets AI assistants create and manipulate BPMN 2.0 workflow diagr
 
 **To create a new diagram**, use `create_bpmn_diagram`, build it with `add_bpmn_element` / `connect_bpmn_elements`, then `export_bpmn` to get the XML.
 
+### BPMN Modeling Best Practices
+
+Follow these conventions when creating BPMN diagrams:
+
+- **Model left-to-right** — avoid flows that go backwards (right-to-left).
+- **Name every element** — use human-readable business language, not technical identifiers.
+- **Naming conventions**:
+  - Tasks: verb + object (`"Process Order"`, `"Send Invoice"`).
+  - Events: object + state (`"Order Received"`, `"Payment Completed"`).
+  - Exclusive/Inclusive gateways: yes/no question ending with `?` (`"Order valid?"`, `"Payment successful?"`). Label outgoing flows as answers.
+  - Don't name parallel gateways, joining gateways, or event-based gateways unless it adds meaning.
+- **Prefer explicit gateways** — don't use conditional flows directly out of tasks.
+- **Show start and end events explicitly** — required for executable processes.
+- **Avoid lanes by default** — use collaboration diagrams (separate pools + message flows) for role separation.
+- **Avoid retry loops in BPMN** — use engine-level retry mechanisms instead (job retries, external task backoff).
+- **Use receive tasks + boundary events for waiting** — for Operaton/Camunda 7, prefer a receive task with boundary timers/messages over event-based gateway patterns.
+- **Model the happy path first**, then add exceptions incrementally with boundary events and event subprocesses.
+
+See [docs/modeling-best-practices.md](docs/modeling-best-practices.md) for full guidance.
+
+### Layout Workflow
+
+For best results, follow this recommended workflow after structural changes:
+
+1. **Build structure** — `add_bpmn_element` / `connect_bpmn_elements` to create the flow.
+2. **Auto-layout** — `layout_bpmn_diagram` to arrange elements (use `elementIds` for partial re-layout, `scopeElementId` to scope to a pool/subprocess).
+3. **Fine-tune** — `align_bpmn_elements` (with `compact=true`) and `distribute_bpmn_elements` for alignment.
+4. **Fix labels** — `adjust_bpmn_labels` to resolve label overlaps.
+
+No separate "repair layout" tool is needed — chain these existing tools for fine-grained control.
+
 ## Available Tools (24)
 
 ### Core BPMN Tools
