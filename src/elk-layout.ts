@@ -64,6 +64,15 @@ function isInfrastructure(type: string): boolean {
   );
 }
 
+/** Check if an element type is an artifact (data object, data store, text annotation). */
+function isArtifact(type: string): boolean {
+  return (
+    type === 'bpmn:TextAnnotation' ||
+    type === 'bpmn:DataObjectReference' ||
+    type === 'bpmn:DataStoreReference'
+  );
+}
+
 // ── ELK graph building ─────────────────────────────────────────────────────
 
 /**
@@ -80,12 +89,13 @@ function buildContainerGraph(
   const edges: ElkExtendedEdge[] = [];
   const nodeIds = new Set<string>();
 
-  // Direct child shapes (skip connections, boundary events, infrastructure)
+  // Direct child shapes (skip connections, boundary events, infrastructure, artifacts)
   const childShapes = allElements.filter(
     (el: any) =>
       el.parent === container &&
       !isInfrastructure(el.type) &&
       !isConnection(el.type) &&
+      !isArtifact(el.type) &&
       el.type !== 'bpmn:BoundaryEvent'
   );
 
@@ -200,6 +210,7 @@ function snapSameLayerElements(elementRegistry: any, modeling: any): void {
     (el: any) =>
       !isInfrastructure(el.type) &&
       !isConnection(el.type) &&
+      !isArtifact(el.type) &&
       el.type !== 'bpmn:BoundaryEvent' &&
       el.type !== 'label'
   );
@@ -313,6 +324,52 @@ function collectElkEdges(
 }
 
 /**
+ * Build strictly orthogonal waypoints between two points.
+ *
+ * If the source and target share the same X or Y (within tolerance),
+ * a straight horizontal/vertical segment is used.  Otherwise, an L-shaped
+ * route is produced: horizontal first if the primary direction is
+ * left-to-right, vertical first otherwise.
+ */
+function buildOrthogonalWaypoints(
+  src: { x: number; y: number },
+  tgt: { x: number; y: number }
+): Array<{ x: number; y: number }> {
+  const dx = Math.abs(tgt.x - src.x);
+  const dy = Math.abs(tgt.y - src.y);
+
+  // Nearly aligned — straight segment
+  if (dx < 2) {
+    return [
+      { x: src.x, y: src.y },
+      { x: src.x, y: tgt.y },
+    ];
+  }
+  if (dy < 2) {
+    return [
+      { x: src.x, y: src.y },
+      { x: tgt.x, y: src.y },
+    ];
+  }
+
+  // L-shaped route: go horizontal from src, then vertical to tgt
+  if (dx >= dy) {
+    return [
+      { x: src.x, y: src.y },
+      { x: tgt.x, y: src.y },
+      { x: tgt.x, y: tgt.y },
+    ];
+  }
+
+  // Primarily vertical: go vertical first, then horizontal
+  return [
+    { x: src.x, y: src.y },
+    { x: src.x, y: tgt.y },
+    { x: tgt.x, y: tgt.y },
+  ];
+}
+
+/**
  * Apply ELK-computed orthogonal edge routes directly as bpmn-js waypoints.
  *
  * ELK returns edge sections with startPoint, endPoint, and optional
@@ -354,31 +411,212 @@ function applyElkEdgeRoutes(
       }
       waypoints.push({ x: ox + section.endPoint.x, y: oy + section.endPoint.y });
 
-      // Snap near-horizontal/vertical segments to strict orthogonal
+      // Snap near-horizontal/vertical segments to strict orthogonal.
+      // ELK can produce small offsets (up to ~8 px) due to node-size rounding
+      // and port placement, so we use a generous tolerance.
       for (let i = 1; i < waypoints.length; i++) {
         const prev = waypoints[i - 1];
         const curr = waypoints[i];
-        if (Math.abs(curr.y - prev.y) < 2) {
+        if (Math.abs(curr.y - prev.y) < 8) {
           curr.y = prev.y;
         }
-        if (Math.abs(curr.x - prev.x) < 2) {
+        if (Math.abs(curr.x - prev.x) < 8) {
           curr.x = prev.x;
         }
       }
 
       modeling.updateWaypoints(conn, waypoints);
     } else {
-      // Fallback: use bpmn-js ManhattanLayout for connections ELK didn't route
+      // Fallback: build orthogonal waypoints manually for connections
+      // that ELK didn't route (boundary events, cross-container flows).
       const src = conn.source;
       const tgt = conn.target;
       const srcMid = { x: src.x + (src.width || 0) / 2, y: src.y + (src.height || 0) / 2 };
       const tgtMid = { x: tgt.x + (tgt.width || 0) / 2, y: tgt.y + (tgt.height || 0) / 2 };
 
-      conn.waypoints = [srcMid, tgtMid];
-      modeling.layoutConnection(conn, {
-        connectionStart: srcMid,
-        connectionEnd: tgtMid,
-      });
+      const waypoints = buildOrthogonalWaypoints(srcMid, tgtMid);
+      modeling.updateWaypoints(conn, waypoints);
+    }
+  }
+}
+
+// ── Post-layout artifact repositioning ─────────────────────────────────────
+
+/** Default vertical offset (px) below the flow for data objects/stores. */
+const ARTIFACT_BELOW_OFFSET = 80;
+/** Default vertical offset (px) above the flow for text annotations. */
+const ARTIFACT_ABOVE_OFFSET = 80;
+
+/**
+ * Find the flow element linked to an artifact via an association.
+ */
+function findLinkedFlowElement(artifact: any, associations: any[]): any {
+  for (const assoc of associations) {
+    if (assoc.source?.id === artifact.id && assoc.target && !isArtifact(assoc.target.type)) {
+      return assoc.target;
+    }
+    if (assoc.target?.id === artifact.id && assoc.source && !isArtifact(assoc.source.type)) {
+      return assoc.source;
+    }
+  }
+  return null;
+}
+
+/**
+ * Compute desired position for an artifact element.
+ */
+function computeArtifactPosition(
+  artifact: any,
+  linkedElement: any,
+  flowMinY: number,
+  flowMaxY: number
+): { x: number; y: number } {
+  const w = artifact.width || 100;
+  const h = artifact.height || 30;
+  const isAnnotation = artifact.type === 'bpmn:TextAnnotation';
+
+  if (linkedElement) {
+    const linkCx = linkedElement.x + (linkedElement.width || 0) / 2;
+    const x = linkCx - w / 2;
+    const y = isAnnotation
+      ? linkedElement.y - h - ARTIFACT_ABOVE_OFFSET
+      : linkedElement.y + (linkedElement.height || 0) + ARTIFACT_BELOW_OFFSET;
+    return { x, y };
+  }
+
+  // Unlinked: place outside the flow bounding box
+  const y = isAnnotation ? flowMinY - h - ARTIFACT_ABOVE_OFFSET : flowMaxY + ARTIFACT_BELOW_OFFSET;
+  return { x: artifact.x, y };
+}
+
+/**
+ * Reposition artifact elements (DataObjectReference, DataStoreReference,
+ * TextAnnotation) relative to their associated flow elements.
+ *
+ * Artifacts are excluded from the ELK graph, so they stay at their
+ * original positions.  This pass moves them:
+ * - TextAnnotations above their linked element (via Association)
+ * - DataObjectReference / DataStoreReference below their linked element
+ *
+ * Unlinked artifacts are positioned below the flow bounding box.
+ */
+function repositionArtifacts(elementRegistry: any, modeling: any): void {
+  const artifacts = elementRegistry.filter((el: any) => isArtifact(el.type));
+  if (artifacts.length === 0) return;
+
+  const associations = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:Association' ||
+      el.type === 'bpmn:DataInputAssociation' ||
+      el.type === 'bpmn:DataOutputAssociation'
+  );
+
+  // Compute flow bounding box (for unlinked artifact fallback)
+  const flowElements = elementRegistry.filter(
+    (el: any) =>
+      el.type &&
+      !isInfrastructure(el.type) &&
+      !isConnection(el.type) &&
+      !isArtifact(el.type) &&
+      el.type !== 'bpmn:BoundaryEvent' &&
+      el.type !== 'label'
+  );
+  let flowMaxY = 200;
+  let flowMinY = Infinity;
+  for (const el of flowElements) {
+    const bottom = el.y + (el.height || 0);
+    if (bottom > flowMaxY) flowMaxY = bottom;
+    if (el.y < flowMinY) flowMinY = el.y;
+  }
+  if (flowMinY === Infinity) flowMinY = 80;
+
+  const occupiedRects: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+  for (const artifact of artifacts) {
+    const linkedElement = findLinkedFlowElement(artifact, associations);
+    const pos = computeArtifactPosition(artifact, linkedElement, flowMinY, flowMaxY);
+    const w = artifact.width || 100;
+    const h = artifact.height || 30;
+
+    // Avoid overlap with previously placed artifacts
+    for (const rect of occupiedRects) {
+      if (
+        pos.x < rect.x + rect.w &&
+        pos.x + w > rect.x &&
+        pos.y < rect.y + rect.h &&
+        pos.y + h > rect.y
+      ) {
+        pos.y = rect.y + rect.h + 20;
+      }
+    }
+
+    const dx = pos.x - artifact.x;
+    const dy = pos.y - artifact.y;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+      modeling.moveElements([artifact], { x: dx, y: dy });
+    }
+
+    occupiedRects.push({ x: pos.x, y: pos.y, w, h });
+  }
+}
+
+// ── Post-routing orthogonal snap ───────────────────────────────────────────
+
+/**
+ * Tolerance (px) for snapping near-orthogonal segments to strict orthogonal.
+ * Covers ELK rounding offsets and gateway port placement differences.
+ */
+const ORTHO_SNAP_TOLERANCE = 15;
+
+/**
+ * Final pass: snap all connection waypoints to strict orthogonal segments.
+ *
+ * After ELK routing + fallback routing, some segments may have small
+ * X or Y offsets (< ORTHO_SNAP_TOLERANCE) that appear diagonal.
+ * This pass snaps the smaller delta to zero, making each segment
+ * strictly horizontal or vertical.
+ *
+ * Mutates waypoint coordinates in-place on both the shape's `waypoints`
+ * array and the DI `waypoint` array, bypassing `modeling.updateWaypoints`
+ * to prevent bpmn-js BpmnLayouter from overriding snapped gateway routes.
+ */
+function snapAllConnectionsOrthogonal(elementRegistry: any): void {
+  const allConnections = elementRegistry.filter(
+    (el: any) => isConnection(el.type) && el.waypoints && el.waypoints.length >= 2
+  );
+
+  for (const conn of allConnections) {
+    const wps: Array<{ x: number; y: number }> = conn.waypoints;
+    let changed = false;
+
+    for (let i = 1; i < wps.length; i++) {
+      const prev = wps[i - 1];
+      const curr = wps[i];
+      const dx = Math.abs(curr.x - prev.x);
+      const dy = Math.abs(curr.y - prev.y);
+
+      // Skip already-orthogonal or truly diagonal segments (both deltas large)
+      if (dx < 1 || dy < 1) continue;
+      if (dx >= ORTHO_SNAP_TOLERANCE && dy >= ORTHO_SNAP_TOLERANCE) continue;
+
+      // Snap the smaller delta to zero
+      if (dx <= dy) {
+        curr.x = prev.x;
+      } else {
+        curr.y = prev.y;
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      // Sync DI waypoints in-place (they are existing moddle elements)
+      const diWps = conn.di?.waypoint;
+      if (diWps) {
+        for (let i = 0; i < wps.length && i < diWps.length; i++) {
+          diWps[i].x = wps[i].x;
+          diWps[i].y = wps[i].y;
+        }
+      }
     }
   }
 }
@@ -430,8 +668,16 @@ export async function elkLayout(diagram: DiagramState): Promise<void> {
   // Step 2: Snap same-layer elements to common Y (fixes 5–10 px offsets)
   snapSameLayerElements(elementRegistry, modeling);
 
-  // Step 3: Apply ELK edge routes as waypoints (orthogonal, no diagonals).
+  // Step 3: Reposition artifacts (data objects, data stores, annotations)
+  // outside the main flow — they were excluded from the ELK graph.
+  repositionArtifacts(elementRegistry, modeling);
+
+  // Step 4: Apply ELK edge routes as waypoints (orthogonal, no diagonals).
   // Uses ELK's own edge sections instead of bpmn-js ManhattanLayout,
   // eliminating diagonals, S-curves, and gateway routing interference.
   applyElkEdgeRoutes(elementRegistry, modeling, result, ORIGIN_OFFSET_X, ORIGIN_OFFSET_Y);
+
+  // Step 5: Final orthogonal snap pass on ALL connections.
+  // Catches residual near-diagonal segments from ELK rounding or fallback routing.
+  snapAllConnectionsOrthogonal(elementRegistry);
 }

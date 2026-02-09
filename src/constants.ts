@@ -19,6 +19,9 @@ export const ELEMENT_SIZES: Readonly<Record<string, { width: number; height: num
   gateway: { width: 50, height: 50 },
   subprocess: { width: 350, height: 200 },
   participant: { width: 600, height: 250 },
+  textAnnotation: { width: 100, height: 30 },
+  dataObject: { width: 36, height: 50 },
+  dataStore: { width: 50, height: 50 },
   default: { width: 100, height: 80 },
 };
 
@@ -56,6 +59,9 @@ export function getElementSize(elementType: string): { width: number; height: nu
   if (elementType.includes('Event')) return ELEMENT_SIZES.event;
   if (elementType === 'bpmn:SubProcess') return ELEMENT_SIZES.subprocess;
   if (elementType === 'bpmn:Participant') return ELEMENT_SIZES.participant;
+  if (elementType === 'bpmn:TextAnnotation') return ELEMENT_SIZES.textAnnotation;
+  if (elementType === 'bpmn:DataObjectReference') return ELEMENT_SIZES.dataObject;
+  if (elementType === 'bpmn:DataStoreReference') return ELEMENT_SIZES.dataStore;
   if (elementType.includes('Task') || elementType === 'bpmn:CallActivity') {
     return ELEMENT_SIZES.task;
   }

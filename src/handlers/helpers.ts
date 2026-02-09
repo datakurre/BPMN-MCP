@@ -167,6 +167,35 @@ export function buildConnectivityWarnings(elementRegistry: any): string[] {
       `💡 Tip: ${elements.length} elements with ${flows.length} flows - some elements may be disconnected.`
     );
   }
+
+  // Warn about orphaned artifacts (TextAnnotation, DataObjectReference, DataStoreReference)
+  const artifactTypes = new Set([
+    'bpmn:TextAnnotation',
+    'bpmn:DataObjectReference',
+    'bpmn:DataStoreReference',
+  ]);
+  const artifacts = elementRegistry.filter((el: any) => artifactTypes.has(el.type));
+  if (artifacts.length > 0) {
+    const associations = elementRegistry.filter(
+      (el: any) =>
+        el.type === 'bpmn:Association' ||
+        el.type === 'bpmn:DataInputAssociation' ||
+        el.type === 'bpmn:DataOutputAssociation'
+    );
+    const connectedIds = new Set<string>();
+    for (const assoc of associations) {
+      if (assoc.source) connectedIds.add(assoc.source.id);
+      if (assoc.target) connectedIds.add(assoc.target.id);
+    }
+    const orphaned = artifacts.filter((a: any) => !connectedIds.has(a.id));
+    if (orphaned.length > 0) {
+      const names = orphaned.map((a: any) => `${a.id} (${a.type.replace('bpmn:', '')})`).join(', ');
+      warnings.push(
+        `⚠️ Disconnected artifact(s): ${names}. Use connect_bpmn_elements (Association) or create_bpmn_data_association to link them.`
+      );
+    }
+  }
+
   return warnings;
 }
 

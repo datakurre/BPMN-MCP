@@ -314,11 +314,6 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     if (bestNudge) {
       modeling.moveShape(label, bestNudge);
       movedCount++;
-
-      // Adjust midpoint waypoints to better accommodate the label's new position.
-      // If the label was moved significantly perpendicular to the flow, nudge the
-      // nearest waypoint to create space.
-      adjustWaypointForLabel(modeling, flow, label, bestNudge);
     }
   }
 
@@ -327,50 +322,4 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
   }
 
   return movedCount;
-}
-
-/**
- * After a flow label is nudged, adjust the nearest interior waypoint
- * to create visual breathing room between the connection line and label.
- */
-function adjustWaypointForLabel(
-  modeling: any,
-  flow: any,
-  label: any,
-  nudge: { x: number; y: number }
-): void {
-  const waypoints = flow.waypoints;
-  if (!waypoints || waypoints.length < 3) return;
-
-  // Only adjust interior waypoints (not source/target anchors)
-  const labelCenterX = label.x + (label.width || 0) / 2;
-  const labelCenterY = label.y + (label.height || 0) / 2;
-
-  // Find the nearest interior waypoint
-  let nearestIdx = -1;
-  let nearestDist = Infinity;
-  for (let i = 1; i < waypoints.length - 1; i++) {
-    const dx = waypoints[i].x - labelCenterX;
-    const dy = waypoints[i].y - labelCenterY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < nearestDist) {
-      nearestDist = dist;
-      nearestIdx = i;
-    }
-  }
-
-  // Only nudge if the waypoint is close to the label (within 30px)
-  if (nearestIdx > 0 && nearestDist < 30) {
-    const smallNudge = { x: nudge.x * 0.3, y: nudge.y * 0.3 };
-    try {
-      const newWaypoints = waypoints.map((wp: any, idx: number) =>
-        idx === nearestIdx
-          ? { x: wp.x + smallNudge.x, y: wp.y + smallNudge.y }
-          : { x: wp.x, y: wp.y }
-      );
-      modeling.updateWaypoints(flow, newWaypoints);
-    } catch {
-      // Waypoint adjustment is best-effort
-    }
-  }
 }

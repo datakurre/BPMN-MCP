@@ -45,6 +45,42 @@ export function getBpmnModeler(): any {
   return BpmnModelerCtor;
 }
 
+// ── Text metric constants ──────────────────────────────────────────────────
+
+/** Approximate average character width in px for the default bpmn-js font. */
+const AVG_CHAR_WIDTH = 7;
+/** Approximate line height in px for the default bpmn-js font. */
+const LINE_HEIGHT = 14;
+/** Default line width for text wrapping estimation. */
+const DEFAULT_WRAP_WIDTH = 90;
+
+/**
+ * Estimate bounding box dimensions for a text/tspan SVG element based on
+ * its textContent.  Returns { width, height } proportional to character
+ * count and line breaks.
+ */
+function estimateTextBBox(textContent: string): { width: number; height: number } {
+  if (!textContent || textContent.trim().length === 0) {
+    return { width: 0, height: 0 };
+  }
+  const lines = textContent.split('\n');
+  const maxLineLen = Math.max(...lines.map((l) => l.length));
+  const rawWidth = maxLineLen * AVG_CHAR_WIDTH;
+
+  // Simulate wrapping: if text is wider than the default wrap width,
+  // estimate wrapped line count
+  if (rawWidth > DEFAULT_WRAP_WIDTH) {
+    const charsPerLine = Math.floor(DEFAULT_WRAP_WIDTH / AVG_CHAR_WIDTH);
+    let wrappedLines = 0;
+    for (const line of lines) {
+      wrappedLines += Math.max(1, Math.ceil(line.length / charsPerLine));
+    }
+    return { width: DEFAULT_WRAP_WIDTH, height: wrappedLines * LINE_HEIGHT };
+  }
+
+  return { width: rawWidth, height: lines.length * LINE_HEIGHT };
+}
+
 // ---------------------------------------------------------------------------
 // Polyfills
 // ---------------------------------------------------------------------------
@@ -87,13 +123,30 @@ function applyGlobalPolyfills(win: any): void {
   };
 }
 
-/** Polyfill SVGElement methods: getBBox, getScreenCTM, transform. */
+/** Polyfill SVGElement methods: getBBox, getScreenCTM, getComputedTextLength, transform. */
 function applySvgElementPolyfills(win: any): void {
   const SVGElement = win.SVGElement;
   const SVGGraphicsElement = win.SVGGraphicsElement;
 
   if (SVGElement && !SVGElement.prototype.getBBox) {
-    SVGElement.prototype.getBBox = () => ({ x: 0, y: 0, width: 100, height: 100 });
+    SVGElement.prototype.getBBox = function () {
+      // Content-aware sizing for text/tspan elements
+      const tag = this.tagName?.toLowerCase();
+      if (tag === 'text' || tag === 'tspan') {
+        const text: string = this.textContent || '';
+        const bbox = estimateTextBBox(text);
+        return { x: 0, y: 0, width: bbox.width, height: bbox.height };
+      }
+      // Non-text elements keep a reasonable default
+      return { x: 0, y: 0, width: 100, height: 100 };
+    };
+  }
+
+  if (SVGElement && !SVGElement.prototype.getComputedTextLength) {
+    SVGElement.prototype.getComputedTextLength = function () {
+      const text: string = this.textContent || '';
+      return text.length * AVG_CHAR_WIDTH;
+    };
   }
 
   if (SVGElement && !SVGElement.prototype.getScreenCTM) {

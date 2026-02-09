@@ -1,0 +1,214 @@
+/**
+ * Connection type auto-detection tests.
+ *
+ * Verifies that connect_bpmn_elements correctly auto-detects the connection
+ * type based on source/target element types:
+ * - TextAnnotation → auto-corrects to Association
+ * - DataObjectReference → refuses with error pointing to create_bpmn_data_association
+ * - DataStoreReference → refuses with error pointing to create_bpmn_data_association
+ * - Task → Task → defaults to SequenceFlow
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { handleConnect } from '../../src/handlers';
+import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
+
+describe('connect_bpmn_elements auto-detection', () => {
+  beforeEach(() => {
+    clearDiagrams();
+  });
+
+  // ── TextAnnotation → Association ─────────────────────────────────────
+
+  it('auto-corrects TextAnnotation→Task to Association', async () => {
+    const diagramId = await createDiagram();
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'My Task',
+      x: 200,
+      y: 100,
+    });
+    const annotId = await addElement(diagramId, 'bpmn:TextAnnotation', {
+      name: 'Note',
+      x: 200,
+      y: 300,
+    });
+
+    const conn = parseResult(
+      await handleConnect({
+        diagramId,
+        sourceElementId: annotId,
+        targetElementId: taskId,
+      })
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionType).toBe('bpmn:Association');
+    expect(conn.hint).toContain('auto-corrected');
+    expect(conn.hint).toContain('Association');
+  });
+
+  it('auto-corrects Task→TextAnnotation to Association', async () => {
+    const diagramId = await createDiagram();
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Process',
+      x: 200,
+      y: 100,
+    });
+    const annotId = await addElement(diagramId, 'bpmn:TextAnnotation', {
+      name: 'A note',
+      x: 200,
+      y: 300,
+    });
+
+    const conn = parseResult(
+      await handleConnect({
+        diagramId,
+        sourceElementId: taskId,
+        targetElementId: annotId,
+      })
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionType).toBe('bpmn:Association');
+  });
+
+  it('preserves explicit Association type for TextAnnotation', async () => {
+    const diagramId = await createDiagram();
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Task',
+      x: 200,
+      y: 100,
+    });
+    const annotId = await addElement(diagramId, 'bpmn:TextAnnotation', {
+      name: 'Note',
+      x: 200,
+      y: 300,
+    });
+
+    const conn = parseResult(
+      await handleConnect({
+        diagramId,
+        sourceElementId: annotId,
+        targetElementId: taskId,
+        connectionType: 'bpmn:Association',
+      })
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionType).toBe('bpmn:Association');
+  });
+
+  // ── DataObjectReference / DataStoreReference → error ─────────────────
+
+  it('refuses SequenceFlow to DataObjectReference', async () => {
+    const diagramId = await createDiagram();
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Task',
+      x: 200,
+      y: 100,
+    });
+    const dataId = await addElement(diagramId, 'bpmn:DataObjectReference', {
+      name: 'Data',
+      x: 200,
+      y: 300,
+    });
+
+    await expect(
+      handleConnect({
+        diagramId,
+        sourceElementId: taskId,
+        targetElementId: dataId,
+      })
+    ).rejects.toThrow(/create_bpmn_data_association/);
+  });
+
+  it('refuses SequenceFlow from DataObjectReference', async () => {
+    const diagramId = await createDiagram();
+    const dataId = await addElement(diagramId, 'bpmn:DataObjectReference', {
+      name: 'Data',
+      x: 200,
+      y: 300,
+    });
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Task',
+      x: 200,
+      y: 100,
+    });
+
+    await expect(
+      handleConnect({
+        diagramId,
+        sourceElementId: dataId,
+        targetElementId: taskId,
+      })
+    ).rejects.toThrow(/create_bpmn_data_association/);
+  });
+
+  it('refuses SequenceFlow to DataStoreReference', async () => {
+    const diagramId = await createDiagram();
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Service',
+      x: 200,
+      y: 100,
+    });
+    const storeId = await addElement(diagramId, 'bpmn:DataStoreReference', {
+      name: 'DB',
+      x: 200,
+      y: 300,
+    });
+
+    await expect(
+      handleConnect({
+        diagramId,
+        sourceElementId: taskId,
+        targetElementId: storeId,
+      })
+    ).rejects.toThrow(/create_bpmn_data_association/);
+  });
+
+  it('refuses SequenceFlow from DataStoreReference', async () => {
+    const diagramId = await createDiagram();
+    const storeId = await addElement(diagramId, 'bpmn:DataStoreReference', {
+      name: 'DB',
+      x: 200,
+      y: 300,
+    });
+    const taskId = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Service',
+      x: 200,
+      y: 100,
+    });
+
+    await expect(
+      handleConnect({
+        diagramId,
+        sourceElementId: storeId,
+        targetElementId: taskId,
+      })
+    ).rejects.toThrow(/create_bpmn_data_association/);
+  });
+
+  // ── Normal flow ─────────────────────────────────────────────────────
+
+  it('defaults Task→Task to SequenceFlow', async () => {
+    const diagramId = await createDiagram();
+    const t1 = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Task A',
+      x: 100,
+      y: 100,
+    });
+    const t2 = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Task B',
+      x: 300,
+      y: 100,
+    });
+
+    const conn = parseResult(
+      await handleConnect({
+        diagramId,
+        sourceElementId: t1,
+        targetElementId: t2,
+      })
+    );
+    expect(conn.success).toBe(true);
+    expect(conn.connectionType).toBe('bpmn:SequenceFlow');
+    expect(conn.hint).toBeUndefined();
+  });
+});

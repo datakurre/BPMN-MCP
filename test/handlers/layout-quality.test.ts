@@ -279,4 +279,84 @@ describe('Layout quality regression', () => {
       expectOrthogonal(conn);
     }
   });
+
+  // ── Artifact layout ────────────────────────────────────────────────────
+
+  it('data objects and text annotations do not overlap flow elements after layout', async () => {
+    const diagramId = await createDiagram('Artifacts Quality');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Process' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+
+    const dataObj = await addElement(diagramId, 'bpmn:DataObjectReference', { name: 'Doc' });
+    const annot = await addElement(diagramId, 'bpmn:TextAnnotation', {
+      name: 'Important note about processing',
+    });
+
+    await handleConnect({ diagramId, sourceElementId: start, targetElementId: task });
+    await handleConnect({ diagramId, sourceElementId: task, targetElementId: end });
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    // Get bounding boxes
+    const flowEls = [start, task, end].map((id) => {
+      const el = reg.get(id);
+      return {
+        x: el.x,
+        y: el.y,
+        right: el.x + (el.width || 0),
+        bottom: el.y + (el.height || 0),
+      };
+    });
+
+    const artifactEls = [dataObj, annot].map((id) => {
+      const el = reg.get(id);
+      return {
+        id: el.id,
+        x: el.x,
+        y: el.y,
+        right: el.x + (el.width || 0),
+        bottom: el.y + (el.height || 0),
+      };
+    });
+
+    // Assert: artifacts should not overlap with flow element bounding boxes
+    for (const art of artifactEls) {
+      for (const flow of flowEls) {
+        const overlaps =
+          art.x < flow.right && art.right > flow.x && art.y < flow.bottom && art.bottom > flow.y;
+        expect(overlaps, `Artifact ${art.id} overlaps flow element`).toBe(false);
+      }
+    }
+  });
+
+  it('boundary event recovery: orthogonal flows after layout', async () => {
+    const diagramId = await createDiagram('Boundary Recovery');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Call Service' });
+    const boundary = await addElement(diagramId, 'bpmn:BoundaryEvent', {
+      name: 'Error',
+      hostElementId: task,
+    });
+    const recovery = await addElement(diagramId, 'bpmn:UserTask', { name: 'Handle Error' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+    const endError = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Error End' });
+
+    await handleConnect({ diagramId, sourceElementId: start, targetElementId: task });
+    await handleConnect({ diagramId, sourceElementId: task, targetElementId: end });
+    await handleConnect({ diagramId, sourceElementId: boundary, targetElementId: recovery });
+    await handleConnect({ diagramId, sourceElementId: recovery, targetElementId: endError });
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    // All connections should be strictly orthogonal
+    const connections = reg.filter((el: any) => el.type === 'bpmn:SequenceFlow');
+    for (const conn of connections) {
+      expectOrthogonal(conn);
+    }
+  });
 });
