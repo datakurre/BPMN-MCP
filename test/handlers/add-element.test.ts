@@ -91,6 +91,7 @@ describe('descriptive element IDs', () => {
         name: 'Enter Name',
       })
     );
+    // Prefers short 2-part ID on first use
     expect(res.elementId).toBe('UserTask_EnterName');
   });
 
@@ -103,10 +104,11 @@ describe('descriptive element IDs', () => {
         name: 'Has Surname?',
       })
     );
+    // Prefers short 2-part ID on first use
     expect(res.elementId).toBe('Gateway_HasSurname');
   });
 
-  it('generates sequential ID when no name is provided', async () => {
+  it('generates random ID when no name is provided', async () => {
     const diagramId = await createDiagram();
     const res = parseResult(
       await handleAddElement({
@@ -114,11 +116,11 @@ describe('descriptive element IDs', () => {
         elementType: 'bpmn:Task',
       })
     );
-    // Sequential IDs: Task_1, Task_2, …
-    expect(res.elementId).toBe('Task_1');
+    // No name → 2-part with random: Task_<random7>
+    expect(res.elementId).toMatch(/^Task_[a-z0-9]{7}$/);
   });
 
-  it('generates sequential IDs that increment', async () => {
+  it('generates unique random IDs for unnamed elements', async () => {
     const diagramId = await createDiagram();
     const res1 = parseResult(
       await handleAddElement({ diagramId, elementType: 'bpmn:ServiceTask' })
@@ -126,11 +128,13 @@ describe('descriptive element IDs', () => {
     const res2 = parseResult(
       await handleAddElement({ diagramId, elementType: 'bpmn:ServiceTask' })
     );
-    expect(res1.elementId).toBe('ServiceTask_1');
-    expect(res2.elementId).toBe('ServiceTask_2');
+    // Both should have 2-part format with random: ServiceTask_<random7>
+    expect(res1.elementId).toMatch(/^ServiceTask_[a-z0-9]{7}$/);
+    expect(res2.elementId).toMatch(/^ServiceTask_[a-z0-9]{7}$/);
+    expect(res1.elementId).not.toBe(res2.elementId);
   });
 
-  it('appends counter on ID collision', async () => {
+  it('falls back to 3-part ID on name collision', async () => {
     const diagramId = await createDiagram();
     const res1 = parseResult(
       await handleAddElement({
@@ -146,8 +150,10 @@ describe('descriptive element IDs', () => {
         name: 'Process Order',
       })
     );
+    // First gets the short 2-part ID
     expect(res1.elementId).toBe('ServiceTask_ProcessOrder');
-    expect(res2.elementId).toBe('ServiceTask_ProcessOrder_2');
+    // Second collides → 3-part fallback: ServiceTask_<random7>_ProcessOrder
+    expect(res2.elementId).toMatch(/^ServiceTask_[a-z0-9]{7}_ProcessOrder$/);
   });
 });
 

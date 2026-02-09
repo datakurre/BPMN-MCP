@@ -30,7 +30,7 @@ describe('handleBatchOperations', () => {
     expect(res.succeeded).toBe(2);
     expect(res.failed).toBe(0);
 
-    // Verify elements were actually created
+    // Verify elements were actually created with short 2-part IDs (first use)
     const diagram = getDiagram(diagramId)!;
     const registry = diagram.modeler.get('elementRegistry');
     expect(registry.get('StartEvent_Start')).toBeDefined();

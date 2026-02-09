@@ -106,6 +106,7 @@ describe('descriptive flow IDs', () => {
         label: 'done',
       })
     );
+    // Prefers short 2-part ID on first use
     expect(conn.connectionId).toBe('Flow_Done');
   });
 
@@ -128,6 +129,7 @@ describe('descriptive flow IDs', () => {
         targetElementId: endId,
       })
     );
+    // Prefers short 2-part ID on first use
     expect(conn.connectionId).toBe('Flow_Begin_to_Finish');
   });
 });
