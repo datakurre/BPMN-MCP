@@ -178,6 +178,33 @@ const ACTIVITY_VERBS = new Set([
   'write',
 ]);
 
+/**
+ * Detect labels that look like technical/code identifiers rather than
+ * human-readable business names.
+ *
+ * Catches: camelCase (`processOrder`), PascalCase with mixed case
+ * (`ProcessOrder`), snake_case (`process_order`), and auto-generated
+ * IDs (`ServiceTask_0x1f`, `Activity_0m4w27p`).
+ */
+function isTechnicalName(name: string): boolean {
+  // Auto-generated ID pattern: TypePrefix_hexOrAlnum (e.g. ServiceTask_0x1f, Activity_0m4w27p)
+  if (/^[A-Z][a-zA-Z]*_[0-9a-z]{4,}$/.test(name)) return true;
+
+  // snake_case: two or more lowercase words joined by underscores
+  if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(name)) return true;
+
+  // camelCase: starts lowercase, has uppercase letter(s), no spaces
+  if (/^[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*$/.test(name) && !name.includes(' ')) return true;
+
+  // PascalCase with no spaces: starts uppercase, has at least one more uppercase letter
+  // after a lowercase letter (e.g. ProcessOrder), but not all-caps or single words
+  if (/^[A-Z][a-z]+[A-Z][a-zA-Z0-9]*$/.test(name) && !name.includes(' ')) {
+    return true;
+  }
+
+  return false;
+}
+
 function ruleFactory() {
   function check(node: any, reporter: any) {
     const name = node.name;
@@ -185,6 +212,19 @@ function ruleFactory() {
 
     const trimmed = name.trim();
     const firstWord = trimmed.split(/\s+/)[0]?.toLowerCase();
+
+    // Check for technical/code-style names on any named element
+    if (
+      isTechnicalName(trimmed) &&
+      !isType(node, 'bpmn:SequenceFlow') // flows often have short labels like "Yes"/"No"
+    ) {
+      reporter.report(
+        node.id,
+        `Label "${trimmed}" looks like a technical identifier — ` +
+          `use human-readable business language (e.g. "Process Order" instead of "processOrder")`
+      );
+      return; // Don't double-report naming issues
+    }
 
     // Check activities: should start with a verb
     if (
