@@ -57,7 +57,7 @@ Modular `src/` layout, communicates over **stdio** using the MCP SDK.
 
 1. A shared `jsdom` instance polyfills browser APIs (SVG, CSS, structuredClone) so `bpmn-js` can run headlessly.
 2. Diagrams are stored in-memory in a `Map<string, DiagramState>` keyed by generated IDs.
-3. **32 MCP tools** are exposed (see "Tool Naming" below).
+3. **31 MCP tools** are exposed (see "Tool Naming" below).
 4. Each tool handler manipulates the `bpmn-js` modeler API (`modeling`, `elementFactory`, `elementRegistry`) and returns JSON or raw XML/SVG.
 5. `camunda-bpmn-moddle` is registered as a moddle extension, enabling Camunda-specific attributes (e.g. `camunda:assignee`, `camunda:class`, `camunda:formKey`) on elements.
 6. Each handler file **co-locates** its MCP tool definition (`TOOL_DEFINITION`) alongside the handler function, preventing definition drift.
@@ -68,13 +68,12 @@ Modular `src/` layout, communicates over **stdio** using the MCP SDK.
 
 **Every tool name includes `bpmn`** to avoid collisions with other MCPs.
 
-- **Core structural tools:** `create_bpmn_diagram`, `add_bpmn_element`, `connect_bpmn_elements`, `delete_bpmn_element`, `move_bpmn_element`, `list_bpmn_elements`, `validate_bpmn_diagram`, `align_bpmn_elements`, `distribute_bpmn_elements`, `export_bpmn`, `import_bpmn_xml`
-- **Property / extension tools:** `get_bpmn_element_properties`, `set_bpmn_element_properties`, `set_bpmn_input_output_mapping`, `set_bpmn_event_definition`, `set_bpmn_form_data`, `set_bpmn_camunda_error`, `set_bpmn_loop_characteristics`, `set_bpmn_script`
+- **Core structural tools:** `create_bpmn_diagram`, `add_bpmn_element` (includes insert-into-flow via `flowId`), `connect_bpmn_elements`, `delete_bpmn_element`, `move_bpmn_element` (includes resize via `width`/`height`), `list_bpmn_elements`, `validate_bpmn_diagram`, `align_bpmn_elements` (includes distribute via `orientation`), `export_bpmn`, `import_bpmn_xml`
+- **Property / extension tools:** `get_bpmn_element_properties`, `set_bpmn_element_properties`, `set_bpmn_input_output_mapping`, `set_bpmn_event_definition`, `set_bpmn_form_data`, `set_bpmn_camunda_listeners` (includes error definitions), `set_bpmn_loop_characteristics`, `set_bpmn_script`
 - **Collaboration & data tools:** `create_bpmn_collaboration`, `create_bpmn_data_association`
-- **Export tools:** `export_bpmn_subprocess`
-- **History tools:** `undo_bpmn_change`, `redo_bpmn_change`, `diff_bpmn_diagrams`
+- **History tools:** `bpmn_history`, `diff_bpmn_diagrams`
 - **Batch tools:** `batch_bpmn_operations`
-- **Utility tools:** `delete_bpmn_diagram`, `list_bpmn_diagrams`, `clone_bpmn_diagram`, `layout_bpmn_diagram`, `lint_bpmn_diagram`, `adjust_bpmn_labels`
+- **Utility tools:** `delete_bpmn_diagram`, `list_bpmn_diagrams` (includes diagram summary via `diagramId`), `clone_bpmn_diagram`, `layout_bpmn_diagram`, `adjust_bpmn_labels`
 
 ## Build & Run
 

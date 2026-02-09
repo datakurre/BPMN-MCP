@@ -31,7 +31,7 @@ describe('handleSetCamundaErrorEventDefinition', () => {
       })
     );
     expect(res.success).toBe(true);
-    expect(res.definitionCount).toBe(1);
+    expect(res.errorDefinitionCount).toBe(1);
 
     const xml = (await handleExportBpmn({ format: 'xml', diagramId, skipLint: true })).content[0]
       .text;

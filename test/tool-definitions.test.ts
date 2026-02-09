@@ -5,7 +5,7 @@ describe('tool-definitions', () => {
   const toolNames = TOOL_DEFINITIONS.map((t) => t.name);
 
   it('exports the expected number of tools', () => {
-    expect(TOOL_DEFINITIONS.length).toBe(36);
+    expect(TOOL_DEFINITIONS.length).toBe(31);
   });
 
   it.each([
@@ -24,12 +24,10 @@ describe('tool-definitions', () => {
     'clone_bpmn_diagram',
     'validate_bpmn_diagram',
     'align_bpmn_elements',
-    'distribute_bpmn_elements',
     'set_bpmn_input_output_mapping',
     'set_bpmn_event_definition',
     'set_bpmn_form_data',
     'layout_bpmn_diagram',
-    'set_bpmn_camunda_error',
     'set_bpmn_loop_characteristics',
     'adjust_bpmn_labels',
     'set_bpmn_script',
@@ -37,14 +35,11 @@ describe('tool-definitions', () => {
     'bpmn_history',
     'diff_bpmn_diagrams',
     'batch_bpmn_operations',
-    'resize_bpmn_element',
     'set_bpmn_camunda_listeners',
     'set_bpmn_call_activity_variables',
     'manage_bpmn_root_elements',
     'duplicate_bpmn_element',
-    'insert_bpmn_element',
     'replace_bpmn_element',
-    'summarize_bpmn_diagram',
   ])("includes tool '%s'", (name) => {
     expect(toolNames).toContain(name);
   });
@@ -84,11 +79,9 @@ describe('tool-definitions', () => {
     expect(props.conditionExpression).toBeDefined();
   });
 
-  it('align_bpmn_elements requires elementIds and alignment', () => {
+  it('align_bpmn_elements requires diagramId and elementIds', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'align_bpmn_elements');
-    expect(tool?.inputSchema.required).toEqual(
-      expect.arrayContaining(['diagramId', 'elementIds', 'alignment'])
-    );
+    expect(tool?.inputSchema.required).toEqual(expect.arrayContaining(['diagramId', 'elementIds']));
   });
 
   it('set_bpmn_input_output_mapping has inputParameters and outputParameters but not source', () => {
@@ -114,16 +107,12 @@ describe('tool-definitions', () => {
     );
   });
 
-  it('align_bpmn_elements has compact parameter', () => {
+  it('align_bpmn_elements has compact and distribute parameters', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'align_bpmn_elements');
     const props = tool?.inputSchema.properties as any;
     expect(props.compact).toBeDefined();
     expect(props.compact.type).toBe('boolean');
-  });
-
-  it('distribute_bpmn_elements has gap parameter', () => {
-    const tool = TOOL_DEFINITIONS.find((t) => t.name === 'distribute_bpmn_elements');
-    const props = tool?.inputSchema.properties as any;
+    expect(props.orientation).toBeDefined();
     expect(props.gap).toBeDefined();
     expect(props.gap.type).toBe('number');
   });
@@ -147,11 +136,11 @@ describe('tool-definitions', () => {
     expect(tool?.inputSchema.required).toContain('diagramId');
   });
 
-  it('set_bpmn_camunda_error requires errorDefinitions', () => {
-    const tool = TOOL_DEFINITIONS.find((t) => t.name === 'set_bpmn_camunda_error');
-    expect(tool?.inputSchema.required).toEqual(
-      expect.arrayContaining(['diagramId', 'elementId', 'errorDefinitions'])
-    );
+  it('set_bpmn_camunda_listeners has errorDefinitions parameter', () => {
+    const tool = TOOL_DEFINITIONS.find((t) => t.name === 'set_bpmn_camunda_listeners');
+    const props = tool?.inputSchema.properties as any;
+    expect(props.errorDefinitions).toBeDefined();
+    expect(props.errorDefinitions.type).toBe('array');
   });
 
   it('set_bpmn_loop_characteristics requires loopType', () => {

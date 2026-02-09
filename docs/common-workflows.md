@@ -29,7 +29,7 @@ manually deleting/reconnecting flows.
 
 ```
 1. list_bpmn_elements         → find the flow ID between the two elements
-2. insert_bpmn_element        → { flowId: "<flowId>", elementType: "bpmn:UserTask", name: "Verify Data" }
+2. add_bpmn_element            → { flowId: "<flowId>", elementType: "bpmn:UserTask", name: "Verify Data" }
 ```
 
 The tool splits the sequence flow, creates the new element at the
@@ -187,7 +187,7 @@ Handle errors that can occur anywhere in the process scope.
 - **Avoid full layout** on diagrams with careful manual positioning,
   boundary events, or custom labels. Use `scopeElementId` or
   `elementIds` for partial re-layout instead.
-- **Use `insert_bpmn_element`** instead of the manual 3-step pattern
+- **Use `add_bpmn_element` with `flowId`** instead of the manual 3-step pattern
   (delete flow → add element → reconnect) when adding a step into an
   existing flow.
 - **Validate before exporting:** `export_bpmn` runs bpmnlint by

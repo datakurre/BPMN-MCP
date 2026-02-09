@@ -1,11 +1,12 @@
 /**
  * Handler for align_bpmn_elements tool.
  *
+ * Merged tool that handles both alignment and distribution of elements.
  * Supports an optional `compact` flag that, when true, also redistributes
  * elements along the perpendicular axis with ~50px edge-to-edge gaps.
  */
 
-import { type AlignElementsArgs, type ToolResult } from '../types';
+import { type AlignElementsArgs, type DistributeElementsArgs, type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
 import { STANDARD_BPMN_GAP } from '../constants';
@@ -139,10 +140,85 @@ export async function handleAlignElements(args: AlignElementsArgs): Promise<Tool
   });
 }
 
+// ── Distribute handler ─────────────────────────────────────────────────────
+
+type Axis = 'x' | 'y';
+type Dim = 'width' | 'height';
+
+/** Distribute elements with a fixed gap between edges. */
+function distributeFixedGap(sorted: any[], gap: number, axis: Axis, dim: Dim, modeling: any): void {
+  let current = sorted[0][axis] + (sorted[0][dim] || 0) + gap;
+  for (let i = 1; i < sorted.length; i++) {
+    const el = sorted[i];
+    const delta = current - el[axis];
+    if (Math.abs(delta) > 0.5) {
+      const move = axis === 'x' ? { x: delta, y: 0 } : { x: 0, y: delta };
+      modeling.moveElements([el], move);
+    }
+    current += (el[dim] || 0) + gap;
+  }
+}
+
+/** Distribute elements evenly within existing span (edge-to-edge). */
+function distributeEven(sorted: any[], axis: Axis, dim: Dim, modeling: any): void {
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const totalSpan = last[axis] + (last[dim] || 0) - first[axis];
+  const totalSize = sorted.reduce((sum: number, el: any) => sum + (el[dim] || 0), 0);
+  const computedGap = (totalSpan - totalSize) / (sorted.length - 1);
+
+  let current = first[axis] + (first[dim] || 0) + computedGap;
+  for (let i = 1; i < sorted.length - 1; i++) {
+    const el = sorted[i];
+    const delta = current - el[axis];
+    if (Math.abs(delta) > 0.5) {
+      const move = axis === 'x' ? { x: delta, y: 0 } : { x: 0, y: delta };
+      modeling.moveElements([el], move);
+    }
+    current += (el[dim] || 0) + computedGap;
+  }
+}
+
+export async function handleDistributeElements(args: DistributeElementsArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'elementIds', 'orientation']);
+  const { diagramId, elementIds, orientation, gap } = args;
+  const diagram = requireDiagram(diagramId);
+
+  if (elementIds.length < 3) {
+    throw new McpError(ErrorCode.InvalidRequest, 'Distribution requires at least 3 elements');
+  }
+
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = diagram.modeler.get('modeling');
+  const elements = elementIds.map((id) => requireElement(elementRegistry, id));
+
+  const axis: Axis = orientation === 'horizontal' ? 'x' : 'y';
+  const dim: Dim = orientation === 'horizontal' ? 'width' : 'height';
+  const sorted = [...elements].sort((a: any, b: any) => a[axis] - b[axis]);
+
+  if (gap !== undefined) {
+    distributeFixedGap(sorted, gap, axis, dim, modeling);
+  } else {
+    distributeEven(sorted, axis, dim, modeling);
+  }
+
+  await syncXml(diagram);
+
+  return jsonResult({
+    success: true,
+    orientation,
+    distributedCount: elements.length,
+    gap: gap ?? 'auto',
+    message: `Distributed ${elements.length} elements ${orientation}ly${gap !== undefined ? ` with ${gap}px gap` : ''}`,
+  });
+}
+
 export const TOOL_DEFINITION = {
   name: 'align_bpmn_elements',
   description:
-    'Align selected elements along a given axis (left, center, right, top, middle, bottom). Requires at least 2 elements. Use compact=true to also redistribute elements with ~50px gaps along the perpendicular axis, or call distribute_bpmn_elements separately.',
+    'Align or distribute selected elements. Supports two operations: ' +
+    '(1) **align** — align elements along an axis (left, center, right, top, middle, bottom), requires at least 2 elements. Use compact=true to also redistribute with ~50px gaps. ' +
+    '(2) **distribute** — evenly distribute elements horizontally or vertically using edge-to-edge spacing, requires at least 3 elements. Use gap for exact pixel spacing (recommended: 50).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -150,19 +226,29 @@ export const TOOL_DEFINITION = {
       elementIds: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Array of element IDs to align',
+        description: 'Array of element IDs to align or distribute',
       },
       alignment: {
         type: 'string',
         enum: ['left', 'center', 'right', 'top', 'middle', 'bottom'],
-        description: 'The alignment direction',
+        description: 'The alignment direction (for align operation)',
       },
       compact: {
         type: 'boolean',
         description:
-          'When true, also redistributes elements along the perpendicular axis with ~50px edge-to-edge gaps for a cleaner layout.',
+          'When true (align operation), also redistributes elements along the perpendicular axis with ~50px edge-to-edge gaps.',
+      },
+      orientation: {
+        type: 'string',
+        enum: ['horizontal', 'vertical'],
+        description: 'Distribution direction (for distribute operation)',
+      },
+      gap: {
+        type: 'number',
+        description:
+          'Fixed edge-to-edge gap in pixels between elements (for distribute operation). Standard BPMN spacing is ~50px. When omitted, elements are evenly distributed within their current span.',
       },
     },
-    required: ['diagramId', 'elementIds', 'alignment'],
+    required: ['diagramId', 'elementIds'],
   },
 } as const;

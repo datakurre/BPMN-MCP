@@ -21,8 +21,7 @@ import { handleDeleteDiagram } from './delete-diagram';
 import { handleListDiagrams } from './list-diagrams';
 import { handleCloneDiagram } from './clone-diagram';
 import { handleValidate } from './validate';
-import { handleAlignElements } from './align-elements';
-import { handleDistributeElements } from './distribute-elements';
+import { handleAlignElements, handleDistributeElements } from './align-elements';
 import { handleSetInputOutput } from './set-input-output';
 import { handleSetEventDefinition } from './set-event-definition';
 import { handleSetFormData } from './set-form-data';
@@ -135,7 +134,7 @@ const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
   duplicate_bpmn_element: handleDuplicateElement,
   insert_bpmn_element: handleInsertElement,
   replace_bpmn_element: handleReplaceElement,
-  summarize_bpmn_diagram: handleSummarizeDiagram,
+  summarize_bpmn_diagram: handleListDiagrams,
 };
 
 /** Route a CallTool request to the correct handler. */

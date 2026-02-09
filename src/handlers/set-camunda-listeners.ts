@@ -1,14 +1,23 @@
 /**
- * Handler for set_bpmn_camunda_listeners tool.
+ * Handler for set_bpmn_camunda_listeners tool (merged with set_bpmn_camunda_error).
  *
- * Creates camunda:ExecutionListener and camunda:TaskListener extension
- * elements on BPMN elements.  Execution listeners can be attached to any
- * flow node or process; task listeners are specific to UserTasks.
+ * Creates camunda:ExecutionListener, camunda:TaskListener, and
+ * camunda:ErrorEventDefinition extension elements on BPMN elements.
+ * Execution listeners can be attached to any flow node or process.
+ * Task listeners are specific to UserTasks.
+ * Error definitions are specific to ServiceTasks (Camunda 7 External Task error handling).
  */
 
 import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  resolveOrCreateError,
+  validateArgs,
+} from './helpers';
 import { appendLintFeedback } from '../linter';
 
 export interface SetCamundaListenersArgs {
@@ -27,6 +36,11 @@ export interface SetCamundaListenersArgs {
     delegateExpression?: string;
     expression?: string;
     script?: { scriptFormat: string; value: string };
+  }>;
+  errorDefinitions?: Array<{
+    id: string;
+    expression?: string;
+    errorRef?: { id: string; name?: string; errorCode?: string };
   }>;
 }
 
@@ -70,12 +84,22 @@ export async function handleSetCamundaListeners(
   args: SetCamundaListenersArgs
 ): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementId']);
-  const { diagramId, elementId, executionListeners = [], taskListeners = [] } = args;
+  const {
+    diagramId,
+    elementId,
+    executionListeners = [],
+    taskListeners = [],
+    errorDefinitions = [],
+  } = args;
 
-  if (executionListeners.length === 0 && taskListeners.length === 0) {
+  if (
+    executionListeners.length === 0 &&
+    taskListeners.length === 0 &&
+    errorDefinitions.length === 0
+  ) {
     throw new McpError(
       ErrorCode.InvalidParams,
-      'At least one executionListener or taskListener must be provided'
+      'At least one executionListener, taskListener, or errorDefinition must be provided'
     );
   }
 
@@ -96,6 +120,14 @@ export async function handleSetCamundaListeners(
     );
   }
 
+  // Validate: errorDefinitions only on ServiceTask
+  if (errorDefinitions.length > 0 && bo.$type !== 'bpmn:ServiceTask') {
+    throw new McpError(
+      ErrorCode.InvalidRequest,
+      `camunda:ErrorEventDefinition is only supported on bpmn:ServiceTask (got ${bo.$type})`
+    );
+  }
+
   // Ensure extensionElements container exists
   let extensionElements = bo.extensionElements;
   if (!extensionElements) {
@@ -104,8 +136,13 @@ export async function handleSetCamundaListeners(
   }
 
   // Remove existing listeners of the types we're setting
+  const typesToRemove = new Set<string>();
+  if (executionListeners.length > 0) typesToRemove.add('camunda:ExecutionListener');
+  if (taskListeners.length > 0) typesToRemove.add('camunda:TaskListener');
+  if (errorDefinitions.length > 0) typesToRemove.add('camunda:ErrorEventDefinition');
+
   extensionElements.values = (extensionElements.values || []).filter(
-    (v: any) => v.$type !== 'camunda:ExecutionListener' && v.$type !== 'camunda:TaskListener'
+    (v: any) => !typesToRemove.has(v.$type)
   );
 
   // Create execution listeners
@@ -122,6 +159,29 @@ export async function handleSetCamundaListeners(
     extensionElements.values.push(el);
   }
 
+  // Create camunda:ErrorEventDefinition entries
+  if (errorDefinitions.length > 0) {
+    const canvas = diagram.modeler.get('canvas');
+    const rootElement = canvas.getRootElement();
+    const definitions = rootElement.businessObject.$parent;
+
+    for (const errDef of errorDefinitions) {
+      const errorElement = errDef.errorRef
+        ? resolveOrCreateError(moddle, definitions, errDef.errorRef)
+        : undefined;
+
+      const camundaErrDef = moddle.create('camunda:ErrorEventDefinition', {
+        id: errDef.id,
+        expression: errDef.expression,
+      });
+      if (errorElement) {
+        camundaErrDef.errorRef = errorElement;
+      }
+      camundaErrDef.$parent = extensionElements;
+      extensionElements.values.push(camundaErrDef);
+    }
+  }
+
   modeling.updateProperties(element, { extensionElements });
 
   await syncXml(diagram);
@@ -131,7 +191,8 @@ export async function handleSetCamundaListeners(
     elementId,
     executionListenerCount: executionListeners.length,
     taskListenerCount: taskListeners.length,
-    message: `Set ${executionListeners.length} execution listener(s) and ${taskListeners.length} task listener(s) on ${elementId}`,
+    errorDefinitionCount: errorDefinitions.length,
+    message: `Set ${executionListeners.length} execution listener(s), ${taskListeners.length} task listener(s), and ${errorDefinitions.length} error definition(s) on ${elementId}`,
   });
   return appendLintFeedback(result, diagram);
 }
@@ -139,14 +200,16 @@ export async function handleSetCamundaListeners(
 export const TOOL_DEFINITION = {
   name: 'set_bpmn_camunda_listeners',
   description:
-    'Set Camunda execution listeners and/or task listeners on a BPMN element. Execution listeners can be attached to any flow node or process. Task listeners are specific to UserTasks. Each listener specifies an event (start, end, take, create, assignment, complete, delete) and an implementation (class, delegateExpression, expression, or inline script).',
+    'Set Camunda extension elements on a BPMN element: execution listeners, task listeners, and/or error event definitions. ' +
+    'Execution listeners can be attached to any flow node or process. Task listeners are specific to UserTasks. ' +
+    'Error definitions (camunda:ErrorEventDefinition) are specific to ServiceTasks for Camunda 7 External Task error handling.',
   inputSchema: {
     type: 'object',
     properties: {
       diagramId: { type: 'string', description: 'The diagram ID' },
       elementId: {
         type: 'string',
-        description: 'The ID of the element to add listeners to',
+        description: 'The ID of the element to configure',
       },
       executionListeners: {
         type: 'array',
@@ -222,6 +285,36 @@ export const TOOL_DEFINITION = {
             },
           },
           required: ['event'],
+        },
+      },
+      errorDefinitions: {
+        type: 'array',
+        description:
+          'camunda:ErrorEventDefinition entries for ServiceTask error handling (replaces existing). ' +
+          'Distinct from standard bpmn:ErrorEventDefinition on boundary events.',
+        items: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Unique ID for the error event definition',
+            },
+            expression: {
+              type: 'string',
+              description: 'Error expression (e.g. \'${error.code == "ERR_001"}\')',
+            },
+            errorRef: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Error element ID' },
+                name: { type: 'string', description: 'Error name' },
+                errorCode: { type: 'string', description: 'Error code' },
+              },
+              required: ['id'],
+              description: 'Reference to a bpmn:Error root element (created if not existing)',
+            },
+          },
+          required: ['id'],
         },
       },
     },

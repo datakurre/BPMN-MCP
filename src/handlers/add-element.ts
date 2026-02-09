@@ -19,6 +19,7 @@ import {
 } from './helpers';
 import { STANDARD_BPMN_GAP, getElementSize } from '../constants';
 import { appendLintFeedback } from '../linter';
+import { handleInsertElement } from './insert-element';
 
 // ── Sub-function: shift downstream elements ────────────────────────────────
 
@@ -156,6 +157,18 @@ function snapToLane(
 // eslint-disable-next-line complexity, max-lines-per-function
 export async function handleAddElement(args: AddElementArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementType']);
+
+  // Delegate to insert-into-flow handler when flowId is provided
+  const flowId = (args as any).flowId as string | undefined;
+  if (flowId) {
+    return handleInsertElement({
+      diagramId: args.diagramId,
+      flowId,
+      elementType: args.elementType,
+      name: args.name,
+    });
+  }
+
   const {
     diagramId,
     elementType,
@@ -360,6 +373,13 @@ export const TOOL_DEFINITION = {
         type: 'string',
         description:
           'Place the new element to the right of this element (auto-positions x/y). Overrides explicit x/y.',
+      },
+      flowId: {
+        type: 'string',
+        description:
+          'Insert the element into an existing sequence flow, splitting the flow and reconnecting automatically. ' +
+          "The new element is positioned at the midpoint between the flow's source and target. " +
+          'When set, other positioning parameters (x, y, afterElementId) are ignored.',
       },
       autoConnect: {
         type: 'boolean',
