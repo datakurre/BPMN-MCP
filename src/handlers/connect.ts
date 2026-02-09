@@ -11,7 +11,14 @@
 
 import { type ConnectArgs, type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { requireDiagram, jsonResult, syncXml, generateFlowId, validateArgs } from './helpers';
+import {
+  requireDiagram,
+  jsonResult,
+  syncXml,
+  generateFlowId,
+  validateArgs,
+  fixConnectionId,
+} from './helpers';
 import { appendLintFeedback } from '../linter';
 
 /** Types that must be connected via bpmn:Association, not SequenceFlow. */
@@ -176,6 +183,7 @@ function connectPair(
       opts.label
     );
     connection = modeling.connect(source, target, { type: connectionType, id: flowId });
+    fixConnectionId(connection, flowId);
   }
 
   if (connectionType !== '__data_association__') {

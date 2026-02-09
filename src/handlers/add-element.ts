@@ -13,6 +13,8 @@ import {
   generateFlowId,
   getVisibleElements,
   validateArgs,
+  createBusinessObject,
+  fixConnectionId,
 } from './helpers';
 import { STANDARD_BPMN_GAP, getElementSize } from '../constants';
 import { appendLintFeedback } from '../linter';
@@ -197,7 +199,14 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   const laneSnap = snapToLane(elementRegistry, x, y, elementSize.height);
   y = laneSnap.y;
 
-  const shapeOpts: Record<string, any> = { type: elementType, id: descriptiveId };
+  // Pre-create the business object with our descriptive ID so the
+  // exported XML ID matches the element ID returned to callers.
+  const businessObject = createBusinessObject(diagram.modeler, elementType, descriptiveId);
+  const shapeOpts: Record<string, any> = {
+    type: elementType,
+    id: descriptiveId,
+    businessObject,
+  };
 
   const shape = elementFactory.createShape(shapeOpts);
   let createdElement: any;
@@ -253,6 +262,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
           type: 'bpmn:SequenceFlow',
           id: flowId,
         });
+        fixConnectionId(conn, flowId);
         connectionId = conn.id;
       } catch {
         // Auto-connect may fail for some element type combinations — non-fatal

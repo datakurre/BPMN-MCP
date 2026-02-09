@@ -106,7 +106,8 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
 export const TOOL_DEFINITION = {
   name: 'layout_bpmn_diagram',
   description:
-    'Automatically arrange elements in a BPMN diagram using the ELK layered algorithm (Sugiyama), producing a clean left-to-right layout. Handles parallel branches, reconverging gateways, and nested containers. Use this after structural changes (adding gateways, splitting flows) to automatically clean up the layout. Supports partial re-layout via elementIds.',
+    'Automatically arrange elements in a BPMN diagram using the ELK layered algorithm (Sugiyama), producing a clean left-to-right layout. Handles parallel branches, reconverging gateways, and nested containers. Use this after structural changes (adding gateways, splitting flows) to automatically clean up the layout. Supports partial re-layout via elementIds. ' +
+    '**When NOT to use full layout:** If the diagram has carefully positioned elements, custom label placements, or boundary events, full re-layout may reposition them destructively. In such cases, prefer: (1) adjust_bpmn_labels for label cleanup only, (2) move_bpmn_element for targeted repositioning, (3) scopeElementId parameter to re-layout only one participant/subprocess, or (4) elementIds parameter for partial re-layout of specific elements.',
   inputSchema: {
     type: 'object',
     properties: {

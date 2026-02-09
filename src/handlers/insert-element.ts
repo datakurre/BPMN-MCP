@@ -17,8 +17,12 @@ import {
   generateDescriptiveId,
   generateFlowId,
   validateArgs,
+  getVisibleElements,
+  createBusinessObject,
+  fixConnectionId,
+  resizeParentContainers,
 } from './helpers';
-import { getElementSize } from '../constants';
+import { STANDARD_BPMN_GAP, getElementSize } from '../constants';
 import { appendLintFeedback } from '../linter';
 
 export interface InsertElementArgs {
@@ -78,25 +82,62 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
   const sourceId = source.id;
   const targetId = target.id;
 
-  // Compute insertion position: midpoint between source and target
-  const srcCx = source.x + (source.width || 0) / 2;
-  const srcCy = source.y + (source.height || 0) / 2;
-  const tgtCx = target.x + (target.width || 0) / 2;
-  const tgtCy = target.y + (target.height || 0) / 2;
+  // Compute source/target geometry
   const newSize = getElementSize(elementType);
-  const midX = Math.round((srcCx + tgtCx) / 2 - newSize.width / 2);
-  const midY = Math.round((srcCy + tgtCy) / 2 - newSize.height / 2);
+  const srcRight = source.x + (source.width || 0);
+  const tgtLeft = target.x;
+
+  // Check horizontal space — shift downstream elements if needed
+  const requiredSpace = STANDARD_BPMN_GAP + newSize.width + STANDARD_BPMN_GAP;
+  const availableSpace = tgtLeft - srcRight;
+  let shiftApplied = 0;
 
   // Step 1: Delete the existing flow
   modeling.removeElements([flow]);
 
-  // Step 2: Create the new element
+  // Step 1b: Shift downstream elements right when space is insufficient
+  if (availableSpace < requiredSpace) {
+    shiftApplied = requiredSpace - availableSpace;
+    const toShift = getVisibleElements(elementRegistry).filter(
+      (el: any) =>
+        !el.type.includes('SequenceFlow') &&
+        !el.type.includes('MessageFlow') &&
+        !el.type.includes('Association') &&
+        el.type !== 'bpmn:Participant' &&
+        el.type !== 'bpmn:Lane' &&
+        el.id !== sourceId &&
+        el.x >= tgtLeft
+    );
+    if (toShift.length > 0) {
+      modeling.moveElements(toShift, { x: shiftApplied, y: 0 });
+    }
+    resizeParentContainers(elementRegistry, modeling);
+  }
+
+  // Step 2: Calculate insertion position (center of the gap)
+  const updatedSource = elementRegistry.get(sourceId);
+  const updatedTarget = elementRegistry.get(targetId);
+  const updSrcRight = updatedSource.x + (updatedSource.width || 0);
+  const updTgtLeft = updatedTarget.x;
+  const updSrcCy = updatedSource.y + (updatedSource.height || 0) / 2;
+  const updTgtCy = updatedTarget.y + (updatedTarget.height || 0) / 2;
+  const gapCenterX = Math.round((updSrcRight + updTgtLeft) / 2);
+  const flowCenterY = Math.round((updSrcCy + updTgtCy) / 2);
+  const midX = gapCenterX - newSize.width / 2;
+  const midY = flowCenterY - newSize.height / 2;
+
+  // Step 3: Create the new element with a matching business-object ID
   const descriptiveId = generateDescriptiveId(elementRegistry, elementType, elementName);
-  const shapeOpts: Record<string, any> = { type: elementType, id: descriptiveId };
+  const businessObject = createBusinessObject(diagram.modeler, elementType, descriptiveId);
+  const shapeOpts: Record<string, any> = {
+    type: elementType,
+    id: descriptiveId,
+    businessObject,
+  };
   const shape = elementFactory.createShape(shapeOpts);
 
   // Find the parent container (same as the source element's parent)
-  const parent = source.parent;
+  const parent = updatedSource.parent;
   if (!parent) {
     throw new McpError(ErrorCode.InternalError, 'Could not determine parent container');
   }
@@ -111,16 +152,13 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
     modeling.updateProperties(createdElement, { name: elementName });
   }
 
-  // Step 3: Re-fetch source/target (they may have shifted internally)
-  const updatedSource = elementRegistry.get(sourceId);
-  const updatedTarget = elementRegistry.get(targetId);
-
   // Step 4: Connect source → new element
   const flowId1 = generateFlowId(elementRegistry, updatedSource?.businessObject?.name, elementName);
   const conn1 = modeling.connect(updatedSource, createdElement, {
     type: 'bpmn:SequenceFlow',
     id: flowId1,
   });
+  fixConnectionId(conn1, flowId1);
 
   // If the original flow had a condition, move it to the source→new flow
   if (flowCondition) {
@@ -133,6 +171,7 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
     type: 'bpmn:SequenceFlow',
     id: flowId2,
   });
+  fixConnectionId(conn2, flowId2);
 
   await syncXml(diagram);
 
@@ -147,6 +186,9 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
       { flowId: conn1.id, source: sourceId, target: createdElement.id },
       { flowId: conn2.id, source: createdElement.id, target: targetId },
     ],
+    ...(shiftApplied > 0
+      ? { shiftApplied, shiftNote: 'Downstream elements shifted right to make space' }
+      : {}),
     message: `Inserted ${elementType}${elementName ? ` "${elementName}"` : ''} between ${sourceId} and ${targetId}`,
     ...(flowLabel ? { note: `Original flow label "${flowLabel}" was removed` } : {}),
   });

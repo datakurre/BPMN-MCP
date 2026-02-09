@@ -11,7 +11,13 @@
  */
 
 import { type ToolResult } from '../types';
-import { requireDiagram, requireElement, buildConnectivityWarnings, validateArgs } from './helpers';
+import {
+  requireDiagram,
+  requireElement,
+  buildConnectivityWarnings,
+  validateArgs,
+  getVisibleElements,
+} from './helpers';
 import { lintDiagramFlat } from '../linter';
 import { createModelerFromXml } from '../diagram-manager';
 
@@ -77,12 +83,80 @@ export async function handleExportBpmn(args: ExportBpmnArgs): Promise<ToolResult
 
   const elementRegistry = diagram.modeler.get('elementRegistry');
   const warnings = buildConnectivityWarnings(elementRegistry);
+  const layoutWarnings = buildLayoutWarnings(elementRegistry);
+  warnings.push(...layoutWarnings);
 
   const content: ToolResult['content'] = [{ type: 'text', text: output }];
   if (warnings.length > 0) {
     content.push({ type: 'text', text: '\n' + warnings.join('\n') });
   }
   return { content };
+}
+
+// ── Layout quality warnings ──────────────────────────────────────────────
+
+/**
+ * Detect layout issues (overlapping elements, missing layout) and return
+ * actionable warnings suggesting layout_bpmn_diagram or move_bpmn_element.
+ */
+function buildLayoutWarnings(elementRegistry: any): string[] {
+  const warnings: string[] = [];
+
+  // Get all visible non-flow, non-container elements
+  const elements = getVisibleElements(elementRegistry).filter(
+    (el: any) =>
+      !el.type.includes('SequenceFlow') &&
+      !el.type.includes('MessageFlow') &&
+      !el.type.includes('Association') &&
+      el.type !== 'bpmn:Participant' &&
+      el.type !== 'bpmn:Lane'
+  );
+
+  if (elements.length < 2) return warnings;
+
+  // Check for overlapping elements (pairwise bounding-box intersection)
+  let overlapCount = 0;
+  for (let i = 0; i < elements.length; i++) {
+    for (let j = i + 1; j < elements.length; j++) {
+      const a = elements[i];
+      const b = elements[j];
+
+      // Skip parent-child pairs (e.g. elements inside a subprocess)
+      if (a.parent === b || b.parent === a) continue;
+
+      const ax = a.x ?? 0;
+      const ay = a.y ?? 0;
+      const aw = a.width ?? 0;
+      const ah = a.height ?? 0;
+      const bx = b.x ?? 0;
+      const by = b.y ?? 0;
+      const bw = b.width ?? 0;
+      const bh = b.height ?? 0;
+
+      if (ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by) {
+        overlapCount++;
+      }
+    }
+  }
+
+  if (overlapCount > 0) {
+    warnings.push(
+      `⚠️ Layout: ${overlapCount} overlapping element pair(s) detected. ` +
+        'Consider running layout_bpmn_diagram to auto-arrange elements, ' +
+        'or use move_bpmn_element to manually reposition.'
+    );
+  }
+
+  // Check if all elements share the same position (no layout applied)
+  const uniquePositions = new Set(elements.map((el: any) => `${el.x},${el.y}`));
+  if (elements.length > 2 && uniquePositions.size === 1) {
+    warnings.push(
+      `⚠️ Layout: All ${elements.length} elements appear to be at the same position. ` +
+        'Run layout_bpmn_diagram to apply automatic layout.'
+    );
+  }
+
+  return warnings;
 }
 
 // ── Scoped export (subprocess / participant) ─────────────────────────────

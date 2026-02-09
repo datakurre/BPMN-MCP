@@ -394,6 +394,70 @@ export function resolveOrCreateSignal(
   return signalElement;
 }
 
+// ── Business-object / ID alignment helpers ─────────────────────────────────
+
+/**
+ * Create a BPMN business object with a specific ID via the bpmnFactory.
+ *
+ * Without this, bpmn-js auto-generates a different ID on the business
+ * object (e.g. 'Activity_0v3c6jj') while the shape receives our
+ * descriptive ID.  Since XML export serialises the *business-object* ID,
+ * the exported XML would not match the element IDs returned by MCP tools.
+ */
+export function createBusinessObject(modeler: any, bpmnType: string, id: string): any {
+  const bpmnFactory = modeler.get('bpmnFactory');
+  return bpmnFactory.create(bpmnType, { id });
+}
+
+/**
+ * Ensure a connection's business-object ID matches the desired flow ID.
+ *
+ * `modeling.connect` may auto-generate a different business-object ID.
+ * This post-fix ensures the exported XML uses our descriptive flow IDs.
+ */
+export function fixConnectionId(connection: any, desiredId: string): void {
+  if (connection.businessObject && connection.businessObject.id !== desiredId) {
+    connection.businessObject.id = desiredId;
+  }
+}
+
+/**
+ * Resize participant pools whose children have been shifted and now
+ * extend beyond the pool boundary.
+ */
+export function resizeParentContainers(elementRegistry: any, modeling: any): void {
+  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  for (const pool of participants) {
+    const children = elementRegistry.filter(
+      (el: any) =>
+        el.parent === pool &&
+        el.type !== 'bpmn:Lane' &&
+        !el.type.includes('SequenceFlow') &&
+        !el.type.includes('MessageFlow') &&
+        !el.type.includes('Association')
+    );
+    if (children.length === 0) continue;
+
+    let maxRight = 0;
+    for (const child of children) {
+      const right = child.x + (child.width || 0);
+      if (right > maxRight) maxRight = right;
+    }
+
+    const poolRight = pool.x + (pool.width || 0);
+    const padding = 50;
+    if (maxRight + padding > poolRight) {
+      const newWidth = maxRight - pool.x + padding;
+      modeling.resizeShape(pool, {
+        x: pool.x,
+        y: pool.y,
+        width: newWidth,
+        height: pool.height || 250,
+      });
+    }
+  }
+}
+
 /**
  * Find or create a `bpmn:Escalation` root element on the definitions.
  */
