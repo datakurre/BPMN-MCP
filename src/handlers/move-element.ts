@@ -29,7 +29,8 @@ export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResu
 
 export const TOOL_DEFINITION = {
   name: 'move_bpmn_element',
-  description: 'Move an element to a new position in the diagram.',
+  description:
+    'Move an element to a new position in the diagram. Coordinates are canvas-global (absolute), not relative to the parent container. For elements inside participants or subprocesses, the element will be moved to the specified global coordinates. Note: moving an element outside its parent container bounds may produce invalid BPMN.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -40,11 +41,13 @@ export const TOOL_DEFINITION = {
       },
       x: {
         type: 'number',
-        description: 'New X coordinate (absolute position)',
+        description:
+          'New X coordinate (canvas-global absolute position, not relative to parent container)',
       },
       y: {
         type: 'number',
-        description: 'New Y coordinate (absolute position)',
+        description:
+          'New Y coordinate (canvas-global absolute position, not relative to parent container)',
       },
     },
     required: ['diagramId', 'elementId', 'x', 'y'],

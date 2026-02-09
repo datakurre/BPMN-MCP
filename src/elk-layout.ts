@@ -36,7 +36,7 @@ const ELK_LAYOUT_OPTIONS: LayoutOptions = {
  * Maximum Y-centre difference (in px) for two elements to be considered
  * "same row" during the post-ELK vertical alignment snap.
  */
-const SAME_ROW_THRESHOLD = 15;
+const SAME_ROW_THRESHOLD = 20;
 
 /** Padding inside compound containers (participants, expanded subprocesses). */
 const CONTAINER_PADDING = '[top=50,left=20,bottom=20,right=20]';
@@ -470,33 +470,6 @@ function findLinkedFlowElement(artifact: any, associations: any[]): any {
 }
 
 /**
- * Compute desired position for an artifact element.
- */
-function computeArtifactPosition(
-  artifact: any,
-  linkedElement: any,
-  flowMinY: number,
-  flowMaxY: number
-): { x: number; y: number } {
-  const w = artifact.width || 100;
-  const h = artifact.height || 30;
-  const isAnnotation = artifact.type === 'bpmn:TextAnnotation';
-
-  if (linkedElement) {
-    const linkCx = linkedElement.x + (linkedElement.width || 0) / 2;
-    const x = linkCx - w / 2;
-    const y = isAnnotation
-      ? linkedElement.y - h - ARTIFACT_ABOVE_OFFSET
-      : linkedElement.y + (linkedElement.height || 0) + ARTIFACT_BELOW_OFFSET;
-    return { x, y };
-  }
-
-  // Unlinked: place outside the flow bounding box
-  const y = isAnnotation ? flowMinY - h - ARTIFACT_ABOVE_OFFSET : flowMaxY + ARTIFACT_BELOW_OFFSET;
-  return { x: artifact.x, y };
-}
-
-/**
  * Reposition artifact elements (DataObjectReference, DataStoreReference,
  * TextAnnotation) relative to their associated flow elements.
  *
@@ -505,7 +478,10 @@ function computeArtifactPosition(
  * - TextAnnotations above their linked element (via Association)
  * - DataObjectReference / DataStoreReference below their linked element
  *
- * Unlinked artifacts are positioned below the flow bounding box.
+ * Handles complex cases:
+ * - Multiple artifacts linked to the same element (horizontal spread)
+ * - Horizontal overlap between artifacts on different elements
+ * - Unlinked artifacts positioned below the flow bounding box
  */
 function repositionArtifacts(elementRegistry: any, modeling: any): void {
   const artifacts = elementRegistry.filter((el: any) => isArtifact(el.type));
@@ -530,22 +506,100 @@ function repositionArtifacts(elementRegistry: any, modeling: any): void {
   );
   let flowMaxY = 200;
   let flowMinY = Infinity;
+  let flowMinX = Infinity;
+  let flowMaxX = -Infinity;
   for (const el of flowElements) {
     const bottom = el.y + (el.height || 0);
+    const right = el.x + (el.width || 0);
     if (bottom > flowMaxY) flowMaxY = bottom;
     if (el.y < flowMinY) flowMinY = el.y;
+    if (el.x < flowMinX) flowMinX = el.x;
+    if (right > flowMaxX) flowMaxX = right;
   }
   if (flowMinY === Infinity) flowMinY = 80;
+  if (flowMinX === Infinity) flowMinX = 150;
 
-  const occupiedRects: Array<{ x: number; y: number; w: number; h: number }> = [];
+  // Group artifacts by their linked element to handle multiple artifacts per element
+  const artifactsByLinkedElement = new Map<string, any[]>();
+  const unlinkedArtifacts: any[] = [];
 
   for (const artifact of artifacts) {
     const linkedElement = findLinkedFlowElement(artifact, associations);
-    const pos = computeArtifactPosition(artifact, linkedElement, flowMinY, flowMaxY);
+    if (linkedElement) {
+      const group = artifactsByLinkedElement.get(linkedElement.id) || [];
+      group.push(artifact);
+      artifactsByLinkedElement.set(linkedElement.id, group);
+    } else {
+      unlinkedArtifacts.push(artifact);
+    }
+  }
+
+  const occupiedRects: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+  // Position linked artifacts — spread horizontally when multiple share the same element
+  for (const [linkedId, group] of artifactsByLinkedElement) {
+    const linkedElement = elementRegistry.get(linkedId);
+    if (!linkedElement) continue;
+
+    const linkCx = linkedElement.x + (linkedElement.width || 0) / 2;
+    const totalWidth = group.reduce((sum: number, a: any) => sum + (a.width || 100) + 20, -20);
+    let startX = linkCx - totalWidth / 2;
+
+    for (const artifact of group) {
+      const w = artifact.width || 100;
+      const h = artifact.height || 30;
+      const isAnnotation = artifact.type === 'bpmn:TextAnnotation';
+
+      const pos = {
+        x: startX,
+        y: isAnnotation
+          ? linkedElement.y - h - ARTIFACT_ABOVE_OFFSET
+          : linkedElement.y + (linkedElement.height || 0) + ARTIFACT_BELOW_OFFSET,
+      };
+      startX += w + 20;
+
+      // Avoid overlap with previously placed artifacts (both vertical and horizontal)
+      for (const rect of occupiedRects) {
+        if (
+          pos.x < rect.x + rect.w &&
+          pos.x + w > rect.x &&
+          pos.y < rect.y + rect.h &&
+          pos.y + h > rect.y
+        ) {
+          // Try shifting horizontally first, then vertically
+          const rightShift = rect.x + rect.w + 20;
+          const vertShift = isAnnotation ? rect.y - h - 20 : rect.y + rect.h + 20;
+
+          if (rightShift + w <= flowMaxX + 200) {
+            pos.x = rightShift;
+          } else {
+            pos.y = vertShift;
+          }
+        }
+      }
+
+      const dx = pos.x - artifact.x;
+      const dy = pos.y - artifact.y;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        modeling.moveElements([artifact], { x: dx, y: dy });
+      }
+
+      occupiedRects.push({ x: pos.x, y: pos.y, w, h });
+    }
+  }
+
+  // Position unlinked artifacts outside the flow bounding box
+  let unlinkedX = flowMinX;
+  for (const artifact of unlinkedArtifacts) {
     const w = artifact.width || 100;
     const h = artifact.height || 30;
+    const isAnnotation = artifact.type === 'bpmn:TextAnnotation';
+    const pos = {
+      x: unlinkedX,
+      y: isAnnotation ? flowMinY - h - ARTIFACT_ABOVE_OFFSET : flowMaxY + ARTIFACT_BELOW_OFFSET,
+    };
 
-    // Avoid overlap with previously placed artifacts
+    // Avoid overlap
     for (const rect of occupiedRects) {
       if (
         pos.x < rect.x + rect.w &&
@@ -553,7 +607,7 @@ function repositionArtifacts(elementRegistry: any, modeling: any): void {
         pos.y < rect.y + rect.h &&
         pos.y + h > rect.y
       ) {
-        pos.y = rect.y + rect.h + 20;
+        pos.y = isAnnotation ? rect.y - h - 20 : rect.y + rect.h + 20;
       }
     }
 
@@ -564,6 +618,7 @@ function repositionArtifacts(elementRegistry: any, modeling: any): void {
     }
 
     occupiedRects.push({ x: pos.x, y: pos.y, w, h });
+    unlinkedX += w + 20;
   }
 }
 
@@ -583,11 +638,9 @@ const ORTHO_SNAP_TOLERANCE = 15;
  * This pass snaps the smaller delta to zero, making each segment
  * strictly horizontal or vertical.
  *
- * Mutates waypoint coordinates in-place on both the shape's `waypoints`
- * array and the DI `waypoint` array, bypassing `modeling.updateWaypoints`
- * to prevent bpmn-js BpmnLayouter from overriding snapped gateway routes.
+ * Uses `modeling.updateWaypoints` to record changes on the command stack.
  */
-function snapAllConnectionsOrthogonal(elementRegistry: any): void {
+function snapAllConnectionsOrthogonal(elementRegistry: any, modeling: any): void {
   const allConnections = elementRegistry.filter(
     (el: any) => isConnection(el.type) && el.waypoints && el.waypoints.length >= 2
   );
@@ -596,9 +649,12 @@ function snapAllConnectionsOrthogonal(elementRegistry: any): void {
     const wps: Array<{ x: number; y: number }> = conn.waypoints;
     let changed = false;
 
-    for (let i = 1; i < wps.length; i++) {
-      const prev = wps[i - 1];
-      const curr = wps[i];
+    // Build snapped copy of waypoints
+    const snapped = wps.map((wp: { x: number; y: number }) => ({ x: wp.x, y: wp.y }));
+
+    for (let i = 1; i < snapped.length; i++) {
+      const prev = snapped[i - 1];
+      const curr = snapped[i];
       const dx = Math.abs(curr.x - prev.x);
       const dy = Math.abs(curr.y - prev.y);
 
@@ -616,14 +672,7 @@ function snapAllConnectionsOrthogonal(elementRegistry: any): void {
     }
 
     if (changed) {
-      // Sync DI waypoints in-place (they are existing moddle elements)
-      const diWps = conn.di?.waypoint;
-      if (diWps) {
-        for (let i = 0; i < wps.length && i < diWps.length; i++) {
-          diWps[i].x = wps[i].x;
-          diWps[i].y = wps[i].y;
-        }
-      }
+      modeling.updateWaypoints(conn, snapped);
     }
   }
 }
@@ -705,5 +754,5 @@ export async function elkLayout(diagram: DiagramState, options?: ElkLayoutOption
 
   // Step 5: Final orthogonal snap pass on ALL connections.
   // Catches residual near-diagonal segments from ELK rounding or fallback routing.
-  snapAllConnectionsOrthogonal(elementRegistry);
+  snapAllConnectionsOrthogonal(elementRegistry, modeling);
 }

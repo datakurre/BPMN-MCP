@@ -38,6 +38,10 @@ import { TOOL_DEFINITION as REDO_CHANGE } from './handlers/redo';
 import { TOOL_DEFINITION as DIFF_DIAGRAMS } from './handlers/diff-diagrams';
 import { TOOL_DEFINITION as BATCH_OPERATIONS } from './handlers/batch-operations';
 import { TOOL_DEFINITION as RESIZE_ELEMENT } from './handlers/resize-element';
+import { TOOL_DEFINITION as SET_CAMUNDA_LISTENERS } from './handlers/set-camunda-listeners';
+import { TOOL_DEFINITION as SET_CALL_ACTIVITY_VARIABLES } from './handlers/set-call-activity-variables';
+import { TOOL_DEFINITION as MANAGE_ROOT_ELEMENTS } from './handlers/manage-root-elements';
+import { TOOL_DEFINITION as SEARCH_ELEMENTS } from './handlers/search-elements';
 
 export const TOOL_DEFINITIONS = [
   CREATE_DIAGRAM,
@@ -73,4 +77,8 @@ export const TOOL_DEFINITIONS = [
   DIFF_DIAGRAMS,
   BATCH_OPERATIONS,
   RESIZE_ELEMENT,
+  SET_CAMUNDA_LISTENERS,
+  SET_CALL_ACTIVITY_VARIABLES,
+  MANAGE_ROOT_ELEMENTS,
+  SEARCH_ELEMENTS,
 ] as const;

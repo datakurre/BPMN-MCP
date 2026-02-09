@@ -55,6 +55,43 @@ const LINE_HEIGHT = 14;
 const DEFAULT_WRAP_WIDTH = 90;
 
 /**
+ * Parse an SVG points attribute (e.g. "10,20 30,40 50,60") and compute
+ * the bounding box.
+ */
+function parseSvgPointsBBox(points: string): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const coords = points
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+  if (coords.length < 2 || coords.some(isNaN)) {
+    return { x: 0, y: 0, width: 100, height: 80 };
+  }
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (let i = 0; i < coords.length - 1; i += 2) {
+    const px = coords[i];
+    const py = coords[i + 1];
+    if (px < minX) minX = px;
+    if (py < minY) minY = py;
+    if (px > maxX) maxX = px;
+    if (py > maxY) maxY = py;
+  }
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX || 1,
+    height: maxY - minY || 1,
+  };
+}
+
+/**
  * Estimate bounding box dimensions for a text/tspan SVG element based on
  * its textContent.  Returns { width, height } proportional to character
  * count and line breaks.
@@ -159,8 +196,75 @@ function applySvgElementPolyfills(win: any): void {
         const bbox = estimateTextBBox(text);
         return { x: 0, y: 0, width: bbox.width, height: bbox.height };
       }
-      // Non-text elements keep a reasonable default
-      return { x: 0, y: 0, width: 100, height: 100 };
+      // Element-type-aware sizing for common SVG elements
+      if (tag === 'rect') {
+        const w = parseFloat(this.getAttribute('width')) || 100;
+        const h = parseFloat(this.getAttribute('height')) || 80;
+        const x = parseFloat(this.getAttribute('x')) || 0;
+        const y = parseFloat(this.getAttribute('y')) || 0;
+        return { x, y, width: w, height: h };
+      }
+      if (tag === 'circle') {
+        const r = parseFloat(this.getAttribute('r')) || 18;
+        const cx = parseFloat(this.getAttribute('cx')) || r;
+        const cy = parseFloat(this.getAttribute('cy')) || r;
+        return { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r };
+      }
+      if (tag === 'ellipse') {
+        const rx = parseFloat(this.getAttribute('rx')) || 50;
+        const ry = parseFloat(this.getAttribute('ry')) || 30;
+        const cx = parseFloat(this.getAttribute('cx')) || rx;
+        const cy = parseFloat(this.getAttribute('cy')) || ry;
+        return { x: cx - rx, y: cy - ry, width: 2 * rx, height: 2 * ry };
+      }
+      if (tag === 'polygon' || tag === 'polyline') {
+        const points: string = this.getAttribute('points') || '';
+        return parseSvgPointsBBox(points);
+      }
+      if (tag === 'line') {
+        const x1 = parseFloat(this.getAttribute('x1')) || 0;
+        const y1 = parseFloat(this.getAttribute('y1')) || 0;
+        const x2 = parseFloat(this.getAttribute('x2')) || 0;
+        const y2 = parseFloat(this.getAttribute('y2')) || 0;
+        const minX = Math.min(x1, x2);
+        const minY = Math.min(y1, y2);
+        return {
+          x: minX,
+          y: minY,
+          width: Math.abs(x2 - x1) || 1,
+          height: Math.abs(y2 - y1) || 1,
+        };
+      }
+      if (tag === 'g' || tag === 'svg') {
+        // Container elements: try to compute from children or fall back
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
+        const children = this.childNodes || [];
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          if (child.getBBox) {
+            try {
+              const cb = child.getBBox();
+              if (cb.width > 0 || cb.height > 0) {
+                if (cb.x < minX) minX = cb.x;
+                if (cb.y < minY) minY = cb.y;
+                if (cb.x + cb.width > maxX) maxX = cb.x + cb.width;
+                if (cb.y + cb.height > maxY) maxY = cb.y + cb.height;
+              }
+            } catch {
+              // skip
+            }
+          }
+        }
+        if (minX !== Infinity) {
+          return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+        }
+        return { x: 0, y: 0, width: 100, height: 80 };
+      }
+      // Fallback for path and other elements
+      return { x: 0, y: 0, width: 100, height: 80 };
     };
   }
 

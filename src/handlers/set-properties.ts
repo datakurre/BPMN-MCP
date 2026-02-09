@@ -18,12 +18,15 @@ import { appendLintFeedback } from '../linter';
 
 /**
  * Handle `default` property on gateways — requires a BO reference, not a string.
- * Mutates `standardProps` in-place (deletes the key after direct BO assignment).
+ * Uses updateModdleProperties to avoid ReplaceConnectionBehavior's postExecuted
+ * handler which fails in headless mode.  Mutates `standardProps` in-place
+ * (deletes the key after moddle-level BO assignment).
  */
 function handleDefaultOnGateway(
   element: any,
   standardProps: Record<string, any>,
-  elementRegistry: any
+  elementRegistry: any,
+  modeling: any
 ): void {
   if (standardProps['default'] == null) return;
 
@@ -34,7 +37,9 @@ function handleDefaultOnGateway(
   if (typeof flowId === 'string') {
     const flowEl = elementRegistry.get(flowId);
     if (flowEl) {
-      element.businessObject.default = flowEl.businessObject;
+      modeling.updateModdleProperties(element, element.businessObject, {
+        default: flowEl.businessObject,
+      });
       delete standardProps['default'];
     }
   }
@@ -79,7 +84,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
     camundaProps['camunda:type'] = 'external';
   }
 
-  handleDefaultOnGateway(element, standardProps, elementRegistry);
+  handleDefaultOnGateway(element, standardProps, elementRegistry, modeling);
   handleConditionExpression(standardProps, diagram.modeler.get('moddle'));
 
   // Handle `documentation` — creates/updates bpmn:documentation child element

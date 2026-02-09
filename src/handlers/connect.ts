@@ -119,7 +119,14 @@ function applyConnectionProperties(
 
   if (isDefault && connectionType === 'bpmn:SequenceFlow') {
     if (sourceType.includes('ExclusiveGateway') || sourceType.includes('InclusiveGateway')) {
-      source.businessObject.default = connection.businessObject;
+      // Use updateModdleProperties instead of updateProperties to avoid
+      // ReplaceConnectionBehavior's postExecuted handler which fails in
+      // headless mode (tries to access .id on undefined elements in the
+      // changed array).  updateModdleProperties still records on the
+      // command stack for undo/redo support.
+      modeling.updateModdleProperties(source, source.businessObject, {
+        default: connection.businessObject,
+      });
     }
   }
 }

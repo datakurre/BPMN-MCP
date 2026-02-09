@@ -22,6 +22,10 @@ export interface CreateCollaborationArgs {
   participants: Array<{
     name: string;
     processId?: string;
+    width?: number;
+    height?: number;
+    x?: number;
+    y?: number;
   }>;
 }
 
@@ -45,22 +49,50 @@ export async function handleCreateCollaboration(
   const canvas = diagram.modeler.get('canvas');
 
   const createdIds: string[] = [];
-  const poolHeight = ELEMENT_SIZES.participant.height;
+  const defaultPoolHeight = ELEMENT_SIZES.participant.height;
   const verticalGap = 30;
 
   for (let i = 0; i < participants.length; i++) {
     const p = participants[i];
     const id = generateDescriptiveId(elementRegistry, 'bpmn:Participant', p.name);
-    const y = 100 + i * (poolHeight + verticalGap);
+    const poolHeight = p.height || defaultPoolHeight;
+    const prevBottom =
+      i === 0
+        ? 100
+        : (() => {
+            // Sum up previous participants' heights + gaps
+            let y = 100;
+            for (let j = 0; j < i; j++) {
+              y += (participants[j].height || defaultPoolHeight) + verticalGap;
+            }
+            return y;
+          })();
+    const y = p.y ?? prevBottom;
+    const x = p.x ?? 300;
 
     const shape = elementFactory.createShape({
       type: 'bpmn:Participant',
       id,
     });
 
+    // Apply custom dimensions before placement
+    if (p.width) shape.width = p.width;
+    if (p.height) shape.height = poolHeight;
+
     const rootElement = canvas.getRootElement();
-    const createdElement = modeling.createShape(shape, { x: 300, y }, rootElement);
+    const createdElement = modeling.createShape(shape, { x, y }, rootElement);
     modeling.updateProperties(createdElement, { name: p.name });
+
+    // Resize if custom dimensions were requested
+    if (p.width || p.height) {
+      const newBounds = {
+        x: createdElement.x,
+        y: createdElement.y,
+        width: p.width || createdElement.width,
+        height: poolHeight,
+      };
+      modeling.resizeShape(createdElement, newBounds);
+    }
 
     if (p.processId) {
       const bo = createdElement.businessObject;
@@ -100,6 +132,22 @@ export const TOOL_DEFINITION = {
             processId: {
               type: 'string',
               description: 'Optional custom process ID for the participant',
+            },
+            width: {
+              type: 'number',
+              description: 'Optional pool width in pixels (default: 600)',
+            },
+            height: {
+              type: 'number',
+              description: 'Optional pool height in pixels (default: 250)',
+            },
+            x: {
+              type: 'number',
+              description: 'Optional X coordinate for pool center (default: 300)',
+            },
+            y: {
+              type: 'number',
+              description: 'Optional Y coordinate for pool center (default: auto-stacked)',
             },
           },
           required: ['name'],

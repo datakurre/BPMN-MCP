@@ -31,9 +31,12 @@ export async function handleListElements(args: ListElementsArgs): Promise<ToolRe
       entry.outgoing = el.outgoing.map((c: any) => c.id);
     }
 
-    // For connections, show source/target
+    // For connections, show source/target and waypoints
     if (el.source) entry.sourceId = el.source.id;
     if (el.target) entry.targetId = el.target.id;
+    if (el.waypoints && el.waypoints.length > 0) {
+      entry.waypoints = el.waypoints.map((wp: any) => ({ x: wp.x, y: wp.y }));
+    }
 
     // Camunda extension attributes
     const bo = el.businessObject;

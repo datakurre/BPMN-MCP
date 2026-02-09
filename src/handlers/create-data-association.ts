@@ -46,14 +46,12 @@ export async function handleCreateDataAssociation(
   // Create the connection using bpmn:DataInputAssociation or bpmn:DataOutputAssociation
   // In BPMN, data flows FROM data object TO task = DataInputAssociation
   // and FROM task TO data object = DataOutputAssociation
-  // bpmn-js handles this via the modeling API's connect method with the right type
   const connectionType = isSourceData ? 'bpmn:DataInputAssociation' : 'bpmn:DataOutputAssociation';
 
-  // Use bpmn:Association as the visual connection type — bpmn-js will
-  // create the appropriate data association semantics
-  const connection = modeling.connect(source, target, {
-    type: 'bpmn:Association',
-  });
+  // Let bpmn-js auto-detect the correct data association type based on
+  // source/target element types.  bpmn-js's BpmnRules.canConnect returns
+  // the proper DataInputAssociation / DataOutputAssociation type.
+  const connection = modeling.connect(source, target);
 
   await syncXml(diagram);
 

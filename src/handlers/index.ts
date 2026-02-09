@@ -40,6 +40,10 @@ import { handleRedoChange } from './redo';
 import { handleDiffDiagrams } from './diff-diagrams';
 import { handleBatchOperations } from './batch-operations';
 import { handleResizeElement } from './resize-element';
+import { handleSetCamundaListeners } from './set-camunda-listeners';
+import { handleSetCallActivityVariables } from './set-call-activity-variables';
+import { handleManageRootElements } from './manage-root-elements';
+import { handleSearchElements } from './search-elements';
 
 // Re-export every handler so existing imports keep working
 export {
@@ -76,6 +80,10 @@ export {
   handleDiffDiagrams,
   handleBatchOperations,
   handleResizeElement,
+  handleSetCamundaListeners,
+  handleSetCallActivityVariables,
+  handleManageRootElements,
+  handleSearchElements,
 };
 
 // ── Dispatch map ───────────────────────────────────────────────────────────
@@ -116,6 +124,10 @@ const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
   diff_bpmn_diagrams: handleDiffDiagrams,
   batch_bpmn_operations: handleBatchOperations,
   resize_bpmn_element: handleResizeElement,
+  set_bpmn_camunda_listeners: handleSetCamundaListeners,
+  set_bpmn_call_activity_variables: handleSetCallActivityVariables,
+  manage_bpmn_root_elements: handleManageRootElements,
+  search_bpmn_elements: handleSearchElements,
 };
 
 /** Route a CallTool request to the correct handler. */

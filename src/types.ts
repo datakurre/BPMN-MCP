@@ -217,6 +217,10 @@ export interface CreateCollaborationArgs {
   participants: Array<{
     name: string;
     processId?: string;
+    width?: number;
+    height?: number;
+    x?: number;
+    y?: number;
   }>;
 }
 
@@ -246,4 +250,55 @@ export interface BatchOperationsArgs {
     args: Record<string, any>;
   }>;
   stopOnError?: boolean;
+}
+
+export interface SetCamundaListenersArgs {
+  diagramId: string;
+  elementId: string;
+  executionListeners?: Array<{
+    event: string;
+    class?: string;
+    delegateExpression?: string;
+    expression?: string;
+    script?: { scriptFormat: string; value: string };
+  }>;
+  taskListeners?: Array<{
+    event: string;
+    class?: string;
+    delegateExpression?: string;
+    expression?: string;
+    script?: { scriptFormat: string; value: string };
+  }>;
+}
+
+export interface SetCallActivityVariablesArgs {
+  diagramId: string;
+  elementId: string;
+  inMappings?: Array<{
+    source?: string;
+    sourceExpression?: string;
+    target?: string;
+    variables?: 'all';
+    local?: boolean;
+  }>;
+  outMappings?: Array<{
+    source?: string;
+    sourceExpression?: string;
+    target?: string;
+    variables?: 'all';
+    local?: boolean;
+  }>;
+}
+
+export interface ManageRootElementsArgs {
+  diagramId: string;
+  messages?: Array<{ id: string; name?: string }>;
+  signals?: Array<{ id: string; name?: string }>;
+}
+
+export interface SearchElementsArgs {
+  diagramId: string;
+  namePattern?: string;
+  elementType?: string;
+  property?: { key: string; value?: string };
 }
