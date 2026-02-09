@@ -21,6 +21,8 @@ import compensationMissingAssociation from './bpmnlint-plugin-bpmn-mcp/rules/com
 import boundaryEventScope from './bpmnlint-plugin-bpmn-mcp/rules/boundary-event-scope';
 import loopWithoutLimit from './bpmnlint-plugin-bpmn-mcp/rules/loop-without-limit';
 import multipleExpandedPools from './bpmnlint-plugin-bpmn-mcp/rules/multiple-expanded-pools';
+import exclusiveGatewayConditions from './bpmnlint-plugin-bpmn-mcp/rules/exclusive-gateway-conditions';
+import parallelGatewayMergeExclusive from './bpmnlint-plugin-bpmn-mcp/rules/parallel-gateway-merge-exclusive';
 import { getAllDiagrams } from './diagram-manager';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -104,6 +106,8 @@ const localRuleFactories: Record<string, any> = {
   'boundary-event-scope': boundaryEventScope,
   'loop-without-limit': loopWithoutLimit,
   'multiple-expanded-pools': multipleExpandedPools,
+  'exclusive-gateway-conditions': exclusiveGatewayConditions,
+  'parallel-gateway-merge-exclusive': parallelGatewayMergeExclusive,
 };
 
 /**

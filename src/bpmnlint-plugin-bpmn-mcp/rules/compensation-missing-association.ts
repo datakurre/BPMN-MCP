@@ -86,6 +86,28 @@ function ruleFactory() {
         }
       }
     }
+
+    // Check each compensation handler is reachable from a compensation boundary event.
+    // Without this link the engine cannot determine which activity the handler compensates,
+    // so the compensation order is undefined.
+    for (const handler of compensationHandlers) {
+      const hasIncomingAssociation = allAssociations.some(
+        (assoc: any) =>
+          (assoc.targetRef?.id === handler.id &&
+            compensationBoundaryEvents.some((be: any) => be.id === assoc.sourceRef?.id)) ||
+          (assoc.sourceRef?.id === handler.id &&
+            compensationBoundaryEvents.some((be: any) => be.id === assoc.targetRef?.id))
+      );
+
+      if (!hasIncomingAssociation) {
+        reporter.report(
+          handler.id,
+          'Compensation handler is not connected to any compensation boundary event — ' +
+            'attach a compensation boundary event to the service task this handler compensates, ' +
+            'then connect it to this handler via a bpmn:Association to ensure correct compensation order.'
+        );
+      }
+    }
   }
 
   return { check };

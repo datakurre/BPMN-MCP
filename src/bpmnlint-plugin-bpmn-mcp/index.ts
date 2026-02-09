@@ -25,6 +25,8 @@ export const configs = {
       'bpmn-mcp/boundary-event-scope': 'warn',
       'bpmn-mcp/loop-without-limit': 'warn',
       'bpmn-mcp/multiple-expanded-pools': 'warn',
+      'bpmn-mcp/exclusive-gateway-conditions': 'error',
+      'bpmn-mcp/parallel-gateway-merge-exclusive': 'warn',
     },
   },
 };
