@@ -1,5 +1,5 @@
 /**
- * BPMN-MCP server entry point.
+ * bpmn-js-mcp server entry point.
  *
  * Thin shell that wires MCP SDK transport ↔ tool definitions ↔ handlers.
  */
@@ -27,7 +27,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any): Promise<an
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('BPMN.js MCP server running on stdio');
+  console.error('bpmn-js-mcp server running on stdio');
 }
 
 main().catch((error) => {

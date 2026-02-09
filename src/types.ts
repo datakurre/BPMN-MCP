@@ -1,5 +1,5 @@
 /**
- * Shared interfaces used across the BPMN-MCP server.
+ * Shared interfaces used across the bpmn-js-mcp server.
  */
 
 // ── Diagram state ──────────────────────────────────────────────────────────

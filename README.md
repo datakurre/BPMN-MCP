@@ -1,4 +1,4 @@
-# BPMN-MCP
+# bpmn-js-mcp
 
 MCP server that lets AI assistants create and manipulate BPMN 2.0 workflow diagrams. Uses [bpmn-js](https://bpmn.io/toolkit/bpmn-js/) headlessly via jsdom to produce valid BPMN XML and SVG output with full [Camunda 7](https://docs.camunda.org/manual/7.24/) (Operaton) extension support.
 
@@ -14,10 +14,10 @@ MCP server that lets AI assistants create and manipulate BPMN 2.0 workflow diagr
 ```json
 {
   "servers": {
-    "BPMN-MCP": {
+    "bpmn-js-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["git+https://github.com/datakurre/BPMN-MCP"]
+      "args": ["git+https://github.com/datakurre/bpmn-js-mcp"]
     }
   }
 }

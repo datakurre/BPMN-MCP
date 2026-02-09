@@ -25,7 +25,7 @@ describe('persistence', () => {
   beforeEach(() => {
     clearDiagrams();
     disablePersistence();
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpmn-mcp-persist-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpmn-js-mcp-persist-'));
   });
 
   afterEach(() => {

@@ -90,7 +90,7 @@ npm test           # vitest run
 
 **Bundling:** esbuild bundles all source + `@modelcontextprotocol/sdk` + `camunda-bpmn-moddle` into one CJS file. `jsdom`, `bpmn-js`, `elkjs`, `bpmn-auto-layout`, `bpmnlint`, and `bpmnlint-plugin-camunda-compat` are externalised (remain in `node_modules`).
 
-**Install from git:** `npm install github:dattmavis/BPMN-MCP` works — `prepare` triggers `npm run build`.
+**Install from git:** `npm install github:datakurre/bpmn-js-mcp` works — `prepare` triggers `npm run build`.
 
 Output goes to `dist/`. Entry point is `dist/index.js` (also declared as the `bpmn-js-mcp` bin).
 
