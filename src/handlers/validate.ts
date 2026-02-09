@@ -21,6 +21,46 @@ interface ValidationIssue {
   elementId?: string;
   rule?: string;
   docUrl?: string;
+  fix?: string;
+}
+
+/**
+ * Generate a fix suggestion for a lint issue based on its rule name.
+ * Returns a human-readable suggestion or undefined if no fix is applicable.
+ */
+function suggestFix(issue: FlatLintIssue): string | undefined {
+  const { rule, elementId } = issue;
+  if (!rule) return undefined;
+
+  const elementRef = elementId ? ` on element "${elementId}"` : '';
+
+  switch (rule) {
+    case 'label-required':
+    case 'bpmn-mcp/naming-convention':
+      return `Use set_bpmn_element_properties to set a descriptive name${elementRef}`;
+    case 'no-disconnected':
+      return `Use connect_bpmn_elements to connect the disconnected element${elementRef}`;
+    case 'start-event-required':
+      return 'Use add_bpmn_element to add a bpmn:StartEvent';
+    case 'end-event-required':
+      return 'Use add_bpmn_element to add a bpmn:EndEvent';
+    case 'bpmn-mcp/gateway-missing-default':
+      return `Use connect_bpmn_elements with isDefault: true to set a default flow${elementRef}`;
+    case 'bpmn-mcp/implicit-split':
+      return `Replace conditional flows with an explicit gateway${elementRef} — add a bpmn:ExclusiveGateway after the task`;
+    case 'bpmn-mcp/backward-sequence-flow':
+      return `Use layout_bpmn_diagram to re-arrange elements left-to-right, or restructure the flow${elementRef}`;
+    case 'bpmn-mcp/lane-usage':
+      return 'Consider using create_bpmn_collaboration with separate pools instead of lanes';
+    case 'bpmn-mcp/camunda-topic-without-external-type':
+      return `Use set_bpmn_element_properties to set camunda:type to "external"${elementRef}`;
+    case 'bpmn-mcp/loop-without-limit':
+      return `Use set_bpmn_loop_characteristics to set a completionCondition or loopMaximum${elementRef}`;
+    case 'bpmn-mcp/compensation-missing-association':
+      return `Use connect_bpmn_elements to associate the compensation boundary event with a compensation handler${elementRef}`;
+    default:
+      return undefined;
+  }
 }
 
 export async function handleValidate(args: ValidateArgs): Promise<ToolResult> {
@@ -40,14 +80,18 @@ export async function handleValidate(args: ValidateArgs): Promise<ToolResult> {
     // If bpmnlint fails, return empty issues gracefully
   }
 
-  // Convert bpmnlint issues to our format, including docUrl
-  const issues: ValidationIssue[] = lintIssues.map((li) => ({
-    severity: li.severity,
-    message: li.message,
-    elementId: li.elementId,
-    rule: li.rule,
-    ...(li.documentationUrl ? { docUrl: li.documentationUrl } : {}),
-  }));
+  // Convert bpmnlint issues to our format, including docUrl and fix suggestions
+  const issues: ValidationIssue[] = lintIssues.map((li) => {
+    const fix = suggestFix(li);
+    return {
+      severity: li.severity,
+      message: li.message,
+      elementId: li.elementId,
+      rule: li.rule,
+      ...(li.documentationUrl ? { docUrl: li.documentationUrl } : {}),
+      ...(fix ? { fix } : {}),
+    };
+  });
 
   // Filter based on lintMinSeverity if provided
   const blockingSeverities: Set<string> = new Set(['error']);
@@ -75,7 +119,7 @@ export async function handleValidate(args: ValidateArgs): Promise<ToolResult> {
 export const TOOL_DEFINITION = {
   name: 'validate_bpmn_diagram',
   description:
-    'Validate a BPMN diagram using bpmnlint rules. Returns structured issues with rule names, severities, element IDs, and documentation URLs. Uses bpmnlint:recommended by default with tuning for AI-generated diagrams. Supports custom config overrides.',
+    'Validate a BPMN diagram using bpmnlint rules. Returns structured issues with rule names, severities, element IDs, documentation URLs, and fix suggestions (concrete MCP tool calls to resolve each issue). Uses bpmnlint:recommended by default with tuning for AI-generated diagrams. Supports custom config overrides.',
   inputSchema: {
     type: 'object',
     properties: {
