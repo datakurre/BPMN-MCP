@@ -184,8 +184,8 @@ function applyElkPositions(
     const element = elementRegistry.get(child.id);
     if (!element) continue;
 
-    const desiredX = parentAbsX + child.x;
-    const desiredY = parentAbsY + child.y;
+    const desiredX = Math.round(parentAbsX + child.x);
+    const desiredY = Math.round(parentAbsY + child.y);
     const dx = desiredX - element.x;
     const dy = desiredY - element.y;
 
@@ -508,13 +508,19 @@ function applyElkEdgeRoutes(
       const oy = elkEdge.offsetY;
 
       const waypoints: Array<{ x: number; y: number }> = [];
-      waypoints.push({ x: ox + section.startPoint.x, y: oy + section.startPoint.y });
+      waypoints.push({
+        x: Math.round(ox + section.startPoint.x),
+        y: Math.round(oy + section.startPoint.y),
+      });
       if (section.bendPoints) {
         for (const bp of section.bendPoints) {
-          waypoints.push({ x: ox + bp.x, y: oy + bp.y });
+          waypoints.push({ x: Math.round(ox + bp.x), y: Math.round(oy + bp.y) });
         }
       }
-      waypoints.push({ x: ox + section.endPoint.x, y: oy + section.endPoint.y });
+      waypoints.push({
+        x: Math.round(ox + section.endPoint.x),
+        y: Math.round(oy + section.endPoint.y),
+      });
 
       // Snap near-horizontal/vertical segments to strict orthogonal.
       // ELK can produce small offsets (up to ~8 px) due to node-size rounding
@@ -530,7 +536,16 @@ function applyElkEdgeRoutes(
         }
       }
 
-      modeling.updateWaypoints(conn, waypoints);
+      // Deduplicate consecutive identical waypoints (e.g. redundant bend points)
+      const deduped = [waypoints[0]];
+      for (let i = 1; i < waypoints.length; i++) {
+        const prev = deduped[deduped.length - 1];
+        if (prev.x !== waypoints[i].x || prev.y !== waypoints[i].y) {
+          deduped.push(waypoints[i]);
+        }
+      }
+
+      modeling.updateWaypoints(conn, deduped);
     } else {
       // Fallback: use specialised routing for connections that ELK
       // didn't route (boundary events, cross-container flows).
@@ -552,7 +567,18 @@ function applyElkEdgeRoutes(
         waypoints = buildOrthogonalWaypoints(srcMid, tgtMid);
       }
 
-      modeling.updateWaypoints(conn, waypoints);
+      // Round and deduplicate fallback waypoints too
+      const rounded = waypoints.map((wp) => ({ x: Math.round(wp.x), y: Math.round(wp.y) }));
+      const dedupedFallback = [rounded[0]];
+      for (let i = 1; i < rounded.length; i++) {
+        const prev = dedupedFallback[dedupedFallback.length - 1];
+        if (prev.x !== rounded[i].x || prev.y !== rounded[i].y) {
+          dedupedFallback.push(rounded[i]);
+        }
+      }
+      if (dedupedFallback.length >= 2) {
+        modeling.updateWaypoints(conn, dedupedFallback);
+      }
     }
   }
 }
