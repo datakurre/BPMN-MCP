@@ -21,6 +21,9 @@ export const configs = {
       'bpmn-mcp/implicit-split': 'warn',
       'bpmn-mcp/lane-usage': 'info',
       'bpmn-mcp/exclusive-gateway-marker': 'info',
+      'bpmn-mcp/compensation-missing-association': 'error',
+      'bpmn-mcp/boundary-event-scope': 'warn',
+      'bpmn-mcp/loop-without-limit': 'warn',
     },
   },
 };

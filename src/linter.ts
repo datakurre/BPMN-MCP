@@ -17,6 +17,9 @@ import backwardSequenceFlow from './bpmnlint-plugin-bpmn-mcp/rules/backward-sequ
 import implicitSplit from './bpmnlint-plugin-bpmn-mcp/rules/implicit-split';
 import laneUsage from './bpmnlint-plugin-bpmn-mcp/rules/lane-usage';
 import exclusiveGatewayMarker from './bpmnlint-plugin-bpmn-mcp/rules/exclusive-gateway-marker';
+import compensationMissingAssociation from './bpmnlint-plugin-bpmn-mcp/rules/compensation-missing-association';
+import boundaryEventScope from './bpmnlint-plugin-bpmn-mcp/rules/boundary-event-scope';
+import loopWithoutLimit from './bpmnlint-plugin-bpmn-mcp/rules/loop-without-limit';
 import { getAllDiagrams } from './diagram-manager';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -96,6 +99,9 @@ const localRuleFactories: Record<string, any> = {
   'implicit-split': implicitSplit,
   'lane-usage': laneUsage,
   'exclusive-gateway-marker': exclusiveGatewayMarker,
+  'compensation-missing-association': compensationMissingAssociation,
+  'boundary-event-scope': boundaryEventScope,
+  'loop-without-limit': loopWithoutLimit,
 };
 
 /**
