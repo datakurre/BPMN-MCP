@@ -209,4 +209,32 @@ export async function elkLayout(diagram: DiagramState): Promise<void> {
 
   // Apply computed positions with a comfortable origin offset
   applyElkPositions(elementRegistry, modeling, result, ORIGIN_OFFSET_X, ORIGIN_OFFSET_Y);
+
+  // Re-layout all connections now that every element is in its final
+  // position.  Without this, connections routed during intermediate
+  // moveElements calls retain stale waypoints (zigzag paths, overshoots).
+  //
+  // The bpmn-js ManhattanLayout infers exit/entry direction from existing
+  // waypoints.  Stale waypoints that exit through the top cause the
+  // re-layout to keep top-routing even when a straight horizontal path is
+  // correct.  We fix this by resetting each connection's waypoints to a
+  // clean 2-point source→target line BEFORE calling layoutConnection.
+  // This gives the ManhattanLayout a fresh directional signal.
+  const allConnections = elementRegistry.filter(
+    (el: any) => isConnection(el.type) && el.source && el.target
+  );
+  for (const conn of allConnections) {
+    const src = conn.source;
+    const tgt = conn.target;
+    const srcMid = { x: src.x + (src.width || 0) / 2, y: src.y + (src.height || 0) / 2 };
+    const tgtMid = { x: tgt.x + (tgt.width || 0) / 2, y: tgt.y + (tgt.height || 0) / 2 };
+
+    // Clear stale waypoints so ManhattanLayout infers fresh direction
+    conn.waypoints = [srcMid, tgtMid];
+
+    modeling.layoutConnection(conn, {
+      connectionStart: srcMid,
+      connectionEnd: tgtMid,
+    });
+  }
 }

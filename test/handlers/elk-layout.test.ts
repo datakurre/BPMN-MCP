@@ -180,6 +180,71 @@ describe('handleLayoutDiagram (ELK)', () => {
     expect(res.elementCount).toBe(2);
   });
 
+  it('produces clean connection waypoints (no zigzag routing)', async () => {
+    const diagramId = await createDiagram('Clean Waypoints');
+
+    // Build a simple sequential flow — all elements stacked at same position
+    const start = await addElement(diagramId, 'bpmn:StartEvent', {
+      name: 'Start',
+      x: 200,
+      y: 200,
+    });
+    const taskA = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Task A',
+      x: 200,
+      y: 200,
+    });
+    const taskB = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Task B',
+      x: 200,
+      y: 200,
+    });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', {
+      name: 'End',
+      x: 200,
+      y: 200,
+    });
+
+    await handleConnect({ diagramId, sourceElementId: start, targetElementId: taskA });
+    await handleConnect({ diagramId, sourceElementId: taskA, targetElementId: taskB });
+    await handleConnect({ diagramId, sourceElementId: taskB, targetElementId: end });
+
+    await handleLayoutDiagram({ diagramId });
+
+    // After ELK layout, elements should be in a horizontal line
+    const diagram = getDiagram(diagramId)!;
+    const reg = diagram.modeler.get('elementRegistry');
+    const startEl = reg.get(start);
+    const taskAEl = reg.get(taskA);
+    const taskBEl = reg.get(taskB);
+    const endEl = reg.get(end);
+
+    // All elements on roughly the same Y (horizontal flow)
+    const midY = startEl.y + startEl.height / 2;
+    expect(Math.abs(taskAEl.y + taskAEl.height / 2 - midY)).toBeLessThan(20);
+
+    // Check connections: for same-row elements, waypoints should NOT go
+    // above or below the element bounds (no zigzag over-routing)
+    const connections = reg.filter((el: any) => el.type === 'bpmn:SequenceFlow');
+
+    for (const conn of connections) {
+      const waypoints = conn.waypoints;
+      expect(waypoints).toBeDefined();
+      expect(waypoints.length).toBeGreaterThanOrEqual(2);
+
+      // No waypoint should be more than 50px above or below the source/target Y range
+      const sourceEl = conn.source;
+      const targetEl = conn.target;
+      const minY = Math.min(sourceEl.y, targetEl.y) - 50;
+      const maxY = Math.max(sourceEl.y + sourceEl.height, targetEl.y + targetEl.height) + 50;
+
+      for (const wp of waypoints) {
+        expect(wp.y).toBeGreaterThanOrEqual(minY);
+        expect(wp.y).toBeLessThanOrEqual(maxY);
+      }
+    }
+  });
+
   it('updates XML after layout', async () => {
     const diagramId = await createDiagram('XML Sync');
     const start = await addElement(diagramId, 'bpmn:StartEvent', {
