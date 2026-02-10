@@ -16,8 +16,18 @@ import { isConnection, isInfrastructure, isArtifact } from './helpers';
  *
  * When a container is specified, only shapes that are direct children
  * of that container are considered — preventing cross-nesting-level mixing.
+ *
+ * @param threshold  Optional Y-centre proximity threshold for grouping
+ *                   elements into the same row.  Defaults to SAME_ROW_THRESHOLD.
+ *                   A larger value (e.g. 40) can be used for subprocesses where
+ *                   elements should be more aggressively aligned.
  */
-export function snapSameLayerElements(elementRegistry: any, modeling: any, container?: any): void {
+export function snapSameLayerElements(
+  elementRegistry: any,
+  modeling: any,
+  container?: any,
+  threshold?: number
+): void {
   let parentFilter: any = container;
   if (!parentFilter) {
     parentFilter = elementRegistry.filter(
@@ -61,7 +71,8 @@ export function snapSameLayerElements(elementRegistry: any, modeling: any, conta
   layers.push(currentLayer);
 
   // Within each layer, find groups of elements whose Y-centres are within
-  // SAME_ROW_THRESHOLD — snap them to the median Y-centre.
+  // the threshold — snap them to the median Y-centre.
+  const rowThreshold = threshold ?? SAME_ROW_THRESHOLD;
   for (const layer of layers) {
     if (layer.length < 2) continue;
 
@@ -76,7 +87,7 @@ export function snapSameLayerElements(elementRegistry: any, modeling: any, conta
     for (let i = 1; i < byY.length; i++) {
       const prevCy = group[group.length - 1].y + (group[group.length - 1].height || 0) / 2;
       const currCy = byY[i].y + (byY[i].height || 0) / 2;
-      if (Math.abs(currCy - prevCy) <= SAME_ROW_THRESHOLD) {
+      if (Math.abs(currCy - prevCy) <= rowThreshold) {
         group.push(byY[i]);
       } else {
         groups.push(group);
@@ -158,7 +169,15 @@ export function snapAllConnectionsOrthogonal(elementRegistry: any, modeling: any
  * by ELK internally.  The snap pass must run separately within each
  * expanded subprocess (scoped to its direct children) to avoid mixing
  * nesting levels.
+ *
+ * Uses a more generous Y-centre threshold (SUBPROCESS_ROW_THRESHOLD)
+ * so that elements in the same layer are aligned even when ELK places
+ * them with larger offsets inside the tighter subprocess space.
  */
+
+/** More generous row threshold for aligning elements inside subprocesses. */
+const SUBPROCESS_ROW_THRESHOLD = 40;
+
 export function snapExpandedSubprocesses(
   elementRegistry: any,
   modeling: any,
@@ -185,7 +204,7 @@ export function snapExpandedSubprocesses(
   );
 
   for (const sub of expandedSubs) {
-    snapSameLayerElements(elementRegistry, modeling, sub);
+    snapSameLayerElements(elementRegistry, modeling, sub, SUBPROCESS_ROW_THRESHOLD);
     // Recurse into nested subprocesses
     snapExpandedSubprocesses(elementRegistry, modeling, sub);
   }

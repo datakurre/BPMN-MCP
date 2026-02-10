@@ -20,6 +20,7 @@
  * 7. Apply ELK edge sections as waypoints → applyElkEdgeRoutes()
  * 7.5. Route branch connections through inter-column channels → routeBranchConnectionsThroughChannels()
  * 8. Repair disconnected edge endpoints → fixDisconnectedEdges()
+ * 8.3. Snap flow endpoints to element centres → snapEndpointsToElementCentres()
  * 8.5. Simplify collinear waypoints → simplifyCollinearWaypoints()
  * 9. Final orthogonal snap → snapAllConnectionsOrthogonal()
  * 10. Detect crossing flows → detectCrossingFlows()
@@ -51,6 +52,7 @@ import {
   fixDisconnectedEdges,
   simplifyCollinearWaypoints,
   simplifyGatewayBranchRoutes,
+  snapEndpointsToElementCentres,
 } from './edge-routing';
 import { repositionArtifacts } from './artifacts';
 import { routeBranchConnectionsThroughChannels } from './channel-routing';
@@ -361,6 +363,12 @@ export async function elkLayout(
   // routes (step 7), leaving waypoints that no longer connect to their
   // source/target elements.  This pass snaps endpoints back.
   fixDisconnectedEdges(elementRegistry, modeling);
+
+  // Step 8.3: Snap flow endpoints to element centres.
+  // ELK uses port positions that may be offset from element geometric
+  // centres, causing subtle Y-wobble on horizontal flows.  This pass
+  // adjusts endpoints so they connect at element centre lines.
+  snapEndpointsToElementCentres(elementRegistry, modeling);
 
   // Step 8.5: Simplify collinear waypoints.
   // Remove redundant middle points where three consecutive waypoints

@@ -574,3 +574,116 @@ export function fixDisconnectedEdges(elementRegistry: any, modeling: any): void 
     }
   }
 }
+
+// ── Endpoint centre-snap pass ──────────────────────────────────────────────
+
+/**
+ * Tolerance (px) for snapping endpoints to element centres.
+ * Only adjusts endpoints that are within this distance of the element
+ * centre on the cross-axis — avoids distorting intentionally angled routes.
+ */
+const CENTRE_SNAP_TOLERANCE = 15;
+
+/**
+ * Snap flow waypoint endpoints to element centre lines.
+ *
+ * ELK uses port positions that may be offset from the element's geometric
+ * centre, causing small Y-wobbles on horizontal flows or X-wobbles on
+ * vertical flows.  This pass adjusts the first and last waypoints of each
+ * connection so that:
+ * - For primarily horizontal flows: the start point's Y matches the source
+ *   centre Y, and the end point's Y matches the target centre Y.
+ * - For primarily vertical flows: the start point's X matches the source
+ *   centre X, and the end point's X matches the target centre X.
+ *
+ * Adjacent waypoints are adjusted to maintain orthogonality.
+ * Boundary events and message flows are skipped (they have special routing).
+ *
+ * Should run after fixDisconnectedEdges and before snapAllConnectionsOrthogonal.
+ */
+export function snapEndpointsToElementCentres(elementRegistry: any, modeling: any): void {
+  const connections = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:SequenceFlow' &&
+      el.source &&
+      el.target &&
+      el.waypoints?.length >= 2 &&
+      el.source.type !== 'bpmn:BoundaryEvent'
+  );
+
+  for (const conn of connections) {
+    const src = conn.source;
+    const tgt = conn.target;
+    const wps: Array<{ x: number; y: number }> = conn.waypoints.map((wp: any) => ({
+      x: wp.x,
+      y: wp.y,
+    }));
+
+    const srcCy = Math.round(src.y + (src.height || 0) / 2);
+    const srcCx = Math.round(src.x + (src.width || 0) / 2);
+    const tgtCy = Math.round(tgt.y + (tgt.height || 0) / 2);
+    const tgtCx = Math.round(tgt.x + (tgt.width || 0) / 2);
+
+    let changed = false;
+    const first = wps[0];
+    const last = wps[wps.length - 1];
+
+    // Determine if the flow is primarily horizontal or vertical
+    const overallDx = Math.abs(last.x - first.x);
+    const overallDy = Math.abs(last.y - first.y);
+    const isHorizontal = overallDx >= overallDy;
+
+    if (isHorizontal) {
+      // Snap first waypoint Y to source centre Y
+      const srcYDiff = Math.abs(first.y - srcCy);
+      if (srcYDiff > 0.5 && srcYDiff <= CENTRE_SNAP_TOLERANCE) {
+        first.y = srcCy;
+        // Propagate to keep the first segment orthogonal
+        if (wps.length > 1 && Math.abs(wps[1].y - first.y) < CENTRE_SNAP_TOLERANCE) {
+          wps[1].y = first.y;
+        }
+        changed = true;
+      }
+
+      // Snap last waypoint Y to target centre Y
+      const tgtYDiff = Math.abs(last.y - tgtCy);
+      if (tgtYDiff > 0.5 && tgtYDiff <= CENTRE_SNAP_TOLERANCE) {
+        last.y = tgtCy;
+        // Propagate to keep the last segment orthogonal
+        if (wps.length > 1) {
+          const penultimate = wps[wps.length - 2];
+          if (Math.abs(penultimate.y - last.y) < CENTRE_SNAP_TOLERANCE) {
+            penultimate.y = last.y;
+          }
+        }
+        changed = true;
+      }
+    } else {
+      // Vertical flow: snap X to element centres
+      const srcXDiff = Math.abs(first.x - srcCx);
+      if (srcXDiff > 0.5 && srcXDiff <= CENTRE_SNAP_TOLERANCE) {
+        first.x = srcCx;
+        if (wps.length > 1 && Math.abs(wps[1].x - first.x) < CENTRE_SNAP_TOLERANCE) {
+          wps[1].x = first.x;
+        }
+        changed = true;
+      }
+
+      const tgtXDiff = Math.abs(last.x - tgtCx);
+      if (tgtXDiff > 0.5 && tgtXDiff <= CENTRE_SNAP_TOLERANCE) {
+        last.x = tgtCx;
+        if (wps.length > 1) {
+          const penultimate = wps[wps.length - 2];
+          if (Math.abs(penultimate.x - last.x) < CENTRE_SNAP_TOLERANCE) {
+            penultimate.x = last.x;
+          }
+        }
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      modeling.updateWaypoints(conn, wps);
+    }
+  }
+}
