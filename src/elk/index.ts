@@ -29,7 +29,11 @@ import { isConnection, isInfrastructure, isArtifact } from './helpers';
 import { ELK_LAYOUT_OPTIONS, ORIGIN_OFFSET_X, ORIGIN_OFFSET_Y } from './constants';
 import { buildContainerGraph } from './graph-builder';
 import { applyElkPositions, resizeCompoundNodes } from './position-application';
-import { repositionBoundaryEvents } from './boundary-events';
+import {
+  repositionBoundaryEvents,
+  saveBoundaryEventData,
+  restoreBoundaryEventData,
+} from './boundary-events';
 import { snapSameLayerElements, snapAllConnectionsOrthogonal } from './snap-alignment';
 import { applyElkEdgeRoutes } from './edge-routing';
 import { repositionArtifacts } from './artifacts';
@@ -151,6 +155,10 @@ export async function elkLayout(
     offsetY = ORIGIN_OFFSET_Y;
   }
 
+  // Save boundary event data before any moves — headless mode can
+  // corrupt boundary event types during modeling.moveElements.
+  const boundarySnapshots = saveBoundaryEventData(elementRegistry);
+
   // Step 1: Apply ELK-computed node positions
   applyElkPositions(elementRegistry, modeling, result, offsetX, offsetY);
 
@@ -159,10 +167,15 @@ export async function elkLayout(
   // so that x/y are already correct.
   resizeCompoundNodes(elementRegistry, modeling, result);
 
+  // Step 2.5: Restore boundary event types and host references.
+  // Must run before snap/grid passes so they correctly exclude boundary
+  // events (they filter by type === 'bpmn:BoundaryEvent').
+  restoreBoundaryEventData(elementRegistry, boundarySnapshots);
+
   // Step 3: Fix boundary event positions.  They are excluded from the
   // ELK graph and should follow their host via moveElements, but
   // headless mode may leave them stranded.
-  repositionBoundaryEvents(elementRegistry, modeling);
+  repositionBoundaryEvents(elementRegistry, modeling, boundarySnapshots);
 
   // Step 4: Snap same-layer elements to common Y (fixes 5–10 px offsets)
   snapSameLayerElements(elementRegistry, modeling);
@@ -191,6 +204,13 @@ export async function elkLayout(
   // Step 6: Reposition artifacts (data objects, data stores, annotations)
   // outside the main flow — they were excluded from the ELK graph.
   repositionArtifacts(elementRegistry, modeling);
+
+  // Step 6.5: Final boundary event restore + reposition.
+  // Snap/grid passes (steps 4-5) may have moved host tasks, which can
+  // re-corrupt boundary events in headless mode.  Restore and reposition
+  // once more before edge routing.
+  restoreBoundaryEventData(elementRegistry, boundarySnapshots);
+  repositionBoundaryEvents(elementRegistry, modeling, boundarySnapshots);
 
   // Step 7: Apply ELK edge routes as waypoints (orthogonal, no diagonals).
   // Uses ELK's own edge sections instead of bpmn-js ManhattanLayout,

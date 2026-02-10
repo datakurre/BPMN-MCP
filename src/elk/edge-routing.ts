@@ -170,9 +170,44 @@ export function applyElkEdgeRoutes(
       const tgt = conn.target;
 
       if (src.type === 'bpmn:BoundaryEvent' || conn.type === 'bpmn:MessageFlow') {
-        // Let bpmn-js handle routing for boundary events and message flows
-        // — its ManhattanLayout knows about element boundaries and pool gaps.
-        modeling.layoutConnection(conn);
+        // For boundary events, build a clean route from the boundary event
+        // to the target: go down (or up) from the boundary event border,
+        // then horizontally to the target.  bpmn-js ManhattanLayout can
+        // produce backward routes in headless mode.
+        if (src.type === 'bpmn:BoundaryEvent' && tgt) {
+          const srcCx = src.x + (src.width || 36) / 2;
+          const srcBottom = src.y + (src.height || 36);
+          const tgtCx = tgt.x + (tgt.width || 36) / 2;
+          const tgtCy = tgt.y + (tgt.height || 36) / 2;
+
+          // Determine if target is below or above the boundary event
+          const goDown = tgtCy >= src.y;
+          const startY = goDown ? srcBottom : src.y;
+
+          const waypoints = [
+            { x: Math.round(srcCx), y: Math.round(startY) },
+            { x: Math.round(srcCx), y: Math.round(tgtCy) },
+            { x: Math.round(tgtCx), y: Math.round(tgtCy) },
+          ];
+
+          // Deduplicate if source and target are aligned
+          const deduped = [waypoints[0]];
+          for (let i = 1; i < waypoints.length; i++) {
+            const prev = deduped[deduped.length - 1];
+            if (Math.abs(prev.x - waypoints[i].x) > 1 || Math.abs(prev.y - waypoints[i].y) > 1) {
+              deduped.push(waypoints[i]);
+            }
+          }
+
+          if (deduped.length >= 2) {
+            modeling.updateWaypoints(conn, deduped);
+          } else {
+            modeling.layoutConnection(conn);
+          }
+        } else {
+          // Message flows — let bpmn-js handle routing
+          modeling.layoutConnection(conn);
+        }
       } else {
         // Generic fallback for other unrouted connections
         const srcMid = { x: src.x + (src.width || 0) / 2, y: src.y + (src.height || 0) / 2 };

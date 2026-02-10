@@ -82,5 +82,31 @@ export function buildContainerGraph(
     }
   }
 
+  // Include proxy edges for boundary event flows.
+  // Boundary events are excluded from ELK nodes, but their outgoing flows
+  // need to be represented so ELK positions the targets properly (e.g.
+  // error end events, recovery tasks).  We use the boundary event's host
+  // as the proxy source, with a synthetic edge ID to avoid conflicts with
+  // the actual connection's edge routing.
+  const boundaryEvents = allElements.filter(
+    (el: any) => el.parent === container && el.type === 'bpmn:BoundaryEvent' && el.host
+  );
+  for (const be of boundaryEvents) {
+    const hostId = be.host.id;
+    if (!nodeIds.has(hostId)) continue;
+
+    // Find outgoing flows from this boundary event
+    const beOutgoing = childConnections.filter(
+      (conn: any) => conn.source.id === be.id && nodeIds.has(conn.target.id)
+    );
+    for (const conn of beOutgoing) {
+      edges.push({
+        id: `__boundary_proxy__${conn.id}`,
+        sources: [hostId],
+        targets: [conn.target.id],
+      });
+    }
+  }
+
   return { children, edges };
 }
