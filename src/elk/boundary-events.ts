@@ -289,4 +289,114 @@ export function repositionBoundaryEvents(
       }
     }
   }
+
+  // ── Spread multiple boundary events sharing the same host border ──
+  // Group boundary events by host, then detect events on the same border.
+  // When multiple events share a border, spread them evenly along that
+  // edge to prevent overlap.
+  spreadBoundaryEventsOnSameBorder(boundaryEvents);
+}
+
+/**
+ * Detect which border a boundary event currently sits on relative to its host.
+ * Returns 'top', 'bottom', 'left', or 'right' based on proximity.
+ */
+function detectCurrentBorder(be: any, host: any): 'top' | 'bottom' | 'left' | 'right' {
+  const beW = be.width || 36;
+  const beH = be.height || 36;
+  const beCy = be.y + beH / 2;
+  const beCx = be.x + beW / 2;
+
+  const hostTop = host.y;
+  const hostBottom = host.y + (host.height || 80);
+  const hostLeft = host.x;
+  const hostRight = host.x + (host.width || 100);
+
+  // Find which border is closest to the event centre
+  const dTop = Math.abs(beCy - hostTop);
+  const dBottom = Math.abs(beCy - hostBottom);
+  const dLeft = Math.abs(beCx - hostLeft);
+  const dRight = Math.abs(beCx - hostRight);
+
+  const minD = Math.min(dTop, dBottom, dLeft, dRight);
+  if (minD === dBottom) return 'bottom';
+  if (minD === dTop) return 'top';
+  if (minD === dRight) return 'right';
+  return 'left';
+}
+
+/**
+ * Spread multiple boundary events that share the same border of a host.
+ *
+ * For 'top' and 'bottom' borders, events are spread along the X axis.
+ * For 'left' and 'right' borders, events are spread along the Y axis.
+ * Events are distributed evenly within the middle 80% of the border
+ * to avoid crowding the corners.
+ */
+function spreadBoundaryEventsOnSameBorder(boundaryEvents: any[]): void {
+  // Group by (host ID, border)
+  const groups = new Map<string, any[]>();
+  for (const be of boundaryEvents) {
+    if (!be.host) continue;
+    const border = detectCurrentBorder(be, be.host);
+    const key = `${be.host.id}:${border}`;
+    const group = groups.get(key) || [];
+    group.push(be);
+    groups.set(key, group);
+  }
+
+  for (const [key, group] of groups) {
+    if (group.length < 2) continue;
+
+    const border = key.split(':').pop() as 'top' | 'bottom' | 'left' | 'right';
+    const host = group[0].host;
+    const hostW = host.width || 100;
+    const hostH = host.height || 80;
+
+    if (border === 'top' || border === 'bottom') {
+      // Spread along X axis — use the middle 80% of the host width
+      const margin = hostW * 0.1;
+      const availableWidth = hostW - 2 * margin;
+      const step = group.length > 1 ? availableWidth / (group.length - 1) : 0;
+
+      // Sort by current X to maintain relative order
+      group.sort((a: any, b: any) => a.x - b.x);
+
+      for (let i = 0; i < group.length; i++) {
+        const be = group[i];
+        const beW = be.width || 36;
+        const targetCx = host.x + margin + (group.length > 1 ? i * step : availableWidth / 2);
+        const dx = targetCx - (be.x + beW / 2);
+
+        if (Math.abs(dx) > 1) {
+          be.x += dx;
+          if (be.di?.bounds) be.di.bounds.x = be.x;
+          if (be.label) be.label.x += dx;
+          if (be.di?.label?.bounds) be.di.label.bounds.x += dx;
+        }
+      }
+    } else {
+      // Spread along Y axis — use the middle 80% of the host height
+      const margin = hostH * 0.1;
+      const availableHeight = hostH - 2 * margin;
+      const step = group.length > 1 ? availableHeight / (group.length - 1) : 0;
+
+      // Sort by current Y to maintain relative order
+      group.sort((a: any, b: any) => a.y - b.y);
+
+      for (let i = 0; i < group.length; i++) {
+        const be = group[i];
+        const beH = be.height || 36;
+        const targetCy = host.y + margin + (group.length > 1 ? i * step : availableHeight / 2);
+        const dy = targetCy - (be.y + beH / 2);
+
+        if (Math.abs(dy) > 1) {
+          be.y += dy;
+          if (be.di?.bounds) be.di.bounds.y = be.y;
+          if (be.label) be.label.y += dy;
+          if (be.di?.label?.bounds) be.di.label.bounds.y += dy;
+        }
+      }
+    }
+  }
 }

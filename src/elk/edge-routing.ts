@@ -231,6 +231,74 @@ export function applyElkEdgeRoutes(
   }
 }
 
+// ── Collinear waypoint simplification ───────────────────────────────────────
+
+/**
+ * Remove redundant collinear waypoints from all connections.
+ *
+ * After ELK routing and post-processing (channel routing, orthogonal snap),
+ * connections may have consecutive waypoints that lie on the same horizontal
+ * or vertical line.  The middle point of such a collinear triple is redundant
+ * and can be removed to produce cleaner routes with fewer bend points.
+ *
+ * Example:  (100,200) → (200,200) → (300,200)  →  simplifies to (100,200) → (300,200)
+ */
+export function simplifyCollinearWaypoints(elementRegistry: any, modeling: any): void {
+  const connections = elementRegistry.filter(
+    (el: any) => isConnection(el.type) && el.waypoints && el.waypoints.length >= 3
+  );
+
+  for (const conn of connections) {
+    const wps: Array<{ x: number; y: number }> = conn.waypoints.map((wp: any) => ({
+      x: wp.x,
+      y: wp.y,
+    }));
+
+    const simplified = removeCollinearPoints(wps);
+
+    if (simplified.length < wps.length && simplified.length >= 2) {
+      modeling.updateWaypoints(conn, simplified);
+    }
+  }
+}
+
+/**
+ * Remove collinear middle points from a waypoint array.
+ *
+ * Three consecutive points are collinear when the middle point lies on the
+ * same horizontal line (all share Y within tolerance) or the same vertical
+ * line (all share X within tolerance).  Uses a tolerance of 1px to handle
+ * sub-pixel rounding from ELK.
+ */
+function removeCollinearPoints(
+  wps: Array<{ x: number; y: number }>
+): Array<{ x: number; y: number }> {
+  if (wps.length < 3) return wps;
+
+  const TOLERANCE = 1;
+  const result: Array<{ x: number; y: number }> = [wps[0]];
+
+  for (let i = 1; i < wps.length - 1; i++) {
+    const prev = result[result.length - 1];
+    const curr = wps[i];
+    const next = wps[i + 1];
+
+    // Check if prev, curr, next are on the same horizontal line
+    const sameY = Math.abs(prev.y - curr.y) <= TOLERANCE && Math.abs(curr.y - next.y) <= TOLERANCE;
+    // Check if prev, curr, next are on the same vertical line
+    const sameX = Math.abs(prev.x - curr.x) <= TOLERANCE && Math.abs(curr.x - next.x) <= TOLERANCE;
+
+    if (!sameY && !sameX) {
+      // Not collinear — keep the middle point
+      result.push(curr);
+    }
+    // else: collinear — skip the middle point
+  }
+
+  result.push(wps[wps.length - 1]);
+  return result;
+}
+
 // ── Disconnected edge repair ───────────────────────────────────────────────
 
 /** Distance threshold (px) — edge endpoint is "disconnected" if further. */

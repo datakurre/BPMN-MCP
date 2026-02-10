@@ -20,6 +20,7 @@
  * 7. Apply ELK edge sections as waypoints → applyElkEdgeRoutes()
  * 7.5. Route branch connections through inter-column channels → routeBranchConnectionsThroughChannels()
  * 8. Repair disconnected edge endpoints → fixDisconnectedEdges()
+ * 8.5. Simplify collinear waypoints → simplifyCollinearWaypoints()
  * 9. Final orthogonal snap → snapAllConnectionsOrthogonal()
  * 10. Detect crossing flows → detectCrossingFlows()
  */
@@ -37,7 +38,11 @@ import {
   restoreBoundaryEventData,
 } from './boundary-events';
 import { snapSameLayerElements, snapAllConnectionsOrthogonal } from './snap-alignment';
-import { applyElkEdgeRoutes, fixDisconnectedEdges } from './edge-routing';
+import {
+  applyElkEdgeRoutes,
+  fixDisconnectedEdges,
+  simplifyCollinearWaypoints,
+} from './edge-routing';
 import { repositionArtifacts } from './artifacts';
 import { routeBranchConnectionsThroughChannels } from './channel-routing';
 import { detectHappyPath } from './happy-path';
@@ -64,6 +69,7 @@ export type { ElkLayoutOptions, CrossingFlowsResult, GridLayer } from './types';
  *    bpmn-js ManhattanLayout entirely for ELK-routed edges)
  * 7. Route branch connections through inter-column channels
  * 8. Repair disconnected edge endpoints after gridSnap moves
+ * 8.5. Simplify collinear waypoints (remove redundant bends)
  * 9. Detect crossing flows and report count
  */
 export async function elkLayout(
@@ -261,6 +267,12 @@ export async function elkLayout(
   // routes (step 7), leaving waypoints that no longer connect to their
   // source/target elements.  This pass snaps endpoints back.
   fixDisconnectedEdges(elementRegistry, modeling);
+
+  // Step 8.5: Simplify collinear waypoints.
+  // Remove redundant middle points where three consecutive waypoints
+  // lie on the same horizontal or vertical line, producing cleaner
+  // routes with fewer bend points.
+  simplifyCollinearWaypoints(elementRegistry, modeling);
 
   // Step 9: Final orthogonal snap pass on ALL connections.
   // Catches residual near-diagonal segments from ELK rounding or fallback routing.
