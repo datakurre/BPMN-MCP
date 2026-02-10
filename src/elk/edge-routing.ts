@@ -234,6 +234,124 @@ export function applyElkEdgeRoutes(
 // ── Collinear waypoint simplification ───────────────────────────────────────
 
 /**
+ * Simplify gateway branch connections to clean Z-shaped routes.
+ *
+ * For connections where the source is a split gateway and the target is
+ * on a different row, replaces multi-bend ELK routes with a 4-waypoint
+ * Z-shape: horizontal from gateway right edge → vertical segment →
+ * horizontal to target left edge.
+ *
+ * Only applies when:
+ * - The route has 5+ waypoints (indicating unnecessary bends)
+ * - The gateway has at most 2 outgoing flows (binary split pattern)
+ * - The target is to the right of the source
+ *
+ * Gateways with 3+ branches are left to ELK routing + channel routing
+ * which handles them better to avoid crossing flows.
+ */
+export function simplifyGatewayBranchRoutes(elementRegistry: any, modeling: any): void {
+  // Build a count of outgoing/incoming flows per gateway
+  const allConns = elementRegistry.filter(
+    (el: any) => el.type === 'bpmn:SequenceFlow' && el.source && el.target
+  );
+  const gwOutCount = new Map<string, number>();
+  const gwInCount = new Map<string, number>();
+  for (const conn of allConns) {
+    if (conn.source?.type?.includes('Gateway')) {
+      gwOutCount.set(conn.source.id, (gwOutCount.get(conn.source.id) || 0) + 1);
+    }
+    if (conn.target?.type?.includes('Gateway')) {
+      gwInCount.set(conn.target.id, (gwInCount.get(conn.target.id) || 0) + 1);
+    }
+  }
+
+  const connections = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:SequenceFlow' &&
+      el.source &&
+      el.target &&
+      el.waypoints &&
+      el.waypoints.length >= 5
+  );
+
+  for (const conn of connections) {
+    const src = conn.source;
+    const tgt = conn.target;
+
+    // Only process split-gateway → branch-target connections
+    if (!src.type?.includes('Gateway')) continue;
+
+    // Only apply to binary splits (2 outgoing) — larger fan-outs
+    // are handled by ELK + channel routing to avoid crossings
+    if ((gwOutCount.get(src.id) || 0) > 2) continue;
+
+    // Only process if the target is on a different Y (different row)
+    const srcCy = src.y + (src.height || 0) / 2;
+    const tgtCy = tgt.y + (tgt.height || 0) / 2;
+    if (Math.abs(srcCy - tgtCy) < 10) continue;
+
+    // Only process if target is to the right
+    const srcRight = src.x + (src.width || 0);
+    const tgtLeft = tgt.x;
+    if (tgtLeft <= srcRight) continue;
+
+    // Build Z-shaped route
+    const midX = Math.round((srcRight + tgtLeft) / 2);
+
+    const zWaypoints = [
+      { x: Math.round(srcRight), y: Math.round(srcCy) },
+      { x: midX, y: Math.round(srcCy) },
+      { x: midX, y: Math.round(tgtCy) },
+      { x: Math.round(tgtLeft), y: Math.round(tgtCy) },
+    ];
+
+    modeling.updateWaypoints(conn, zWaypoints);
+  }
+
+  // Also simplify join-gateway incoming connections (branch-target → join)
+  // but only for binary joins (2 incoming branch flows)
+  const joinConnections = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:SequenceFlow' &&
+      el.source &&
+      el.target &&
+      el.waypoints &&
+      el.waypoints.length >= 5 &&
+      el.target.type?.includes('Gateway')
+  );
+
+  for (const conn of joinConnections) {
+    const src = conn.source;
+    const tgt = conn.target;
+
+    // Only apply to binary joins
+    if ((gwInCount.get(tgt.id) || 0) > 2) continue;
+
+    // Only process if source is on a different Y (different row)
+    const srcCy = src.y + (src.height || 0) / 2;
+    const tgtCy = tgt.y + (tgt.height || 0) / 2;
+    if (Math.abs(srcCy - tgtCy) < 10) continue;
+
+    const srcRight = src.x + (src.width || 0);
+    const tgtLeft = tgt.x;
+    if (tgtLeft <= srcRight) continue;
+
+    const midX = Math.round((srcRight + tgtLeft) / 2);
+
+    const zWaypoints = [
+      { x: Math.round(srcRight), y: Math.round(srcCy) },
+      { x: midX, y: Math.round(srcCy) },
+      { x: midX, y: Math.round(tgtCy) },
+      { x: Math.round(tgtLeft), y: Math.round(tgtCy) },
+    ];
+
+    modeling.updateWaypoints(conn, zWaypoints);
+  }
+}
+
+// ── Original collinear waypoint simplification ─────────────────────────────
+
+/**
  * Remove redundant collinear waypoints from all connections.
  *
  * After ELK routing and post-processing (channel routing, orthogonal snap),

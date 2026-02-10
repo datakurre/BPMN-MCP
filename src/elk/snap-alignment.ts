@@ -13,15 +13,27 @@ import { isConnection, isInfrastructure, isArtifact } from './helpers';
  *
  * Must run BEFORE connection routing so that waypoints are computed from
  * the snapped positions.
+ *
+ * When a container is specified, only shapes that are direct children
+ * of that container are considered — preventing cross-nesting-level mixing.
  */
-export function snapSameLayerElements(elementRegistry: any, modeling: any): void {
+export function snapSameLayerElements(elementRegistry: any, modeling: any, container?: any): void {
+  let parentFilter: any = container;
+  if (!parentFilter) {
+    parentFilter = elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+    )[0];
+  }
+
   const shapes = elementRegistry.filter(
     (el: any) =>
       !isInfrastructure(el.type) &&
       !isConnection(el.type) &&
       !isArtifact(el.type) &&
       el.type !== 'bpmn:BoundaryEvent' &&
-      el.type !== 'label'
+      el.type !== 'label' &&
+      el.type !== 'bpmn:Participant' &&
+      (!parentFilter || el.parent === parentFilter)
   );
 
   if (shapes.length < 2) return;
@@ -136,5 +148,45 @@ export function snapAllConnectionsOrthogonal(elementRegistry: any, modeling: any
     if (changed) {
       modeling.updateWaypoints(conn, snapped);
     }
+  }
+}
+
+/**
+ * Recursively run snapSameLayerElements inside expanded subprocesses.
+ *
+ * Expanded subprocesses are compound nodes whose children are laid out
+ * by ELK internally.  The snap pass must run separately within each
+ * expanded subprocess (scoped to its direct children) to avoid mixing
+ * nesting levels.
+ */
+export function snapExpandedSubprocesses(
+  elementRegistry: any,
+  modeling: any,
+  container?: any
+): void {
+  const parentFilter =
+    container ||
+    elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+    )[0];
+  if (!parentFilter) return;
+
+  const expandedSubs = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:SubProcess' &&
+      el.parent === parentFilter &&
+      elementRegistry.filter(
+        (child: any) =>
+          child.parent === el &&
+          !isInfrastructure(child.type) &&
+          !isConnection(child.type) &&
+          child.type !== 'bpmn:BoundaryEvent'
+      ).length > 0
+  );
+
+  for (const sub of expandedSubs) {
+    snapSameLayerElements(elementRegistry, modeling, sub);
+    // Recurse into nested subprocesses
+    snapExpandedSubprocesses(elementRegistry, modeling, sub);
   }
 }

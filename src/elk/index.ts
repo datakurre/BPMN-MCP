@@ -37,17 +37,23 @@ import {
   saveBoundaryEventData,
   restoreBoundaryEventData,
 } from './boundary-events';
-import { snapSameLayerElements, snapAllConnectionsOrthogonal } from './snap-alignment';
+import {
+  snapSameLayerElements,
+  snapAllConnectionsOrthogonal,
+  snapExpandedSubprocesses,
+} from './snap-alignment';
 import {
   applyElkEdgeRoutes,
   fixDisconnectedEdges,
   simplifyCollinearWaypoints,
+  simplifyGatewayBranchRoutes,
 } from './edge-routing';
 import { repositionArtifacts } from './artifacts';
 import { routeBranchConnectionsThroughChannels } from './channel-routing';
 import { detectHappyPath } from './happy-path';
 import { gridSnapPass, gridSnapExpandedSubprocesses, alignHappyPath } from './grid-snap';
 import { detectCrossingFlows } from './crossing-detection';
+import { resolveOverlaps } from './overlap-resolution';
 import type { ElkLayoutOptions } from './types';
 
 export type { ElkLayoutOptions, CrossingFlowsResult, GridLayer } from './types';
@@ -187,7 +193,20 @@ export async function elkLayout(
   repositionBoundaryEvents(elementRegistry, modeling, boundarySnapshots);
 
   // Step 4: Snap same-layer elements to common Y (fixes 5–10 px offsets)
-  snapSameLayerElements(elementRegistry, modeling);
+  // Scoped per-participant for collaborations, and recursively for
+  // expanded subprocesses to avoid cross-nesting-level mixing.
+  const participantsForSnap = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  if (participantsForSnap.length > 0) {
+    for (const participant of participantsForSnap) {
+      snapSameLayerElements(elementRegistry, modeling, participant);
+      // Also snap inside expanded subprocesses within this participant
+      snapExpandedSubprocesses(elementRegistry, modeling, participant);
+    }
+  } else {
+    snapSameLayerElements(elementRegistry, modeling);
+    // Also snap inside expanded subprocesses at the root level
+    snapExpandedSubprocesses(elementRegistry, modeling);
+  }
 
   // Step 5: Post-ELK grid snap pass — quantises node positions to a
   // virtual grid for visual regularity.  Runs independently within each
@@ -213,6 +232,20 @@ export async function elkLayout(
   // Step 6: Reposition artifacts (data objects, data stores, annotations)
   // outside the main flow — they were excluded from the ELK graph.
   repositionArtifacts(elementRegistry, modeling);
+
+  // Step 5.6: Resolve overlaps created by grid snap.
+  // Grid quantisation can push elements into overlapping positions.
+  // This pass detects overlapping pairs and pushes them apart vertically.
+  if (shouldGridSnap) {
+    const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+    if (participants.length > 0) {
+      for (const participant of participants) {
+        resolveOverlaps(elementRegistry, modeling, participant);
+      }
+    } else {
+      resolveOverlaps(elementRegistry, modeling);
+    }
+  }
 
   // Step 5.5: Align happy-path elements to a single Y-centre.
   // GridSnapPass can introduce small Y-centre wobbles (5–15 px) due to
@@ -252,6 +285,12 @@ export async function elkLayout(
   // Shifts vertical segments to the midpoint between columns rather than
   // hugging the gateway edge, matching bpmn-auto-layout's channel routing.
   if (shouldGridSnap) {
+    // Step 7.3: Simplify gateway branch routes to clean L-shapes.
+    // For split-gateway → branch-target and branch-target → join-gateway
+    // connections, replace multi-bend ELK routes with clean 4-waypoint
+    // Z-shaped routes (horizontal → vertical → horizontal).
+    simplifyGatewayBranchRoutes(elementRegistry, modeling);
+
     const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
     if (participants.length > 0) {
       for (const participant of participants) {
