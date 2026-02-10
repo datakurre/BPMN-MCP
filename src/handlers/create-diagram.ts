@@ -39,25 +39,37 @@ export async function handleCreateDiagram(args: CreateDiagramArgs): Promise<Tool
     modeler,
     xml: savedXml,
     name: args.name,
+    draftMode: args.draftMode ?? false,
   });
 
   return jsonResult({
     success: true,
     diagramId,
     name: args.name || undefined,
-    message: `Created new BPMN diagram with ID: ${diagramId}`,
+    draftMode: args.draftMode ?? false,
+    message: `Created new BPMN diagram with ID: ${diagramId}${args.draftMode ? ' (draft mode — lint feedback suppressed)' : ''}`,
   });
 }
 
 export const TOOL_DEFINITION = {
   name: 'create_bpmn_diagram',
-  description: 'Create a new BPMN diagram. Returns a diagram ID that can be used with other tools.',
+  description:
+    'Create a new BPMN diagram. Returns a diagram ID that can be used with other tools. ' +
+    'Use draftMode: true to suppress lint feedback during incremental construction.',
   inputSchema: {
     type: 'object',
     properties: {
       name: {
         type: 'string',
         description: 'Optional name for the diagram / process',
+      },
+      draftMode: {
+        type: 'boolean',
+        description:
+          'When true, suppress implicit lint feedback on every operation. ' +
+          'Useful during incremental diagram construction to reduce noise. ' +
+          'Validation is still available via validate_bpmn_diagram, and ' +
+          'export_bpmn still enforces its lint gate. Default: false.',
       },
     },
   },

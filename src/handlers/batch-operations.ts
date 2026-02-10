@@ -7,7 +7,7 @@
 
 import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { validateArgs, jsonResult } from './helpers';
+import { validateArgs, jsonResult, syncXml } from './helpers';
 import { dispatchToolCall } from './index';
 import { setBatchMode, appendLintFeedback } from '../linter';
 import { getDiagram } from '../diagram-manager';
@@ -38,6 +38,19 @@ export async function handleBatchOperations(args: BatchOperationsArgs): Promise<
   // Suppress intermediate lint feedback during batch execution
   setBatchMode(true);
 
+  // Track command stack depth per diagram for rollback support
+  const commandStackDepths = new Map<string, number>();
+  for (const op of operations) {
+    const id = op.args?.diagramId;
+    if (id && !commandStackDepths.has(id)) {
+      const diagram = getDiagram(id);
+      if (diagram) {
+        const commandStack = diagram.modeler.get('commandStack');
+        commandStackDepths.set(id, commandStack._stackIdx ?? 0);
+      }
+    }
+  }
+
   const results: Array<{
     index: number;
     tool: string;
@@ -45,6 +58,8 @@ export async function handleBatchOperations(args: BatchOperationsArgs): Promise<
     result?: any;
     error?: string;
   }> = [];
+
+  let rolledBack = false;
 
   try {
     for (let i = 0; i < operations.length; i++) {
@@ -63,6 +78,19 @@ export async function handleBatchOperations(args: BatchOperationsArgs): Promise<
         const errorMsg = err?.message || String(err);
         results.push({ index: i, tool: op.tool, success: false, error: errorMsg });
         if (stopOnError) {
+          // Rollback all diagrams to their pre-batch state
+          for (const [id, startIdx] of commandStackDepths) {
+            const diagram = getDiagram(id);
+            if (!diagram) continue;
+            const commandStack = diagram.modeler.get('commandStack');
+            // Undo compound commands until we're back at the saved position.
+            // Each undo() may decrement _stackIdx by more than 1 for compound ops.
+            while (commandStack._stackIdx > startIdx && commandStack.canUndo()) {
+              commandStack.undo();
+            }
+            await syncXml(diagram);
+          }
+          rolledBack = true;
           break;
         }
       }
@@ -81,11 +109,14 @@ export async function handleBatchOperations(args: BatchOperationsArgs): Promise<
     executed: results.length,
     succeeded: successCount,
     failed: failCount,
+    ...(rolledBack ? { rolledBack: true } : {}),
     results,
     message:
       failCount === 0
         ? `All ${successCount} operations completed successfully`
-        : `${failCount} operation(s) failed out of ${results.length} executed`,
+        : rolledBack
+          ? `${failCount} operation(s) failed — all changes rolled back`
+          : `${failCount} operation(s) failed out of ${results.length} executed`,
   });
 
   // Run lint pass for ALL affected diagrams, not just the first
@@ -109,7 +140,10 @@ export async function handleBatchOperations(args: BatchOperationsArgs): Promise<
 export const TOOL_DEFINITION = {
   name: 'batch_bpmn_operations',
   description:
-    'Execute multiple BPMN operations in a single call, reducing round-trips. Operations run sequentially. By default, execution stops on first error (set stopOnError: false to continue). Nested batch calls are not allowed.',
+    'Execute multiple BPMN operations in a single call, reducing round-trips. Operations run sequentially. ' +
+    'By default, execution stops on first error (set stopOnError: false to continue). ' +
+    'When stopOnError is true (default), all changes are rolled back on failure using the bpmn-js command stack. ' +
+    'Nested batch calls are not allowed.',
   inputSchema: {
     type: 'object',
     properties: {

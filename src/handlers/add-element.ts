@@ -20,6 +20,7 @@ import {
 import { STANDARD_BPMN_GAP, getElementSize } from '../constants';
 import { appendLintFeedback } from '../linter';
 import { handleInsertElement } from './insert-element';
+import { handleSetEventDefinition } from './set-event-definition';
 
 // ── Sub-function: shift downstream elements ────────────────────────────────
 
@@ -294,6 +295,24 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
 
   await syncXml(diagram);
 
+  // ── Boundary event shorthand: set event definition in one call ─────────
+  let eventDefinitionApplied: string | undefined;
+  const evtDefType = (args as any).eventDefinitionType as string | undefined;
+  if (evtDefType && createdElement.businessObject?.$type?.includes('Event')) {
+    await handleSetEventDefinition({
+      diagramId,
+      elementId: createdElement.id,
+      eventDefinitionType: evtDefType,
+      properties: (args as any).eventDefinitionProperties,
+      errorRef: (args as any).errorRef,
+      messageRef: (args as any).messageRef,
+      signalRef: (args as any).signalRef,
+      escalationRef: (args as any).escalationRef,
+    });
+    eventDefinitionApplied = evtDefType;
+    await syncXml(diagram);
+  }
+
   const needsConnection =
     elementType.includes('Event') ||
     elementType.includes('Task') ||
@@ -312,13 +331,14 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     name: elementName,
     position: { x, y },
     ...(connectionId ? { connectionId, autoConnected: true } : {}),
+    ...(eventDefinitionApplied ? { eventDefinitionType: eventDefinitionApplied } : {}),
     ...(hostInfo
       ? {
           attachedTo: hostInfo,
-          message: `Added ${elementType} attached to ${hostInfo.hostElementType} '${hostInfo.hostElementName || hostInfo.hostElementId}'${hint}`,
+          message: `Added ${elementType} attached to ${hostInfo.hostElementType} '${hostInfo.hostElementName || hostInfo.hostElementId}'${eventDefinitionApplied ? ` with ${eventDefinitionApplied}` : ''}${hint}`,
         }
       : {
-          message: `Added ${elementType} to diagram${hint}`,
+          message: `Added ${elementType} to diagram${eventDefinitionApplied ? ` with ${eventDefinitionApplied}` : ''}${hint}`,
         }),
     diagramCounts: buildElementCounts(elementRegistry),
   });
@@ -406,6 +426,71 @@ export const TOOL_DEFINITION = {
         type: 'string',
         description:
           'For collaboration diagrams: the ID of the participant (pool) to add the element into. If omitted, uses the first participant or process.',
+      },
+      eventDefinitionType: {
+        type: 'string',
+        enum: [
+          'bpmn:ErrorEventDefinition',
+          'bpmn:TimerEventDefinition',
+          'bpmn:MessageEventDefinition',
+          'bpmn:SignalEventDefinition',
+          'bpmn:TerminateEventDefinition',
+          'bpmn:EscalationEventDefinition',
+          'bpmn:ConditionalEventDefinition',
+          'bpmn:CompensateEventDefinition',
+          'bpmn:CancelEventDefinition',
+          'bpmn:LinkEventDefinition',
+        ],
+        description:
+          'Shorthand: set an event definition on the new element in one call. ' +
+          'Combines add_bpmn_element + set_bpmn_event_definition. ' +
+          'Especially useful for boundary events.',
+      },
+      eventDefinitionProperties: {
+        type: 'object',
+        description:
+          'Properties for the event definition (e.g. timeDuration, timeDate, timeCycle for timers, condition for conditional).',
+        additionalProperties: true,
+      },
+      errorRef: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          errorCode: { type: 'string' },
+        },
+        required: ['id'],
+        description: 'For ErrorEventDefinition: creates or references a bpmn:Error root element.',
+      },
+      messageRef: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+        },
+        required: ['id'],
+        description:
+          'For MessageEventDefinition: creates or references a bpmn:Message root element.',
+      },
+      signalRef: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+        },
+        required: ['id'],
+        description: 'For SignalEventDefinition: creates or references a bpmn:Signal root element.',
+      },
+      escalationRef: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          escalationCode: { type: 'string' },
+        },
+        required: ['id'],
+        description:
+          'For EscalationEventDefinition: creates or references a bpmn:Escalation root element.',
       },
     },
     required: ['diagramId', 'elementType'],

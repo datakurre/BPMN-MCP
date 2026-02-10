@@ -25,6 +25,7 @@ function xmlHasDiagramDI(xml: string): boolean {
 
 export async function handleImportXml(args: ImportXmlArgs): Promise<ToolResult> {
   const { autoLayout, filePath } = args as ImportXmlArgs & { filePath?: string };
+  const draftMode = (args as any).draftMode as boolean | undefined;
 
   // Resolve XML content from either args.xml or args.filePath
   let xml: string;
@@ -55,7 +56,7 @@ export async function handleImportXml(args: ImportXmlArgs): Promise<ToolResult> 
   }
 
   const modeler = await createModelerFromXml(finalXml);
-  const diagram = { modeler, xml: finalXml };
+  const diagram = { modeler, xml: finalXml, draftMode: draftMode ?? false };
 
   if (shouldLayout) {
     // Step 2: ELK layered algorithm improves layout quality
@@ -106,6 +107,12 @@ export const TOOL_DEFINITION = {
         type: 'boolean',
         description:
           'Force (true) or skip (false) auto-layout. When omitted, auto-layout runs only if the XML has no diagram coordinates.',
+      },
+      draftMode: {
+        type: 'boolean',
+        description:
+          'When true, suppress implicit lint feedback on every operation. ' +
+          'Useful during incremental diagram editing to reduce noise. Default: false.',
       },
     },
   },

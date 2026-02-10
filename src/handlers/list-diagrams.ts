@@ -27,6 +27,7 @@ export async function handleListDiagrams(args?: any): Promise<ToolResult> {
       id,
       name: state.name || '(unnamed)',
       elementCount: elements.length,
+      draftMode: state.draftMode ?? false,
     });
   }
 

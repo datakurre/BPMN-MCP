@@ -17,6 +17,8 @@ export interface DiagramState {
   modeler: BpmnModeler;
   xml: string;
   name?: string;
+  /** When true, suppress implicit lint feedback on mutating operations. */
+  draftMode?: boolean;
 }
 
 /** Shape of the JSON returned by tool handlers that wrap results. */
@@ -28,6 +30,7 @@ export interface ToolResult {
 
 export interface CreateDiagramArgs {
   name?: string;
+  draftMode?: boolean;
 }
 
 export interface AddElementArgs {
@@ -39,6 +42,18 @@ export interface AddElementArgs {
   hostElementId?: string;
   afterElementId?: string;
   participantId?: string;
+  /** Boundary event shorthand: set event definition type in one call. */
+  eventDefinitionType?: string;
+  /** Boundary event shorthand: event definition properties (timer, condition, etc.). */
+  eventDefinitionProperties?: Record<string, any>;
+  /** Boundary event shorthand: error reference for ErrorEventDefinition. */
+  errorRef?: { id: string; name?: string; errorCode?: string };
+  /** Boundary event shorthand: message reference for MessageEventDefinition. */
+  messageRef?: { id: string; name?: string };
+  /** Boundary event shorthand: signal reference for SignalEventDefinition. */
+  signalRef?: { id: string; name?: string };
+  /** Boundary event shorthand: escalation reference for EscalationEventDefinition. */
+  escalationRef?: { id: string; name?: string; escalationCode?: string };
 }
 
 export interface ConnectArgs {

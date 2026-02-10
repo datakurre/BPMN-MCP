@@ -97,6 +97,7 @@ export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promis
   return jsonResult({
     success: true,
     diagramName: diagram.name || processNames[0] || '(unnamed)',
+    draftMode: diagram.draftMode ?? false,
     processNames,
     participants: participantInfo.length > 0 ? participantInfo : undefined,
     lanes: laneInfo.length > 0 ? laneInfo : undefined,

@@ -324,6 +324,7 @@ export function setBatchMode(enabled: boolean): void {
  * Append lint error feedback to a tool result.
  *
  * Only appends error-severity issues to keep implicit feedback concise.
+ * Skipped when the diagram is in draft mode or batch mode.
  * Wrapped in try/catch so linting failures never break the primary operation.
  * Invalidates the lint cache for this diagram since it's called after mutations.
  */
@@ -333,6 +334,9 @@ export async function appendLintFeedback(
 ): Promise<ToolResult> {
   // In batch mode, skip intermediate lint to avoid N full lint runs
   if (batchMode) return result;
+
+  // In draft mode, skip lint feedback — user explicitly opted out
+  if (diagram.draftMode) return result;
 
   // Invalidate cache since a mutation just occurred
   const diagramId = getDiagramIdForState(diagram);
