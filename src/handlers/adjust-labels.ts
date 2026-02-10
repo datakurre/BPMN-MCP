@@ -15,6 +15,7 @@ import {
   getLabelCandidatePositions,
   scoreLabelPosition,
   rectsOverlap,
+  segmentIntersectsRect,
 } from './label-utils';
 import { getVisibleElements, syncXml } from './helpers';
 
@@ -276,10 +277,12 @@ export async function adjustElementLabel(
 // ── Connection (flow) label adjustment ─────────────────────────────────────
 
 /**
- * Adjust labels on connections (sequence flows) to avoid overlapping shapes.
+ * Adjust labels on connections (sequence flows) to avoid overlapping shapes,
+ * other flow labels, and crossing connection segments.
  *
  * Flow labels are placed at the midpoint of waypoints. If a label overlaps
- * with an element shape, nudge it perpendicular to the flow direction.
+ * with an element shape, another flow label, or crosses a connection,
+ * nudge it perpendicular to the flow direction.
  *
  * Returns the number of flow labels moved.
  */
@@ -301,6 +304,9 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     )
     .map((el: any) => ({ x: el.x, y: el.y, width: el.width, height: el.height }));
 
+  // Collect connection segments for overlap checking
+  const connectionSegments = collectConnectionSegments(allElements);
+
   // Find connections with labels
   const labeledFlows = allElements.filter(
     (el: any) =>
@@ -309,15 +315,29 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
       el.businessObject?.name
   );
 
+  // Track flow label positions for cross-label overlap detection
+  const flowLabelRects = new Map<string, Rect>();
+  for (const flow of labeledFlows) {
+    if (flow.label) flowLabelRects.set(flow.id, getLabelRect(flow.label));
+  }
+
   let movedCount = 0;
 
   for (const flow of labeledFlows) {
     const label = flow.label;
     const labelRect = getLabelRect(label);
 
-    // Check if label overlaps any shape
-    const overlapping = shapeRects.some((sr) => rectsOverlap(labelRect, sr));
-    if (!overlapping) continue;
+    // Check if label overlaps any shape, other flow label, or connection segment
+    const overlapsShape = shapeRects.some((sr) => rectsOverlap(labelRect, sr));
+    const otherFlowLabels = Array.from(flowLabelRects.entries())
+      .filter(([id]) => id !== flow.id)
+      .map(([, r]) => r);
+    const overlapsLabel = otherFlowLabels.some((lr) => rectsOverlap(labelRect, lr));
+    const crossesConnection = connectionSegments.some(([p1, p2]) =>
+      segmentIntersectsRect(p1, p2, labelRect)
+    );
+
+    if (!overlapsShape && !overlapsLabel && !crossesConnection) continue;
 
     // Compute flow direction at midpoint
     const waypoints = flow.waypoints;
@@ -335,29 +355,44 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     const perpX = -dy / len;
     const perpY = dx / len;
 
-    // Try nudging in both perpendicular directions
-    const nudgeAmount = FLOW_LABEL_INDENT + 10;
-    const nudges = [
-      { x: perpX * nudgeAmount, y: perpY * nudgeAmount },
-      { x: -perpX * nudgeAmount, y: -perpY * nudgeAmount },
-    ];
-
+    // Try nudging in both perpendicular directions at increasing distances
+    const nudgeDistances = [FLOW_LABEL_INDENT + 10, FLOW_LABEL_INDENT + 25];
     let bestNudge: { x: number; y: number } | null = null;
-    for (const nudge of nudges) {
-      const nudgedRect: Rect = {
-        x: labelRect.x + nudge.x,
-        y: labelRect.y + nudge.y,
-        width: labelRect.width,
-        height: labelRect.height,
-      };
-      if (!shapeRects.some((sr) => rectsOverlap(nudgedRect, sr))) {
-        bestNudge = nudge;
-        break;
+    let bestScore = Infinity;
+
+    for (const amount of nudgeDistances) {
+      for (const sign of [1, -1]) {
+        const nudge = { x: perpX * amount * sign, y: perpY * amount * sign };
+        const nudgedRect: Rect = {
+          x: labelRect.x + nudge.x,
+          y: labelRect.y + nudge.y,
+          width: labelRect.width,
+          height: labelRect.height,
+        };
+        let score = 0;
+        if (shapeRects.some((sr) => rectsOverlap(nudgedRect, sr))) score += 5;
+        if (otherFlowLabels.some((lr) => rectsOverlap(nudgedRect, lr))) score += 3;
+        for (const [s1, s2] of connectionSegments) {
+          if (segmentIntersectsRect(s1, s2, nudgedRect)) score += 1;
+        }
+        if (score < bestScore) {
+          bestScore = score;
+          bestNudge = nudge;
+          if (score === 0) break;
+        }
       }
+      if (bestScore === 0) break;
     }
 
     if (bestNudge) {
       modeling.moveShape(label, bestNudge);
+      // Update tracked rect for cross-label detection on subsequent flows
+      flowLabelRects.set(flow.id, {
+        x: labelRect.x + bestNudge.x,
+        y: labelRect.y + bestNudge.y,
+        width: labelRect.width,
+        height: labelRect.height,
+      });
       movedCount++;
     }
   }

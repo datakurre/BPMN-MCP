@@ -116,6 +116,46 @@ describe('linter', () => {
 
   describe('appendLintFeedback', () => {
     it('appends feedback when errors exist', async () => {
+      // Build a diagram with a real error: exclusive gateway with one
+      // conditional and one unconditional flow but no default set
+      // (triggers exclusive-gateway-conditions error, which is NOT
+      // filtered as incremental noise).
+      const diagramId = await createDiagram();
+      const startId = await addElement(diagramId, 'bpmn:StartEvent', { x: 100, y: 100 });
+      const gwId = await addElement(diagramId, 'bpmn:ExclusiveGateway', {
+        name: 'Check?',
+        x: 250,
+        y: 100,
+      });
+      const task1Id = await addElement(diagramId, 'bpmn:Task', { name: 'A', x: 400, y: 50 });
+      const task2Id = await addElement(diagramId, 'bpmn:Task', { name: 'B', x: 400, y: 200 });
+      const endId = await addElement(diagramId, 'bpmn:EndEvent', { x: 550, y: 100 });
+      await handleConnect({ diagramId, sourceElementId: startId, targetElementId: gwId });
+      // One flow WITH a condition, one WITHOUT — triggers the rule
+      await handleConnect({
+        diagramId,
+        sourceElementId: gwId,
+        targetElementId: task1Id,
+        conditionExpression: '${approved}',
+      });
+      await handleConnect({ diagramId, sourceElementId: gwId, targetElementId: task2Id });
+      await handleConnect({ diagramId, sourceElementId: task1Id, targetElementId: endId });
+      await handleConnect({ diagramId, sourceElementId: task2Id, targetElementId: endId });
+
+      const diagram = getDiagram(diagramId);
+      const result = {
+        content: [{ type: 'text' as const, text: '{"success":true}' }],
+      };
+
+      const augmented = await appendLintFeedback(result, diagram!);
+      expect(augmented.content.length).toBeGreaterThan(1);
+      const feedbackText = augmented.content[augmented.content.length - 1].text;
+      expect(feedbackText).toContain('⚠ Lint issues');
+    });
+
+    it('filters structural completeness rules from incremental feedback', async () => {
+      // An empty process triggers start-event-required and end-event-required,
+      // but these should be filtered from incremental feedback
       const diagramId = await createDiagram();
       const diagram = getDiagram(diagramId);
       const result = {
@@ -123,10 +163,8 @@ describe('linter', () => {
       };
 
       const augmented = await appendLintFeedback(result, diagram!);
-      // Empty process has errors; feedback should be appended
-      expect(augmented.content.length).toBeGreaterThan(1);
-      const feedbackText = augmented.content[augmented.content.length - 1].text;
-      expect(feedbackText).toContain('⚠ Lint issues');
+      // With structural rules filtered, empty process should have no errors reported
+      expect(augmented.content).toHaveLength(1);
     });
 
     it('does not append feedback when only warnings exist', async () => {

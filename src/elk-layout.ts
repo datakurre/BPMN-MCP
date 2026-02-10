@@ -258,6 +258,65 @@ function resizeCompoundNodes(elementRegistry: any, modeling: any, elkNode: ElkNo
 // ── Post-layout boundary event repositioning ───────────────────────────────
 
 /**
+ * Determine the best border position for a boundary event based on its
+ * outgoing flow targets relative to its host element.
+ *
+ * Returns 'bottom' (default), 'top', 'left', or 'right'.
+ */
+function chooseBoundaryBorder(be: any, host: any): 'top' | 'bottom' | 'left' | 'right' {
+  const outgoing: any[] = be.outgoing || [];
+  if (outgoing.length === 0) return 'bottom'; // default: no outgoing flows
+
+  // Find the first target element with a valid position
+  for (const flow of outgoing) {
+    const target = flow.target;
+    if (!target || target.x == null || target.y == null) continue;
+
+    const hostCx = host.x + (host.width || 100) / 2;
+    const hostCy = host.y + (host.height || 80) / 2;
+    const targetCx = target.x + (target.width || 36) / 2;
+    const targetCy = target.y + (target.height || 36) / 2;
+
+    const dx = targetCx - hostCx;
+    const dy = targetCy - hostCy;
+
+    // Choose based on the dominant direction to the target
+    if (Math.abs(dy) > Math.abs(dx)) {
+      // Vertical movement dominates
+      return dy < 0 ? 'top' : 'bottom';
+    } else {
+      // Horizontal movement dominates
+      return dx < 0 ? 'left' : 'right';
+    }
+  }
+
+  return 'bottom'; // fallback
+}
+
+/**
+ * Compute the target centre position for a boundary event on a given
+ * border of its host element.
+ */
+function computeBoundaryPosition(
+  host: any,
+  border: 'top' | 'bottom' | 'left' | 'right'
+): { cx: number; cy: number } {
+  const hostW = host.width || 100;
+  const hostH = host.height || 80;
+
+  switch (border) {
+    case 'top':
+      return { cx: host.x + hostW * 0.67, cy: host.y };
+    case 'bottom':
+      return { cx: host.x + hostW * 0.67, cy: host.y + hostH };
+    case 'left':
+      return { cx: host.x, cy: host.y + hostH * 0.67 };
+    case 'right':
+      return { cx: host.x + hostW, cy: host.y + hostH * 0.67 };
+  }
+}
+
+/**
  * Fix boundary event positions after layout.
  *
  * Boundary events are excluded from the ELK graph and should follow their
@@ -265,10 +324,10 @@ function resizeCompoundNodes(elementRegistry: any, modeling: any, elkNode: ElkNo
  * the automatic follow does not work correctly, leaving boundary events
  * stranded at their original positions.
  *
- * This pass ALWAYS repositions boundary events to a valid location on
- * their host's bottom border.  The previous tolerance-based approach
- * failed in headless mode where boundary events could be displaced by
- * small amounts that fell within the tolerance window.
+ * When repositioning is needed, the target border (top, bottom, left,
+ * right) is chosen based on the direction of the boundary event's
+ * outgoing flow targets. This positions error/timer boundary events on
+ * the border closest to where their exception flow leads.
  *
  * Multiple boundary events on the same host are spread horizontally
  * to avoid overlap.
@@ -306,11 +365,11 @@ function repositionBoundaryEvents(elementRegistry: any, modeling: any): void {
       beCy <= hostBottom + tolerance;
 
     if (!isNearHost) {
-      // Move boundary event to the bottom edge of the host, offset to the right
-      const targetCx = host.x + (host.width || 100) * 0.67;
-      const targetCy = hostBottom;
-      const dx = targetCx - beCx;
-      const dy = targetCy - beCy;
+      // Choose border based on outgoing flow direction
+      const border = chooseBoundaryBorder(be, host);
+      const target = computeBoundaryPosition(host, border);
+      const dx = target.cx - beCx;
+      const dy = target.cy - beCy;
 
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
         try {

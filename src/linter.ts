@@ -321,9 +321,28 @@ export function setBatchMode(enabled: boolean): void {
 // ── Implicit lint feedback ─────────────────────────────────────────────────
 
 /**
+ * Structural completeness rules that always fire during incremental diagram
+ * construction (e.g. no end event yet, missing start event, etc.).
+ *
+ * These are filtered from implicit feedback (`appendLintFeedback`) to reduce
+ * noise, but are still enforced at export time via the lint gate and are
+ * visible via `validate_bpmn_diagram`.
+ */
+const INCREMENTAL_NOISE_RULES = new Set([
+  'start-event-required',
+  'end-event-required',
+  'no-implicit-start',
+  'no-implicit-end',
+]);
+
+/**
  * Append lint error feedback to a tool result.
  *
  * Only appends error-severity issues to keep implicit feedback concise.
+ * Structural completeness rules (start/end event required, no-implicit-start/end)
+ * are filtered out because they always fire during incremental construction —
+ * they remain enforced at export time and via validate_bpmn_diagram.
+ *
  * Skipped when the diagram is in draft mode or batch mode.
  * Wrapped in try/catch so linting failures never break the primary operation.
  * Invalidates the lint cache for this diagram since it's called after mutations.
@@ -344,7 +363,9 @@ export async function appendLintFeedback(
 
   try {
     const issues = await lintDiagramFlat(diagram);
-    const errors = issues.filter((i) => i.severity === 'error');
+    const errors = issues.filter(
+      (i) => i.severity === 'error' && !INCREMENTAL_NOISE_RULES.has(i.rule)
+    );
     if (errors.length === 0) return result;
 
     // Enrich error messages with contextual hints
