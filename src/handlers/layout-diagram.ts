@@ -14,7 +14,7 @@ import { type LayoutDiagramArgs, type ToolResult } from '../types';
 import { requireDiagram, jsonResult, syncXml, getVisibleElements } from './helpers';
 import { appendLintFeedback } from '../linter';
 import { adjustDiagramLabels, adjustFlowLabels } from './adjust-labels';
-import { elkLayout, elkLayoutSubset } from '../elk-layout';
+import { elkLayout, elkLayoutSubset } from '../elk';
 
 export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<ToolResult> {
   const { diagramId, direction, nodeSpacing, layerSpacing, scopeElementId, preserveHappyPath } =

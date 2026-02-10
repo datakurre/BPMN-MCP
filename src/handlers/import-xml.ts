@@ -15,7 +15,7 @@ import { type ImportXmlArgs, type ToolResult } from '../types';
 import { storeDiagram, generateDiagramId, createModelerFromXml } from '../diagram-manager';
 import { jsonResult, syncXml } from './helpers';
 import { appendLintFeedback } from '../linter';
-import { elkLayout } from '../elk-layout';
+import { elkLayout } from '../elk';
 import * as fs from 'fs';
 
 /** Check whether BPMN XML contains diagram interchange (DI) coordinates. */
