@@ -106,11 +106,72 @@ function buildLayer(elements: any[]): GridLayer {
 }
 
 /**
+ * Classify the dominant element category of a layer.
+ *
+ * Returns 'event', 'gateway', or 'task' (the default catch-all that
+ * includes service tasks, user tasks, subprocesses, etc.).
+ */
+function dominantCategory(layer: GridLayer): 'event' | 'gateway' | 'task' {
+  let events = 0;
+  let gateways = 0;
+  for (const el of layer.elements) {
+    if (el.type?.includes('Event')) events++;
+    else if (el.type?.includes('Gateway')) gateways++;
+  }
+  const total = layer.elements.length;
+  if (events > 0 && events >= total / 2) return 'event';
+  if (gateways > 0 && gateways >= total / 2) return 'gateway';
+  return 'task';
+}
+
+/**
+ * Compute the horizontal gap between two adjacent layers based on their
+ * dominant element types.
+ *
+ * Uses ELK_LAYER_SPACING as the baseline and applies small adjustments
+ * for element type pairs to produce more natural-looking spacing:
+ *
+ * - **Event → Task / Task → Event**: slightly larger gap because events
+ *   are small (36px wide) and need visual breathing room next to larger
+ *   task shapes.
+ * - **Gateway → Task / Task → Gateway**: standard gap — gateways (50px)
+ *   are mid-sized and pair naturally with tasks at the default spacing.
+ * - **Gateway → Event / Event → Gateway**: slightly tighter gap — both
+ *   are compact shapes that look balanced with less whitespace.
+ * - **Task → Task**: standard baseline gap.
+ *
+ * When the user provides a `layerSpacing` override via the layout tool,
+ * that value replaces ELK_LAYER_SPACING everywhere, so the type-aware
+ * deltas still apply relative to the override.
+ */
+function computeInterLayerGap(prevLayer: GridLayer, nextLayer: GridLayer): number {
+  const base = ELK_LAYER_SPACING;
+  const prevCat = dominantCategory(prevLayer);
+  const nextCat = dominantCategory(nextLayer);
+
+  // Event ↔ Task: add breathing room (events are small beside large tasks)
+  if ((prevCat === 'event' && nextCat === 'task') || (prevCat === 'task' && nextCat === 'event')) {
+    return base + 10;
+  }
+
+  // Gateway ↔ Event: tighten (both compact shapes)
+  if (
+    (prevCat === 'gateway' && nextCat === 'event') ||
+    (prevCat === 'event' && nextCat === 'gateway')
+  ) {
+    return base - 5;
+  }
+
+  // All other pairs (task→task, task↔gateway, event→event): baseline
+  return base;
+}
+
+/**
  * Post-ELK grid snap pass.
  *
  * Steps:
  * 1. Detect discrete layers (columns) from element x-positions.
- * 2. Snap layers to uniform x-columns with consistent gap.
+ * 2. Snap layers to type-aware x-columns with element-aware gaps.
  * 3. Distribute elements uniformly within each layer (vertical).
  * 4. Centre gateways on their connected branches.
  * 5. Preserve happy-path row (pin happy-path elements, distribute others).
@@ -137,16 +198,16 @@ export function gridSnapPass(
   }
 
   // ── Step 1: Snap layers to uniform x-columns ──
-  // Compute uniform column x-positions: each layer starts at
-  // previous_layer_right_edge + gap.
-  const gap = ELK_LAYER_SPACING;
+  // Compute column x-positions: each layer starts at
+  // previous_layer_right_edge + type-aware gap.
   let columnX = layers[0].minX; // First layer stays at its current position
 
   for (let i = 0; i < layers.length; i++) {
     const layer = layers[i];
 
     if (i > 0) {
-      // Uniform column x = previous layer right edge + gap
+      // Element-type-aware gap between adjacent layers
+      const gap = computeInterLayerGap(layers[i - 1], layer);
       columnX = layers[i - 1].maxRight + gap;
     }
 
