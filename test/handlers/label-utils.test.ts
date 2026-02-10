@@ -77,10 +77,10 @@ describe('label-utils', () => {
   });
 
   describe('getLabelCandidatePositions', () => {
-    it('returns 4 candidates (top, bottom, left, right)', () => {
+    it('returns 8 candidates (4 cardinal + 4 diagonal)', () => {
       const element = { x: 100, y: 100, width: 50, height: 50 };
       const candidates = getLabelCandidatePositions(element);
-      expect(candidates).toHaveLength(4);
+      expect(candidates).toHaveLength(8);
       const orientations = candidates.map((c) => c.orientation);
       expect(orientations).toContain('top');
       expect(orientations).toContain('bottom');

@@ -42,6 +42,7 @@ import { handleDuplicateElement } from './duplicate-element';
 import { handleInsertElement } from './insert-element';
 import { handleReplaceElement } from './replace-element';
 import { handleSummarizeDiagram } from './summarize-diagram';
+import { handleListProcessVariables } from './list-process-variables';
 
 // Re-export every handler so existing imports keep working
 export {
@@ -86,6 +87,7 @@ export {
   handleInsertElement,
   handleReplaceElement,
   handleSummarizeDiagram,
+  handleListProcessVariables,
 };
 
 // Backward-compat aliases for removed tool names
@@ -134,7 +136,8 @@ const handlers: Record<string, (args: any) => Promise<ToolResult>> = {
   duplicate_bpmn_element: handleDuplicateElement,
   insert_bpmn_element: handleInsertElement,
   replace_bpmn_element: handleReplaceElement,
-  summarize_bpmn_diagram: handleListDiagrams,
+  summarize_bpmn_diagram: handleSummarizeDiagram,
+  list_bpmn_process_variables: handleListProcessVariables,
 };
 
 /** Route a CallTool request to the correct handler. */

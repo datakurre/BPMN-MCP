@@ -35,5 +35,6 @@ export {
   handleInsertElement,
   handleReplaceElement,
   handleSummarizeDiagram,
+  handleListProcessVariables,
   dispatchToolCall,
 } from './handlers/index';

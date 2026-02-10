@@ -355,3 +355,7 @@ export interface ReplaceElementArgs {
 export interface SummarizeDiagramArgs {
   diagramId: string;
 }
+
+export interface ListProcessVariablesArgs {
+  diagramId: string;
+}

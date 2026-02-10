@@ -116,8 +116,10 @@ export function segmentIntersectsRect(p1: Point, p2: Point, rect: Rect): boolean
 // ── Label candidate positions ──────────────────────────────────────────────
 
 /**
- * Generate 4 candidate label positions around an element.
+ * Generate candidate label positions around an element.
  *
+ * Includes 4 cardinal positions (top, bottom, left, right) plus
+ * 4 diagonal positions for elements with many connections.
  * Each candidate is centred on the relevant edge, offset by
  * `ELEMENT_LABEL_DISTANCE`.
  */
@@ -133,7 +135,8 @@ export function getLabelCandidatePositions(element: {
   const lh = DEFAULT_LABEL_SIZE.height;
   const gap = ELEMENT_LABEL_DISTANCE;
 
-  return LABEL_POSITION_PRIORITY.map((orientation) => {
+  // Cardinal positions (priority order)
+  const cardinals: LabelCandidate[] = LABEL_POSITION_PRIORITY.map((orientation) => {
     let rect: Rect;
     switch (orientation) {
       case 'top':
@@ -156,6 +159,49 @@ export function getLabelCandidatePositions(element: {
     }
     return { orientation, rect };
   });
+
+  // Diagonal positions (top-left, top-right, bottom-left, bottom-right)
+  const diagonalGap = gap + 5;
+  const diagonals: LabelCandidate[] = [
+    {
+      orientation: 'top' as LabelOrientation,
+      rect: {
+        x: element.x - lw - diagonalGap + element.width / 2,
+        y: element.y - diagonalGap - lh,
+        width: lw,
+        height: lh,
+      },
+    },
+    {
+      orientation: 'top' as LabelOrientation,
+      rect: {
+        x: element.x + element.width / 2 + diagonalGap,
+        y: element.y - diagonalGap - lh,
+        width: lw,
+        height: lh,
+      },
+    },
+    {
+      orientation: 'bottom' as LabelOrientation,
+      rect: {
+        x: element.x - lw - diagonalGap + element.width / 2,
+        y: element.y + element.height + diagonalGap + ELEMENT_LABEL_BOTTOM_EXTRA,
+        width: lw,
+        height: lh,
+      },
+    },
+    {
+      orientation: 'bottom' as LabelOrientation,
+      rect: {
+        x: element.x + element.width / 2 + diagonalGap,
+        y: element.y + element.height + diagonalGap + ELEMENT_LABEL_BOTTOM_EXTRA,
+        width: lw,
+        height: lh,
+      },
+    },
+  ];
+
+  return [...cardinals, ...diagonals];
 }
 
 // ── Scoring ────────────────────────────────────────────────────────────────
@@ -169,12 +215,14 @@ export function getLabelCandidatePositions(element: {
  * @param connectionSegments  All connection segments in the diagram as pairs of points.
  * @param otherLabelRects  Bounding boxes of other external labels.
  * @param hostRect  Optional host-element rect (for boundary events) to exclude.
+ * @param shapeRects  Optional bounding boxes of nearby shapes (tasks, gateways, etc.).
  */
 export function scoreLabelPosition(
   candidateRect: Rect,
   connectionSegments: [Point, Point][],
   otherLabelRects: Rect[],
-  hostRect?: Rect
+  hostRect?: Rect,
+  shapeRects?: Rect[]
 ): number {
   let score = 0;
 
@@ -195,6 +243,15 @@ export function scoreLabelPosition(
   // Penalty for overlapping host element (boundary events)
   if (hostRect && rectsOverlap(candidateRect, hostRect)) {
     score += 10; // very bad — label hidden behind host
+  }
+
+  // Penalty for overlapping nearby shapes (tasks, gateways, etc.)
+  if (shapeRects) {
+    for (const sr of shapeRects) {
+      if (rectsOverlap(candidateRect, sr)) {
+        score += 5; // label hidden behind a shape is very bad
+      }
+    }
   }
 
   return score;

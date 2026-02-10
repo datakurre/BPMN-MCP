@@ -22,13 +22,15 @@ interface ValidationIssue {
   rule?: string;
   docUrl?: string;
   fix?: string;
+  /** Structured tool call suggestion that would fix this issue. */
+  fixToolCall?: { tool: string; args: Record<string, any> };
 }
 
 /**
  * Generate a fix suggestion for a lint issue based on its rule name.
  * Returns a human-readable suggestion or undefined if no fix is applicable.
  */
-function suggestFix(issue: FlatLintIssue): string | undefined {
+function suggestFix(issue: FlatLintIssue, diagramId: string): string | undefined {
   const { rule, elementId } = issue;
   if (!rule) return undefined;
 
@@ -41,9 +43,9 @@ function suggestFix(issue: FlatLintIssue): string | undefined {
     case 'no-disconnected':
       return `Use connect_bpmn_elements to connect the disconnected element${elementRef}`;
     case 'start-event-required':
-      return 'Use add_bpmn_element to add a bpmn:StartEvent';
+      return `Use add_bpmn_element to add a bpmn:StartEvent to diagram "${diagramId}"`;
     case 'end-event-required':
-      return 'Use add_bpmn_element to add a bpmn:EndEvent';
+      return `Use add_bpmn_element to add a bpmn:EndEvent to diagram "${diagramId}"`;
     case 'bpmn-mcp/gateway-missing-default':
       return `Use connect_bpmn_elements with isDefault: true to set a default flow${elementRef}`;
     case 'bpmn-mcp/implicit-split':
@@ -60,6 +62,70 @@ function suggestFix(issue: FlatLintIssue): string | undefined {
       return `Use connect_bpmn_elements to associate the compensation boundary event with a compensation handler${elementRef}`;
     case 'bpmn-mcp/multiple-expanded-pools':
       return 'In Camunda 7 / Operaton, only one pool can be executed. Recreate non-executable pools with collapsed: true in create_bpmn_collaboration, or delete the extra expanded pool and use bpmn:ServiceTask (camunda:type="external") instead';
+    case 'no-implicit-start':
+      return `Element${elementRef} has no incoming sequence flow. Connect it with connect_bpmn_elements or verify it should be a start event`;
+    case 'no-implicit-end':
+      return `Element${elementRef} has no outgoing sequence flow. Connect it with connect_bpmn_elements or verify it should be an end event`;
+    case 'single-blank-start-event':
+      return `Process should have exactly one blank start event. Remove extra start events with delete_bpmn_element or add event definitions with set_bpmn_event_definition`;
+    case 'bpmn-mcp/exclusive-gateway-conditions':
+      return `Exclusive gateway${elementRef} has outgoing flows without conditions. Use set_bpmn_element_properties with conditionExpression on the sequence flows, or mark one as default with isDefault: true`;
+    case 'bpmn-mcp/parallel-gateway-merge-exclusive':
+      return `A parallel gateway is merging mutually exclusive paths${elementRef}. Replace with an exclusive gateway using replace_bpmn_element`;
+    case 'camunda-compat/history-time-to-live':
+      return `Set historyTimeToLive on the process. Use set_bpmn_element_properties on the process element with camunda:historyTimeToLive`;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Generate a structured tool call suggestion for a lint issue.
+ * Returns an object with tool name and args that would fix the issue.
+ */
+function suggestFixToolCall(
+  issue: FlatLintIssue,
+  diagramId: string
+): { tool: string; args: Record<string, any> } | undefined {
+  const { rule, elementId } = issue;
+  if (!rule) return undefined;
+
+  switch (rule) {
+    case 'label-required':
+    case 'bpmn-mcp/naming-convention':
+      if (elementId) {
+        return {
+          tool: 'set_bpmn_element_properties',
+          args: { diagramId, elementId, properties: { name: '<descriptive name>' } },
+        };
+      }
+      return undefined;
+    case 'start-event-required':
+      return {
+        tool: 'add_bpmn_element',
+        args: { diagramId, elementType: 'bpmn:StartEvent' },
+      };
+    case 'end-event-required':
+      return {
+        tool: 'add_bpmn_element',
+        args: { diagramId, elementType: 'bpmn:EndEvent' },
+      };
+    case 'bpmn-mcp/camunda-topic-without-external-type':
+      if (elementId) {
+        return {
+          tool: 'set_bpmn_element_properties',
+          args: { diagramId, elementId, properties: { 'camunda:type': 'external' } },
+        };
+      }
+      return undefined;
+    case 'bpmn-mcp/parallel-gateway-merge-exclusive':
+      if (elementId) {
+        return {
+          tool: 'replace_bpmn_element',
+          args: { diagramId, elementId, newType: 'bpmn:ExclusiveGateway' },
+        };
+      }
+      return undefined;
     default:
       return undefined;
   }
@@ -84,7 +150,8 @@ export async function handleValidate(args: ValidateArgs): Promise<ToolResult> {
 
   // Convert bpmnlint issues to our format, including docUrl and fix suggestions
   const issues: ValidationIssue[] = lintIssues.map((li) => {
-    const fix = suggestFix(li);
+    const fix = suggestFix(li, args.diagramId);
+    const fixToolCall = suggestFixToolCall(li, args.diagramId);
     return {
       severity: li.severity,
       message: li.message,
@@ -92,6 +159,7 @@ export async function handleValidate(args: ValidateArgs): Promise<ToolResult> {
       rule: li.rule,
       ...(li.documentationUrl ? { docUrl: li.documentationUrl } : {}),
       ...(fix ? { fix } : {}),
+      ...(fixToolCall ? { fixToolCall } : {}),
     };
   });
 

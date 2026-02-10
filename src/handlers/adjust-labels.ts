@@ -76,6 +76,21 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
 
   const connectionSegments = collectConnectionSegments(allElements);
 
+  // Collect all shape rects (non-connections, non-labels) for overlap checking
+  const shapeRects: Rect[] = allElements
+    .filter(
+      (el: any) =>
+        el.type &&
+        !el.type.includes('SequenceFlow') &&
+        !el.type.includes('MessageFlow') &&
+        !el.type.includes('Association') &&
+        el.type !== 'bpmn:Participant' &&
+        el.type !== 'bpmn:Lane' &&
+        el.width &&
+        el.height
+    )
+    .map((el: any) => ({ x: el.x, y: el.y, width: el.width, height: el.height }));
+
   // Collect all elements with external labels
   const labelBearers = allElements.filter(
     (el: any) => hasExternalLabel(el.type) && el.label && el.businessObject?.name
@@ -113,12 +128,18 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
       };
     }
 
+    // Exclude the element's own shape from nearby shape rects
+    const otherShapeRects = shapeRects.filter(
+      (sr) => sr.x !== el.x || sr.y !== el.y || sr.width !== el.width || sr.height !== el.height
+    );
+
     // Score the current position
     const currentScore = scoreLabelPosition(
       currentRect,
       connectionSegments,
       otherLabelRects,
-      hostRect
+      hostRect,
+      otherShapeRects
     );
 
     if (currentScore === 0) continue; // already fine
@@ -133,7 +154,8 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
         candidate.rect,
         connectionSegments,
         otherLabelRects,
-        hostRect
+        hostRect,
+        otherShapeRects
       );
       if (score < bestScore) {
         bestScore = score;
@@ -181,6 +203,22 @@ export async function adjustElementLabel(
   const allElements = getVisibleElements(elementRegistry);
   const connectionSegments = collectConnectionSegments(allElements);
 
+  // Collect nearby shape rects for overlap checking
+  const shapeRects: Rect[] = allElements
+    .filter(
+      (other: any) =>
+        other.id !== elementId &&
+        other.type &&
+        !other.type.includes('SequenceFlow') &&
+        !other.type.includes('MessageFlow') &&
+        !other.type.includes('Association') &&
+        other.type !== 'bpmn:Participant' &&
+        other.type !== 'bpmn:Lane' &&
+        other.width &&
+        other.height
+    )
+    .map((other: any) => ({ x: other.x, y: other.y, width: other.width, height: other.height }));
+
   // Other labels
   const otherLabelRects: Rect[] = allElements
     .filter((other: any) => other.id !== elementId && other.label && hasExternalLabel(other.type))
@@ -198,7 +236,8 @@ export async function adjustElementLabel(
     currentRect,
     connectionSegments,
     otherLabelRects,
-    hostRect
+    hostRect,
+    shapeRects
   );
 
   if (currentScore === 0) return false;
@@ -208,7 +247,13 @@ export async function adjustElementLabel(
   let bestCandidate: (typeof candidates)[0] | null = null;
 
   for (const candidate of candidates) {
-    const score = scoreLabelPosition(candidate.rect, connectionSegments, otherLabelRects, hostRect);
+    const score = scoreLabelPosition(
+      candidate.rect,
+      connectionSegments,
+      otherLabelRects,
+      hostRect,
+      shapeRects
+    );
     if (score < bestScore) {
       bestScore = score;
       bestCandidate = candidate;
