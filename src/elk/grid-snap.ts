@@ -245,6 +245,11 @@ export function gridSnapPass(
   // For split gateways on the happy path, ensure off-path branches
   // are placed symmetrically above/below the happy-path centre line.
   symmetriseGatewayBranches(elementRegistry, modeling, happyPathNodeIds);
+
+  // ── Step 5: Align boundary sub-flow end events ──
+  // End events reachable from boundary event flows should align with
+  // their immediate predecessor's Y to form clean visual rows.
+  alignBoundarySubFlowEndEvents(elementRegistry, modeling);
 }
 
 /**
@@ -394,6 +399,147 @@ function symmetriseGatewayBranches(
       if (Math.abs(dy) > 2) {
         modeling.moveElements([target], { x: 0, y: dy });
       }
+    }
+  }
+}
+
+/**
+ * Align end events that are reachable from boundary event flows.
+ *
+ * Boundary events spawn exception sub-flows that often end with an
+ * EndEvent.  Without explicit alignment, these end events can float
+ * between the happy path and the lower branch instead of forming a
+ * clean visual row.
+ *
+ * For each end event not already aligned with its predecessor,
+ * snaps it to the Y-centre of the element that feeds into it.
+ * This matches the pattern that `symmetriseGatewayBranches()` uses
+ * for gateway-connected end events.
+ */
+function alignBoundarySubFlowEndEvents(elementRegistry: any, modeling: any): void {
+  const allElements: any[] = elementRegistry.getAll();
+
+  // Find boundary events with outgoing flows
+  const boundaryEvents = allElements.filter(
+    (el: any) => el.type === 'bpmn:BoundaryEvent' && el.outgoing?.length > 0
+  );
+
+  for (const be of boundaryEvents) {
+    // Trace forward from the boundary event, following outgoing flows
+    // until we find end events
+    const visited = new Set<string>();
+    const queue: any[] = [be];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (visited.has(current.id)) continue;
+      visited.add(current.id);
+
+      // Find outgoing connections from this element
+      const outgoing = allElements.filter(
+        (conn: any) => isConnection(conn.type) && conn.source?.id === current.id && conn.target
+      );
+
+      for (const conn of outgoing) {
+        const target = conn.target;
+        if (!target) continue;
+
+        if (target.type === 'bpmn:EndEvent') {
+          // Align the end event's Y-centre with its incoming source's Y-centre
+          const sourceCy = current.y + (current.height || 0) / 2;
+          const targetCy = target.y + (target.height || 0) / 2;
+          const dy = Math.round(sourceCy - targetCy);
+          if (Math.abs(dy) > 2) {
+            modeling.moveElements([target], { x: 0, y: dy });
+          }
+        } else if (!visited.has(target.id)) {
+          // Continue tracing through intermediate elements
+          queue.push(target);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Align all happy-path elements to a single Y-centre.
+ *
+ * After gridSnapPass, elements on the detected happy path may have small
+ * Y-centre offsets (5–15 px) caused by ELK's gateway port placement and
+ * node-size rounding.  This pass computes the median Y-centre of all
+ * happy-path elements and snaps them to it, producing a perfectly
+ * straight main flow line.
+ *
+ * Only corrects small wobbles (≤ MAX_WOBBLE_CORRECTION px).  Elements
+ * that are far from the median are likely on separate branches of a
+ * split/join pattern and should NOT be moved.
+ *
+ * Must run AFTER gridSnapPass (which may introduce the wobble) and
+ * BEFORE edge routing (so waypoints reflect final positions).
+ */
+export function alignHappyPath(
+  elementRegistry: any,
+  modeling: any,
+  happyPathEdgeIds?: Set<string>,
+  container?: any
+): void {
+  if (!happyPathEdgeIds || happyPathEdgeIds.size === 0) return;
+
+  /** Maximum Y-centre correction (px) to apply.  Larger deviations
+   *  indicate the element is on a different branch, not a wobble. */
+  const MAX_WOBBLE_CORRECTION = 20;
+
+  // Determine which container to scope to
+  let parentFilter: any = container;
+  if (!parentFilter) {
+    parentFilter = elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+    )[0];
+  }
+
+  // Collect happy-path node IDs from the edge set
+  const happyPathNodeIds = new Set<string>();
+  const allElements: any[] = elementRegistry.getAll();
+  for (const el of allElements) {
+    if (isConnection(el.type) && happyPathEdgeIds.has(el.id)) {
+      if (el.source) happyPathNodeIds.add(el.source.id);
+      if (el.target) happyPathNodeIds.add(el.target.id);
+    }
+  }
+
+  if (happyPathNodeIds.size < 2) return;
+
+  // Get the actual shape objects for happy-path nodes that are direct
+  // children of the target container (don't mix nesting levels)
+  const happyShapes = allElements.filter(
+    (el: any) =>
+      happyPathNodeIds.has(el.id) &&
+      !isConnection(el.type) &&
+      !isInfrastructure(el.type) &&
+      !isArtifact(el.type) &&
+      el.type !== 'bpmn:BoundaryEvent' &&
+      el.type !== 'label' &&
+      el.type !== 'bpmn:Participant' &&
+      (!parentFilter || el.parent === parentFilter)
+  );
+
+  if (happyShapes.length < 2) return;
+
+  // Compute Y-centres
+  const yCentres = happyShapes.map((el: any) => el.y + (el.height || 0) / 2);
+  yCentres.sort((a: number, b: number) => a - b);
+
+  // Use the median Y-centre as the alignment target
+  const medianY = yCentres[Math.floor(yCentres.length / 2)];
+
+  // Snap only happy-path elements that are within MAX_WOBBLE_CORRECTION
+  // of the median.  Elements further away are on split/join branches
+  // and should keep their gridSnap-assigned Y.
+  for (const el of happyShapes) {
+    const cy = el.y + (el.height || 0) / 2;
+    const dy = Math.round(medianY - cy);
+    if (Math.abs(dy) > 0.5 && Math.abs(dy) <= MAX_WOBBLE_CORRECTION) {
+      modeling.moveElements([el], { x: 0, y: dy });
     }
   }
 }

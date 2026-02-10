@@ -15,6 +15,7 @@
  * 3. Fix stranded boundary events → repositionBoundaryEvents()
  * 4. Snap same-layer elements to common Y → snapSameLayerElements()
  * 5. Grid snap pass (uniform columns + vertical spacing) → gridSnapPass()
+ * 5.5. Align happy-path to single Y-centre → alignHappyPath()
  * 6. Reposition artifacts → repositionArtifacts()
  * 7. Apply ELK edge sections as waypoints → applyElkEdgeRoutes()
  * 7.5. Route branch connections through inter-column channels → routeBranchConnectionsThroughChannels()
@@ -40,7 +41,7 @@ import { applyElkEdgeRoutes, fixDisconnectedEdges } from './edge-routing';
 import { repositionArtifacts } from './artifacts';
 import { routeBranchConnectionsThroughChannels } from './channel-routing';
 import { detectHappyPath } from './happy-path';
-import { gridSnapPass, gridSnapExpandedSubprocesses } from './grid-snap';
+import { gridSnapPass, gridSnapExpandedSubprocesses, alignHappyPath } from './grid-snap';
 import { detectCrossingFlows } from './crossing-detection';
 import type { ElkLayoutOptions } from './types';
 
@@ -206,6 +207,28 @@ export async function elkLayout(
   // Step 6: Reposition artifacts (data objects, data stores, annotations)
   // outside the main flow — they were excluded from the ELK graph.
   repositionArtifacts(elementRegistry, modeling);
+
+  // Step 5.5: Align happy-path elements to a single Y-centre.
+  // GridSnapPass can introduce small Y-centre wobbles (5–15 px) due to
+  // ELK's gateway port placement.  This pass snaps all happy-path elements
+  // to the median Y-centre for a perfectly straight main flow line.
+  // Only applies for horizontal (RIGHT/LEFT) layouts.
+  const effectiveDirection = options?.direction || 'RIGHT';
+  if (
+    shouldPreserveHappyPath &&
+    happyPathEdgeIds &&
+    happyPathEdgeIds.size > 0 &&
+    (effectiveDirection === 'RIGHT' || effectiveDirection === 'LEFT')
+  ) {
+    const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+    if (participants.length > 0) {
+      for (const participant of participants) {
+        alignHappyPath(elementRegistry, modeling, happyPathEdgeIds, participant);
+      }
+    } else {
+      alignHappyPath(elementRegistry, modeling, happyPathEdgeIds);
+    }
+  }
 
   // Step 6.5: Final boundary event restore + reposition.
   // Snap/grid passes (steps 4-5) may have moved host tasks, which can

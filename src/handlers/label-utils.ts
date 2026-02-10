@@ -240,6 +240,12 @@ export function scoreLabelPosition(
 ): number {
   let score = 0;
 
+  // Heavy penalty for negative coordinates — labels outside the visible
+  // canvas area are never useful and indicate a positioning bug.
+  if (candidateRect.x < 0 || candidateRect.y < 0) {
+    score += 100;
+  }
+
   // Penalty for intersecting connection segments
   for (const [p1, p2] of connectionSegments) {
     if (segmentIntersectsRect(p1, p2, candidateRect)) {
