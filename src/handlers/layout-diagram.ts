@@ -17,8 +17,16 @@ import { adjustDiagramLabels, adjustFlowLabels } from './adjust-labels';
 import { elkLayout, elkLayoutSubset } from '../elk';
 
 export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<ToolResult> {
-  const { diagramId, direction, nodeSpacing, layerSpacing, scopeElementId, preserveHappyPath } =
-    args;
+  const {
+    diagramId,
+    direction,
+    nodeSpacing,
+    layerSpacing,
+    scopeElementId,
+    preserveHappyPath,
+    compactness,
+    simplifyRoutes,
+  } = args;
   const elementIds = (args as any).elementIds as string[] | undefined;
   const rawGridSnap = (args as any).gridSnap;
   // gridSnap can be a boolean (enable/disable ELK grid snap pass)
@@ -45,6 +53,8 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
       scopeElementId,
       preserveHappyPath,
       gridSnap: elkGridSnap,
+      compactness,
+      simplifyRoutes,
     });
   }
 
@@ -146,6 +156,17 @@ export const TOOL_DEFINITION = {
         type: 'boolean',
         description:
           'When true (default), detects the main path (start→end via default flows) and pins it to a single row. Set to false to let ELK freely arrange all branches.',
+      },
+      compactness: {
+        type: 'string',
+        enum: ['compact', 'spacious'],
+        description:
+          "Layout compactness preset. 'compact' uses tighter spacing (nodeSpacing=40, layerSpacing=50). 'spacious' uses generous spacing (nodeSpacing=80, layerSpacing=100). Explicit nodeSpacing/layerSpacing values override compactness presets. Default uses balanced spacing (nodeSpacing=50, layerSpacing=60).",
+      },
+      simplifyRoutes: {
+        type: 'boolean',
+        description:
+          "When true (default), simplifies gateway branch routes to clean L/Z-shaped paths. Set to false to preserve ELK's original crossing-minimised routing for complex diagrams.",
       },
     },
     required: ['diagramId'],

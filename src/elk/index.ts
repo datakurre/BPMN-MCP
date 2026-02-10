@@ -31,7 +31,11 @@ import type { ElkNode, ElkExtendedEdge, LayoutOptions } from 'elkjs';
 import { isConnection, isInfrastructure, isArtifact } from './helpers';
 import { ELK_LAYOUT_OPTIONS, ORIGIN_OFFSET_X, ORIGIN_OFFSET_Y } from './constants';
 import { buildContainerGraph } from './graph-builder';
-import { applyElkPositions, resizeCompoundNodes } from './position-application';
+import {
+  applyElkPositions,
+  resizeCompoundNodes,
+  centreElementsInPools,
+} from './position-application';
 import {
   repositionBoundaryEvents,
   saveBoundaryEventData,
@@ -115,6 +119,17 @@ export async function elkLayout(
   if (options?.direction) {
     layoutOptions['elk.direction'] = options.direction;
   }
+
+  // Apply compactness presets (overridden by explicit nodeSpacing/layerSpacing)
+  if (options?.compactness === 'compact') {
+    layoutOptions['elk.spacing.nodeNode'] = '40';
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '50';
+  } else if (options?.compactness === 'spacious') {
+    layoutOptions['elk.spacing.nodeNode'] = '80';
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '100';
+  }
+
+  // Explicit spacing values override compactness presets
   if (options?.nodeSpacing !== undefined) {
     layoutOptions['elk.spacing.nodeNode'] = String(options.nodeSpacing);
   }
@@ -213,19 +228,49 @@ export async function elkLayout(
   // participant for collaboration diagrams, and recursively for expanded
   // subprocesses.
   const shouldGridSnap = options?.gridSnap !== false;
+
+  // Compute the effective layer spacing for the grid snap pass.
+  // Explicit layerSpacing overrides compactness presets, which override the default.
+  let effectiveLayerSpacing: number | undefined;
+  if (options?.layerSpacing !== undefined) {
+    effectiveLayerSpacing = options.layerSpacing;
+  } else if (options?.compactness === 'compact') {
+    effectiveLayerSpacing = 50;
+  } else if (options?.compactness === 'spacious') {
+    effectiveLayerSpacing = 100;
+  }
+
   if (shouldGridSnap) {
     // For collaborations, run grid snap within each participant
     const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
     if (participants.length > 0) {
       for (const participant of participants) {
-        gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, participant);
+        gridSnapPass(
+          elementRegistry,
+          modeling,
+          happyPathEdgeIds,
+          participant,
+          effectiveLayerSpacing
+        );
         // Also run within expanded subprocesses inside this participant
-        gridSnapExpandedSubprocesses(elementRegistry, modeling, happyPathEdgeIds, participant);
+        gridSnapExpandedSubprocesses(
+          elementRegistry,
+          modeling,
+          happyPathEdgeIds,
+          participant,
+          effectiveLayerSpacing
+        );
       }
     } else {
-      gridSnapPass(elementRegistry, modeling, happyPathEdgeIds);
+      gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, undefined, effectiveLayerSpacing);
       // Also run within expanded subprocesses at the root level
-      gridSnapExpandedSubprocesses(elementRegistry, modeling, happyPathEdgeIds);
+      gridSnapExpandedSubprocesses(
+        elementRegistry,
+        modeling,
+        happyPathEdgeIds,
+        undefined,
+        effectiveLayerSpacing
+      );
     }
   }
 
@@ -269,6 +314,12 @@ export async function elkLayout(
     }
   }
 
+  // Step 5.7: Centre elements vertically within participant pools.
+  // After grid snap and happy-path alignment, content inside pools may
+  // not be vertically centred.  This pass shifts elements to be centred
+  // within each pool's usable area.
+  centreElementsInPools(elementRegistry, modeling);
+
   // Step 6.5: Final boundary event restore + reposition.
   // Snap/grid passes (steps 4-5) may have moved host tasks, which can
   // re-corrupt boundary events in headless mode.  Restore and reposition
@@ -289,7 +340,11 @@ export async function elkLayout(
     // For split-gateway → branch-target and branch-target → join-gateway
     // connections, replace multi-bend ELK routes with clean 4-waypoint
     // Z-shaped routes (horizontal → vertical → horizontal).
-    simplifyGatewayBranchRoutes(elementRegistry, modeling);
+    // Configurable via options.simplifyRoutes (default: true).
+    const shouldSimplifyRoutes = options?.simplifyRoutes !== false;
+    if (shouldSimplifyRoutes) {
+      simplifyGatewayBranchRoutes(elementRegistry, modeling);
+    }
 
     const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
     if (participants.length > 0) {

@@ -176,6 +176,8 @@ export interface LayoutDiagramArgs {
   layerSpacing?: number;
   scopeElementId?: string;
   preserveHappyPath?: boolean;
+  compactness?: 'compact' | 'spacious';
+  simplifyRoutes?: boolean;
 }
 
 export interface SetCamundaErrorEventDefinitionArgs {

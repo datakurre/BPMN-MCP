@@ -144,8 +144,12 @@ function dominantCategory(layer: GridLayer): 'event' | 'gateway' | 'task' {
  * that value replaces ELK_LAYER_SPACING everywhere, so the type-aware
  * deltas still apply relative to the override.
  */
-function computeInterLayerGap(prevLayer: GridLayer, nextLayer: GridLayer): number {
-  const base = ELK_LAYER_SPACING;
+function computeInterLayerGap(
+  prevLayer: GridLayer,
+  nextLayer: GridLayer,
+  baseSpacing?: number
+): number {
+  const base = baseSpacing ?? ELK_LAYER_SPACING;
   const prevCat = dominantCategory(prevLayer);
   const nextCat = dominantCategory(nextLayer);
 
@@ -180,7 +184,8 @@ export function gridSnapPass(
   elementRegistry: any,
   modeling: any,
   happyPathEdgeIds?: Set<string>,
-  container?: any
+  container?: any,
+  baseLayerSpacing?: number
 ): void {
   const layers = detectLayers(elementRegistry, container);
   if (layers.length < 2) return;
@@ -207,7 +212,7 @@ export function gridSnapPass(
 
     if (i > 0) {
       // Element-type-aware gap between adjacent layers
-      const gap = computeInterLayerGap(layers[i - 1], layer);
+      const gap = computeInterLayerGap(layers[i - 1], layer, baseLayerSpacing);
       columnX = layers[i - 1].maxRight + gap;
     }
 
@@ -617,7 +622,8 @@ export function gridSnapExpandedSubprocesses(
   elementRegistry: any,
   modeling: any,
   happyPathEdgeIds?: Set<string>,
-  container?: any
+  container?: any,
+  baseLayerSpacing?: number
 ): void {
   // Find expanded subprocesses that are direct children of the given container
   const parentFilter =
@@ -642,8 +648,14 @@ export function gridSnapExpandedSubprocesses(
   );
 
   for (const sub of expandedSubs) {
-    gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, sub);
+    gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, sub, baseLayerSpacing);
     // Recurse into nested subprocesses
-    gridSnapExpandedSubprocesses(elementRegistry, modeling, happyPathEdgeIds, sub);
+    gridSnapExpandedSubprocesses(
+      elementRegistry,
+      modeling,
+      happyPathEdgeIds,
+      sub,
+      baseLayerSpacing
+    );
   }
 }

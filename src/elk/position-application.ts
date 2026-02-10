@@ -3,6 +3,7 @@
  */
 
 import type { ElkNode } from 'elkjs';
+import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 
 /**
  * Recursively apply ELK layout results to bpmn-js elements.
@@ -80,5 +81,64 @@ export function resizeCompoundNodes(elementRegistry: any, modeling: any, elkNode
 
     // Recurse for nested compound nodes (expanded subprocesses inside participants)
     resizeCompoundNodes(elementRegistry, modeling, child);
+  }
+}
+
+/**
+ * Centre elements vertically within each participant pool.
+ *
+ * After ELK layout + grid snap, the content inside a pool may not be
+ * vertically centred — e.g. elements cluster towards the top due to
+ * ELK's top-aligned padding.  This pass computes the vertical extent
+ * of all flow elements inside each participant and shifts them to be
+ * centred within the pool's usable area.
+ *
+ * Only applies when the vertical offset exceeds a minimum threshold
+ * to avoid unnecessary micro-adjustments.
+ */
+export function centreElementsInPools(elementRegistry: any, modeling: any): void {
+  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  if (participants.length === 0) return;
+
+  for (const pool of participants) {
+    // Collect flow elements that are direct children of this pool
+    // (skip lanes, connections, boundary events, labels, infrastructure)
+    const children = elementRegistry.filter(
+      (el: any) =>
+        el.parent === pool &&
+        !isConnection(el.type) &&
+        !isInfrastructure(el.type) &&
+        !isArtifact(el.type) &&
+        !isLane(el.type) &&
+        el.type !== 'bpmn:BoundaryEvent' &&
+        el.type !== 'label'
+    );
+
+    if (children.length === 0) continue;
+
+    // Compute the vertical bounding box of the children
+    let contentMinY = Infinity;
+    let contentMaxY = -Infinity;
+    for (const child of children) {
+      if (child.y < contentMinY) contentMinY = child.y;
+      const bottom = child.y + (child.height || 0);
+      if (bottom > contentMaxY) contentMaxY = bottom;
+    }
+
+    const contentHeight = contentMaxY - contentMinY;
+
+    // Pool usable area (exclude the ~30px left label band)
+    const poolTop = pool.y;
+    const poolBottom = pool.y + pool.height;
+    const usableHeight = poolBottom - poolTop;
+
+    // Desired Y for the content to be centred
+    const desiredMinY = poolTop + (usableHeight - contentHeight) / 2;
+    const dy = Math.round(desiredMinY - contentMinY);
+
+    // Only shift if the offset is significant (>5px)
+    if (Math.abs(dy) > 5) {
+      modeling.moveElements(children, { x: 0, y: dy });
+    }
   }
 }

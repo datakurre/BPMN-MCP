@@ -18,6 +18,18 @@ export interface ElkLayoutOptions {
    * When false, preserves pure ELK positioning.
    */
   gridSnap?: boolean;
+  /**
+   * Simplify gateway branch routes to clean L/Z-shaped paths (default: true).
+   * When false, preserves ELK's original crossing-minimised routing.
+   */
+  simplifyRoutes?: boolean;
+  /**
+   * Layout compactness preset.
+   * - 'compact': tighter spacing (nodeSpacing=40, layerSpacing=50)
+   * - 'spacious': generous spacing (nodeSpacing=80, layerSpacing=100)
+   * Explicit nodeSpacing/layerSpacing values override compactness presets.
+   */
+  compactness?: 'compact' | 'spacious';
 }
 
 /** Result of crossing flow detection: count + pairs of crossing flow IDs. */
