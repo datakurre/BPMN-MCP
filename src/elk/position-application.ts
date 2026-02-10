@@ -54,11 +54,7 @@ export function applyElkPositions(
  * separate pass applies the size.  Must run AFTER applyElkPositions so
  * that the element's current x/y is already correct.
  */
-export function resizeCompoundNodes(
-  elementRegistry: any,
-  modeling: any,
-  elkNode: ElkNode
-): void {
+export function resizeCompoundNodes(elementRegistry: any, modeling: any, elkNode: ElkNode): void {
   if (!elkNode.children) return;
 
   for (const child of elkNode.children) {

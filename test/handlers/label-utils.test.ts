@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   rectsOverlap,
+  rectsNearby,
   segmentIntersectsRect,
   getLabelCandidatePositions,
   scoreLabelPosition,
@@ -36,6 +37,38 @@ describe('label-utils', () => {
       const a = { x: 0, y: 0, width: 100, height: 80 };
       const b = { x: 10, y: 10, width: 20, height: 20 };
       expect(rectsOverlap(a, b)).toBe(true);
+    });
+  });
+
+  describe('rectsNearby', () => {
+    it('detects rects within margin distance', () => {
+      const a = { x: 0, y: 0, width: 100, height: 80 };
+      const b = { x: 105, y: 0, width: 100, height: 80 }; // 5px gap
+      expect(rectsNearby(a, b, 10)).toBe(true);
+    });
+
+    it('returns false when rects are beyond margin', () => {
+      const a = { x: 0, y: 0, width: 100, height: 80 };
+      const b = { x: 200, y: 0, width: 100, height: 80 }; // 100px gap
+      expect(rectsNearby(a, b, 10)).toBe(false);
+    });
+
+    it('returns true for overlapping rects', () => {
+      const a = { x: 0, y: 0, width: 100, height: 80 };
+      const b = { x: 50, y: 40, width: 100, height: 80 };
+      expect(rectsNearby(a, b, 10)).toBe(true);
+    });
+
+    it('detects vertical proximity', () => {
+      const a = { x: 0, y: 0, width: 100, height: 80 };
+      const b = { x: 0, y: 85, width: 100, height: 80 }; // 5px vertical gap
+      expect(rectsNearby(a, b, 10)).toBe(true);
+    });
+
+    it('returns false for rects beyond margin diagonally', () => {
+      const a = { x: 0, y: 0, width: 100, height: 80 };
+      const b = { x: 120, y: 100, width: 100, height: 80 };
+      expect(rectsNearby(a, b, 10)).toBe(false);
     });
   });
 
@@ -156,6 +189,22 @@ describe('label-utils', () => {
       const hostRect = { x: 80, y: 80, width: 100, height: 80 };
       const score = scoreLabelPosition(rect, [], [], hostRect);
       expect(score).toBeGreaterThanOrEqual(10);
+    });
+
+    it('penalizes labels too close to shapes (proximity)', () => {
+      const rect = { x: 0, y: 0, width: 90, height: 20 };
+      // Shape is 5px to the right of the label — close but not overlapping
+      const shapeRects = [{ x: 95, y: 0, width: 100, height: 80 }];
+      const score = scoreLabelPosition(rect, [], [], undefined, shapeRects);
+      expect(score).toBeGreaterThan(0); // proximity penalty
+    });
+
+    it('gives no proximity penalty when shapes are far away', () => {
+      const rect = { x: 0, y: 0, width: 90, height: 20 };
+      // Shape is 100px away — well beyond proximity margin
+      const shapeRects = [{ x: 200, y: 0, width: 100, height: 80 }];
+      const score = scoreLabelPosition(rect, [], [], undefined, shapeRects);
+      expect(score).toBe(0);
     });
   });
 });

@@ -9,6 +9,7 @@ import {
   ELEMENT_LABEL_BOTTOM_EXTRA,
   DEFAULT_LABEL_SIZE,
   LABEL_POSITION_PRIORITY,
+  LABEL_SHAPE_PROXIMITY_MARGIN,
 } from '../constants';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -37,6 +38,19 @@ export interface LabelCandidate {
 /** Check if two axis-aligned rectangles overlap. */
 export function rectsOverlap(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+/**
+ * Check if two axis-aligned rectangles are within `margin` pixels of each other.
+ * Returns true if the rects overlap OR the gap between them is ≤ margin.
+ */
+export function rectsNearby(a: Rect, b: Rect, margin: number): boolean {
+  return (
+    a.x - margin < b.x + b.width &&
+    a.x + a.width + margin > b.x &&
+    a.y - margin < b.y + b.height &&
+    a.y + a.height + margin > b.y
+  );
 }
 
 // ── Line segment ↔ rectangle intersection ──────────────────────────────────
@@ -250,6 +264,8 @@ export function scoreLabelPosition(
     for (const sr of shapeRects) {
       if (rectsOverlap(candidateRect, sr)) {
         score += 5; // label hidden behind a shape is very bad
+      } else if (rectsNearby(candidateRect, sr, LABEL_SHAPE_PROXIMITY_MARGIN)) {
+        score += 1; // label too close to a shape — hard to read
       }
     }
   }

@@ -163,6 +163,88 @@ describe('Layout quality regression', () => {
     }
   });
 
+  it('2-branch exclusive split: branches symmetric around happy path', async () => {
+    // Reproduces the TODO issue: Gateway → [Yes: Task → Merge, No: Task → Merge]
+    // Both branch tasks should be at equal distance from the happy-path centre line
+    const diagramId = await createDiagram('Symmetric Branches');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Decision' });
+    const taskYes = await addElement(diagramId, 'bpmn:UserTask', { name: 'Yes Path' });
+    const taskNo = await addElement(diagramId, 'bpmn:UserTask', { name: 'No Path' });
+    const merge = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Merge' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+
+    // Note: No default flow, so happy path follows first connected flow
+    await handleConnect({ diagramId, sourceElementId: start, targetElementId: gw });
+    await handleConnect({
+      diagramId,
+      sourceElementId: gw,
+      targetElementId: taskYes,
+      label: 'Yes',
+    });
+    await handleConnect({
+      diagramId,
+      sourceElementId: gw,
+      targetElementId: taskNo,
+      label: 'No',
+    });
+    await handleConnect({ diagramId, sourceElementId: taskYes, targetElementId: merge });
+    await handleConnect({ diagramId, sourceElementId: taskNo, targetElementId: merge });
+    await handleConnect({ diagramId, sourceElementId: merge, targetElementId: end });
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    const gwEl = reg.get(gw);
+    const gwCy = centreY(gwEl);
+    const yesEl = reg.get(taskYes);
+    const noEl = reg.get(taskNo);
+    const yesDist = Math.abs(centreY(yesEl) - gwCy);
+    const noDist = Math.abs(centreY(noEl) - gwCy);
+
+    // Both branches should be equidistant from the gateway centre (within 5px)
+    expect(Math.abs(yesDist - noDist)).toBeLessThanOrEqual(5);
+  });
+
+  it('off-path end event aligns with its predecessor Y', async () => {
+    // When an end event is a target of an off-path branch, it should
+    // align vertically with its incoming source to avoid long vertical connectors
+    const diagramId = await createDiagram('End Event Alignment');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Process' });
+    const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'OK?' });
+    const taskOk = await addElement(diagramId, 'bpmn:UserTask', { name: 'Continue' });
+    const endOk = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+    const endFail = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Failed' });
+
+    await handleConnect({ diagramId, sourceElementId: start, targetElementId: task });
+    await handleConnect({ diagramId, sourceElementId: task, targetElementId: gw });
+    await handleConnect({
+      diagramId,
+      sourceElementId: gw,
+      targetElementId: taskOk,
+      label: 'Yes',
+    });
+    await handleConnect({
+      diagramId,
+      sourceElementId: gw,
+      targetElementId: endFail,
+      label: 'No',
+    });
+    await handleConnect({ diagramId, sourceElementId: taskOk, targetElementId: endOk });
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    // All connections should be orthogonal
+    const connections = reg.filter((el: any) => el.type === 'bpmn:SequenceFlow');
+    for (const conn of connections) {
+      expectOrthogonal(conn);
+    }
+  });
+
   it('exclusive branch without merge gateway: flows to shared end event are orthogonal', async () => {
     // Reproduces the example.bpmn pattern where two branches merge at an EndEvent
     const diagramId = await createDiagram('Shared EndEvent Quality');

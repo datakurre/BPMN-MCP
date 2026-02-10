@@ -240,6 +240,11 @@ export function gridSnapPass(
   // ── Step 3: Centre gateways on their connected branches ──
   // Skip gateways that are on the happy path to preserve straightness.
   centreGatewaysOnBranches(elementRegistry, modeling, happyPathNodeIds);
+
+  // ── Step 4: Symmetrise gateway branches ──
+  // For split gateways on the happy path, ensure off-path branches
+  // are placed symmetrically above/below the happy-path centre line.
+  symmetriseGatewayBranches(elementRegistry, modeling, happyPathNodeIds);
 }
 
 /**
@@ -284,6 +289,111 @@ function centreGatewaysOnBranches(
     const dy = Math.round(midY - gwCy);
     if (Math.abs(dy) > 2) {
       modeling.moveElements([gw], { x: 0, y: dy });
+    }
+  }
+}
+
+/**
+ * Symmetrise gateway branches around the happy-path centre line.
+ *
+ * For split gateways on the happy path with exactly 2 branch targets
+ * in the same layer (both tasks, one happy-path and one off-path),
+ * redistributes them symmetrically around the gateway's centre Y.
+ *
+ * Also handles off-path end events: positions them at the same Y as
+ * their incoming branch element to avoid long vertical connectors
+ * that make them appear disconnected.
+ */
+function symmetriseGatewayBranches(
+  elementRegistry: any,
+  modeling: any,
+  happyPathNodeIds: Set<string>
+): void {
+  const allElements: any[] = elementRegistry.getAll();
+  const nodeSpacing = ELK_NODE_SPACING;
+
+  // Find split gateways on the happy path (≥2 outgoing flows)
+  const splitGateways = allElements.filter((el: any) => {
+    if (!el.type?.includes('Gateway')) return false;
+    if (!happyPathNodeIds.has(el.id)) return false;
+    const outCount = allElements.filter(
+      (conn: any) => isConnection(conn.type) && conn.source?.id === el.id
+    ).length;
+    return outCount >= 2;
+  });
+
+  for (const gw of splitGateways) {
+    const gwCy = gw.y + (gw.height || 0) / 2;
+
+    // Find outgoing connections and their non-gateway, non-event targets
+    // (i.e. the branch task targets, excluding merge gateways / end events)
+    const outgoing = allElements.filter(
+      (conn: any) => isConnection(conn.type) && conn.source?.id === gw.id && conn.target
+    );
+
+    // Collect ALL branch targets (both on-path and off-path)
+    const branchTargets = outgoing
+      .map((conn: any) => conn.target)
+      .filter((t: any) => t.type !== 'bpmn:EndEvent' && !t.type?.includes('Gateway'));
+
+    // For 2-branch patterns with tasks, symmetrise both around the gateway Y
+    if (branchTargets.length === 2) {
+      const [t1, t2] = branchTargets;
+      const t1Cy = t1.y + (t1.height || 0) / 2;
+      const t2Cy = t2.y + (t2.height || 0) / 2;
+
+      // Check if the two targets are roughly in the same layer (similar X)
+      const t1Cx = t1.x + (t1.width || 0) / 2;
+      const t2Cx = t2.x + (t2.width || 0) / 2;
+      if (Math.abs(t1Cx - t2Cx) > 50) continue; // Different layers, skip
+
+      // Ideal: both equidistant from gateway centre
+      const totalSpan = Math.abs(t1Cy - t2Cy);
+      const idealSpan = Math.max(totalSpan, nodeSpacing + Math.max(t1.height || 0, t2.height || 0));
+      const halfSpan = idealSpan / 2;
+
+      // Sort by current Y to determine which goes above/below
+      const [upper, lower] = t1Cy < t2Cy ? [t1, t2] : [t2, t1];
+
+      const upperDesiredCy = gwCy - halfSpan;
+      const lowerDesiredCy = gwCy + halfSpan;
+
+      const upperCy = upper.y + (upper.height || 0) / 2;
+      const lowerCy = lower.y + (lower.height || 0) / 2;
+
+      const dyUpper = Math.round(upperDesiredCy - upperCy);
+      const dyLower = Math.round(lowerDesiredCy - lowerCy);
+
+      if (Math.abs(dyUpper) > 2) {
+        modeling.moveElements([upper], { x: 0, y: dyUpper });
+      }
+      if (Math.abs(dyLower) > 2) {
+        modeling.moveElements([lower], { x: 0, y: dyLower });
+      }
+    }
+
+    // ── Off-path target handling ──
+    const offPathTargets = outgoing
+      .map((conn: any) => conn.target)
+      .filter((t: any) => !happyPathNodeIds.has(t.id));
+
+    // Move off-path end events to the same Y as their immediate
+    // predecessor to avoid long vertical connectors.
+    for (const target of offPathTargets) {
+      if (target.type !== 'bpmn:EndEvent') continue;
+
+      // Find incoming connection to this end event
+      const incoming = allElements.find(
+        (conn: any) => isConnection(conn.type) && conn.target?.id === target.id && conn.source
+      );
+      if (!incoming) continue;
+
+      const sourceCy = incoming.source.y + (incoming.source.height || 0) / 2;
+      const targetCy = target.y + (target.height || 0) / 2;
+      const dy = Math.round(sourceCy - targetCy);
+      if (Math.abs(dy) > 2) {
+        modeling.moveElements([target], { x: 0, y: dy });
+      }
     }
   }
 }

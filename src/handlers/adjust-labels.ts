@@ -8,13 +8,14 @@
  */
 
 import { type DiagramState } from '../types';
-import { FLOW_LABEL_INDENT } from '../constants';
+import { FLOW_LABEL_INDENT, LABEL_SHAPE_PROXIMITY_MARGIN } from '../constants';
 import {
   type Point,
   type Rect,
   getLabelCandidatePositions,
   scoreLabelPosition,
   rectsOverlap,
+  rectsNearby,
   segmentIntersectsRect,
 } from './label-utils';
 import { getVisibleElements, syncXml } from './helpers';
@@ -327,8 +328,11 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     const label = flow.label;
     const labelRect = getLabelRect(label);
 
-    // Check if label overlaps any shape, other flow label, or connection segment
+    // Check if label overlaps or is too close to any shape, other flow label, or connection segment
     const overlapsShape = shapeRects.some((sr) => rectsOverlap(labelRect, sr));
+    const tooCloseToShape = shapeRects.some((sr) =>
+      rectsNearby(labelRect, sr, LABEL_SHAPE_PROXIMITY_MARGIN)
+    );
     const otherFlowLabels = Array.from(flowLabelRects.entries())
       .filter(([id]) => id !== flow.id)
       .map(([, r]) => r);
@@ -337,7 +341,7 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
       segmentIntersectsRect(p1, p2, labelRect)
     );
 
-    if (!overlapsShape && !overlapsLabel && !crossesConnection) continue;
+    if (!overlapsShape && !tooCloseToShape && !overlapsLabel && !crossesConnection) continue;
 
     // Compute flow direction at midpoint
     const waypoints = flow.waypoints;
@@ -370,7 +374,13 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
           height: labelRect.height,
         };
         let score = 0;
-        if (shapeRects.some((sr) => rectsOverlap(nudgedRect, sr))) score += 5;
+        if (shapeRects.some((sr) => rectsOverlap(nudgedRect, sr))) {
+          score += 5;
+        } else if (
+          shapeRects.some((sr) => rectsNearby(nudgedRect, sr, LABEL_SHAPE_PROXIMITY_MARGIN))
+        ) {
+          score += 1;
+        }
         if (otherFlowLabels.some((lr) => rectsOverlap(nudgedRect, lr))) score += 3;
         for (const [s1, s2] of connectionSegments) {
           if (segmentIntersectsRect(s1, s2, nudgedRect)) score += 1;

@@ -65,6 +65,13 @@ export const LABEL_POSITION_PRIORITY: readonly ('top' | 'bottom' | 'left' | 'rig
 /** Indent offset for flow (connection) labels from midpoint (matches bpmn-js). */
 export const FLOW_LABEL_INDENT = 15;
 
+/**
+ * Proximity margin (px) for label-to-shape distance scoring.
+ * Labels within this distance of a shape receive a proximity penalty
+ * even when they don't overlap, improving readability.
+ */
+export const LABEL_SHAPE_PROXIMITY_MARGIN = 10;
+
 // ── Element size helpers ───────────────────────────────────────────────────
 
 export function getElementSize(elementType: string): { width: number; height: number } {
