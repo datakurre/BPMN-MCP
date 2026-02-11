@@ -5,10 +5,22 @@
  * parallel multi-instance, and sequential multi-instance.
  */
 
-import { type SetLoopCharacteristicsArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface SetLoopCharacteristicsArgs {
+  diagramId: string;
+  elementId: string;
+  loopType: 'none' | 'standard' | 'parallel' | 'sequential';
+  loopCondition?: string;
+  loopMaximum?: number;
+  loopCardinality?: string;
+  completionCondition?: string;
+  collection?: string;
+  elementVariable?: string;
+}
 
 export async function handleSetLoopCharacteristics(
   args: SetLoopCharacteristicsArgs

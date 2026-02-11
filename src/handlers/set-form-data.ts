@@ -6,7 +6,7 @@
  * Forms" (as opposed to "Embedded or External Task Forms" via formKey).
  */
 
-import { type SetFormDataArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import {
   requireDiagram,
@@ -17,6 +17,22 @@ import {
   validateArgs,
 } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface SetFormDataArgs {
+  diagramId: string;
+  elementId: string;
+  businessKey?: string;
+  fields: Array<{
+    id: string;
+    label: string;
+    type: string;
+    defaultValue?: string;
+    datePattern?: string;
+    properties?: Record<string, string>;
+    validation?: Array<{ name: string; config?: string }>;
+    values?: Array<{ id: string; name: string }>;
+  }>;
+}
 
 export async function handleSetFormData(args: SetFormDataArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementId', 'fields']);

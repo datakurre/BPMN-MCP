@@ -6,8 +6,13 @@
  * event definitions for a given element.
  */
 
-import { type GetPropertiesArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { requireDiagram, requireElement, jsonResult } from './helpers';
+
+export interface GetPropertiesArgs {
+  diagramId: string;
+  elementId: string;
+}
 
 // ── Sub-function: Camunda extension attributes ─────────────────────────────
 

@@ -5,8 +5,18 @@
  * This module delegates to handleSetCamundaListeners with errorDefinitions param.
  */
 
-import { type SetCamundaErrorEventDefinitionArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { handleSetCamundaListeners } from './set-camunda-listeners';
+
+export interface SetCamundaErrorEventDefinitionArgs {
+  diagramId: string;
+  elementId: string;
+  errorDefinitions: Array<{
+    id: string;
+    expression?: string;
+    errorRef?: { id: string; name?: string; errorCode?: string };
+  }>;
+}
 
 export async function handleSetCamundaErrorEventDefinition(
   args: SetCamundaErrorEventDefinitionArgs

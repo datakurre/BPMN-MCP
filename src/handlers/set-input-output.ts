@@ -7,7 +7,7 @@
  * activity variable mapping, not to `camunda:InputParameter`.
  */
 
-import { type SetInputOutputArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import {
   requireDiagram,
   requireElement,
@@ -17,6 +17,13 @@ import {
   validateArgs,
 } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface SetInputOutputArgs {
+  diagramId: string;
+  elementId: string;
+  inputParameters?: Array<{ name: string; value?: string }>;
+  outputParameters?: Array<{ name: string; value?: string }>;
+}
 
 export async function handleSetInputOutput(args: SetInputOutputArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementId']);

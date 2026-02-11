@@ -4,7 +4,7 @@
  * Copies an element with its properties and places it at an offset position.
  */
 
-import { type DuplicateElementArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import {
   requireDiagram,
@@ -16,6 +16,13 @@ import {
   getService,
 } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface DuplicateElementArgs {
+  diagramId: string;
+  elementId: string;
+  offsetX?: number;
+  offsetY?: number;
+}
 
 /** Default offset from the original element when duplicating. */
 const DUPLICATE_OFFSET = { x: 50, y: 50 };

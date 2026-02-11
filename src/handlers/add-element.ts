@@ -2,7 +2,7 @@
  * Handler for add_bpmn_element tool.
  */
 
-import { type AddElementArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import {
   requireDiagram,
   jsonResult,
@@ -20,6 +20,29 @@ import { appendLintFeedback } from '../linter';
 import { handleInsertElement } from './insert-element';
 import { handleSetEventDefinition } from './set-event-definition';
 import { shiftDownstreamElements, snapToLane, createAndPlaceElement } from './add-element-helpers';
+
+export interface AddElementArgs {
+  diagramId: string;
+  elementType: string;
+  name?: string;
+  x?: number;
+  y?: number;
+  hostElementId?: string;
+  afterElementId?: string;
+  participantId?: string;
+  /** Boundary event shorthand: set event definition type in one call. */
+  eventDefinitionType?: string;
+  /** Boundary event shorthand: event definition properties (timer, condition, etc.). */
+  eventDefinitionProperties?: Record<string, any>;
+  /** Boundary event shorthand: error reference for ErrorEventDefinition. */
+  errorRef?: { id: string; name?: string; errorCode?: string };
+  /** Boundary event shorthand: message reference for MessageEventDefinition. */
+  messageRef?: { id: string; name?: string };
+  /** Boundary event shorthand: signal reference for SignalEventDefinition. */
+  signalRef?: { id: string; name?: string };
+  /** Boundary event shorthand: escalation reference for EscalationEventDefinition. */
+  escalationRef?: { id: string; name?: string; escalationCode?: string };
+}
 
 // ── Main handler ───────────────────────────────────────────────────────────
 

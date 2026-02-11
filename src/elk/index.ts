@@ -64,6 +64,77 @@ import type { ElkLayoutOptions } from './types';
 
 export type { ElkLayoutOptions, CrossingFlowsResult, GridLayer } from './types';
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Run a callback once per participant scope, or once at root level
+ * if the diagram has no participants (plain process).
+ *
+ * Eliminates the repeated pattern:
+ * ```
+ * const participants = elementRegistry.filter(…);
+ * if (participants.length > 0) {
+ *   for (const p of participants) callback(p);
+ * } else {
+ *   callback(undefined);
+ * }
+ * ```
+ */
+function forEachScope(elementRegistry: any, callback: (scope?: any) => void): void {
+  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  if (participants.length > 0) {
+    for (const participant of participants) {
+      callback(participant);
+    }
+  } else {
+    callback(undefined);
+  }
+}
+
+/**
+ * Build ELK LayoutOptions from user-supplied ElkLayoutOptions,
+ * merging direction, compactness presets, and explicit spacing overrides.
+ */
+function resolveLayoutOptions(options?: ElkLayoutOptions): {
+  layoutOptions: LayoutOptions;
+  effectiveLayerSpacing: number | undefined;
+} {
+  const layoutOptions: LayoutOptions = { ...ELK_LAYOUT_OPTIONS };
+
+  if (options?.direction) {
+    layoutOptions['elk.direction'] = options.direction;
+  }
+
+  // Apply compactness presets (overridden by explicit nodeSpacing/layerSpacing)
+  let effectiveLayerSpacing: number | undefined;
+  if (options?.compactness === 'compact') {
+    layoutOptions['elk.spacing.nodeNode'] = '40';
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '50';
+    effectiveLayerSpacing = 50;
+  } else if (options?.compactness === 'spacious') {
+    layoutOptions['elk.spacing.nodeNode'] = '80';
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '100';
+    effectiveLayerSpacing = 100;
+  }
+
+  // Explicit spacing values override compactness presets
+  if (options?.nodeSpacing !== undefined) {
+    layoutOptions['elk.spacing.nodeNode'] = String(options.nodeSpacing);
+  }
+  if (options?.layerSpacing !== undefined) {
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = String(options.layerSpacing);
+    effectiveLayerSpacing = options.layerSpacing;
+  }
+
+  // Happy-path emphasis: prioritise default/first-connected branch
+  layoutOptions['elk.layered.crossingMinimization.thoroughness'] = '30';
+  layoutOptions['elk.layered.considerModelOrder.strategy'] = 'NODES_AND_EDGES';
+
+  return { layoutOptions, effectiveLayerSpacing };
+}
+
+// ── Main layout ─────────────────────────────────────────────────────────────
+
 /**
  * Run ELK layered layout on a BPMN diagram.
  *
@@ -117,35 +188,7 @@ export async function elkLayout(
   if (children.length === 0) return {};
 
   // Merge user-provided options with defaults
-  const layoutOptions: LayoutOptions = { ...ELK_LAYOUT_OPTIONS };
-  if (options?.direction) {
-    layoutOptions['elk.direction'] = options.direction;
-  }
-
-  // Apply compactness presets (overridden by explicit nodeSpacing/layerSpacing)
-  if (options?.compactness === 'compact') {
-    layoutOptions['elk.spacing.nodeNode'] = '40';
-    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '50';
-  } else if (options?.compactness === 'spacious') {
-    layoutOptions['elk.spacing.nodeNode'] = '80';
-    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '100';
-  }
-
-  // Explicit spacing values override compactness presets
-  if (options?.nodeSpacing !== undefined) {
-    layoutOptions['elk.spacing.nodeNode'] = String(options.nodeSpacing);
-  }
-  if (options?.layerSpacing !== undefined) {
-    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = String(options.layerSpacing);
-  }
-
-  // Happy-path emphasis: prioritise the default/first-connected branch as the
-  // straight-through flow by fixing its layer-sweep priority.  ELK's
-  // LAYER_SWEEP crossing minimization can be guided via port constraints
-  // and model order — we use thoroughness to get better results.
-  layoutOptions['elk.layered.crossingMinimization.thoroughness'] = '30';
-  // Use model order for node ordering — first-connected branches stay central
-  layoutOptions['elk.layered.considerModelOrder.strategy'] = 'NODES_AND_EDGES';
+  const { layoutOptions, effectiveLayerSpacing } = resolveLayoutOptions(options);
 
   // When preserveHappyPath is enabled (default: true), detect the main path
   // and tag its edges with high straightness priority so ELK keeps them in
@@ -212,18 +255,10 @@ export async function elkLayout(
   // Step 4: Snap same-layer elements to common Y (fixes 5–10 px offsets)
   // Scoped per-participant for collaborations, and recursively for
   // expanded subprocesses to avoid cross-nesting-level mixing.
-  const participantsForSnap = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
-  if (participantsForSnap.length > 0) {
-    for (const participant of participantsForSnap) {
-      snapSameLayerElements(elementRegistry, modeling, participant);
-      // Also snap inside expanded subprocesses within this participant
-      snapExpandedSubprocesses(elementRegistry, modeling, participant);
-    }
-  } else {
-    snapSameLayerElements(elementRegistry, modeling);
-    // Also snap inside expanded subprocesses at the root level
-    snapExpandedSubprocesses(elementRegistry, modeling);
-  }
+  forEachScope(elementRegistry, (scope) => {
+    snapSameLayerElements(elementRegistry, modeling, scope);
+    snapExpandedSubprocesses(elementRegistry, modeling, scope);
+  });
 
   // Step 5: Post-ELK grid snap pass — quantises node positions to a
   // virtual grid for visual regularity.  Runs independently within each
@@ -231,49 +266,17 @@ export async function elkLayout(
   // subprocesses.
   const shouldGridSnap = options?.gridSnap !== false;
 
-  // Compute the effective layer spacing for the grid snap pass.
-  // Explicit layerSpacing overrides compactness presets, which override the default.
-  let effectiveLayerSpacing: number | undefined;
-  if (options?.layerSpacing !== undefined) {
-    effectiveLayerSpacing = options.layerSpacing;
-  } else if (options?.compactness === 'compact') {
-    effectiveLayerSpacing = 50;
-  } else if (options?.compactness === 'spacious') {
-    effectiveLayerSpacing = 100;
-  }
-
   if (shouldGridSnap) {
-    // For collaborations, run grid snap within each participant
-    const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
-    if (participants.length > 0) {
-      for (const participant of participants) {
-        gridSnapPass(
-          elementRegistry,
-          modeling,
-          happyPathEdgeIds,
-          participant,
-          effectiveLayerSpacing
-        );
-        // Also run within expanded subprocesses inside this participant
-        gridSnapExpandedSubprocesses(
-          elementRegistry,
-          modeling,
-          happyPathEdgeIds,
-          participant,
-          effectiveLayerSpacing
-        );
-      }
-    } else {
-      gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, undefined, effectiveLayerSpacing);
-      // Also run within expanded subprocesses at the root level
+    forEachScope(elementRegistry, (scope) => {
+      gridSnapPass(elementRegistry, modeling, happyPathEdgeIds, scope, effectiveLayerSpacing);
       gridSnapExpandedSubprocesses(
         elementRegistry,
         modeling,
         happyPathEdgeIds,
-        undefined,
+        scope,
         effectiveLayerSpacing
       );
-    }
+    });
   }
 
   // Step 6: Reposition artifacts (data objects, data stores, annotations)
@@ -284,14 +287,9 @@ export async function elkLayout(
   // Grid quantisation can push elements into overlapping positions.
   // This pass detects overlapping pairs and pushes them apart vertically.
   if (shouldGridSnap) {
-    const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
-    if (participants.length > 0) {
-      for (const participant of participants) {
-        resolveOverlaps(elementRegistry, modeling, participant);
-      }
-    } else {
-      resolveOverlaps(elementRegistry, modeling);
-    }
+    forEachScope(elementRegistry, (scope) => {
+      resolveOverlaps(elementRegistry, modeling, scope);
+    });
   }
 
   // Step 5.5: Align happy-path elements to a single Y-centre.
@@ -306,14 +304,9 @@ export async function elkLayout(
     happyPathEdgeIds.size > 0 &&
     (effectiveDirection === 'RIGHT' || effectiveDirection === 'LEFT')
   ) {
-    const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
-    if (participants.length > 0) {
-      for (const participant of participants) {
-        alignHappyPath(elementRegistry, modeling, happyPathEdgeIds, participant);
-      }
-    } else {
-      alignHappyPath(elementRegistry, modeling, happyPathEdgeIds);
-    }
+    forEachScope(elementRegistry, (scope) => {
+      alignHappyPath(elementRegistry, modeling, happyPathEdgeIds, scope);
+    });
   }
 
   // Step 5.7: Centre elements vertically within participant pools.
@@ -348,14 +341,9 @@ export async function elkLayout(
       simplifyGatewayBranchRoutes(elementRegistry, modeling);
     }
 
-    const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
-    if (participants.length > 0) {
-      for (const participant of participants) {
-        routeBranchConnectionsThroughChannels(elementRegistry, modeling, participant);
-      }
-    } else {
-      routeBranchConnectionsThroughChannels(elementRegistry, modeling);
-    }
+    forEachScope(elementRegistry, (scope) => {
+      routeBranchConnectionsThroughChannels(elementRegistry, modeling, scope);
+    });
   }
 
   // Step 8: Repair disconnected edge endpoints.

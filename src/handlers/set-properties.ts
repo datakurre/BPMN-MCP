@@ -10,9 +10,15 @@
  * For loop characteristics, use the dedicated set_loop_characteristics tool.
  */
 
-import { type SetPropertiesArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface SetPropertiesArgs {
+  diagramId: string;
+  elementId: string;
+  properties: Record<string, any>;
+}
 
 // ── Sub-functions for special-case property handling ───────────────────────
 

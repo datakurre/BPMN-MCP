@@ -2,7 +2,7 @@
  * Handler for set_event_definition tool.
  */
 
-import { type SetEventDefinitionArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import {
   requireDiagram,
@@ -17,6 +17,17 @@ import {
   getService,
 } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface SetEventDefinitionArgs {
+  diagramId: string;
+  elementId: string;
+  eventDefinitionType: string;
+  properties?: Record<string, any>;
+  errorRef?: { id: string; name?: string; errorCode?: string };
+  messageRef?: { id: string; name?: string };
+  signalRef?: { id: string; name?: string };
+  escalationRef?: { id: string; name?: string; escalationCode?: string };
+}
 
 // ── Type-specific attribute builders ───────────────────────────────────────
 

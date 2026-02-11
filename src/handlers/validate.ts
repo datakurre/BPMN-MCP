@@ -10,10 +10,19 @@
  * per-severity counts are now part of this single tool.
  */
 
-import { type ValidateArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { requireDiagram, jsonResult, validateArgs } from './helpers';
 import { lintDiagramFlat, getEffectiveConfig } from '../linter';
 import type { FlatLintIssue } from '../bpmnlint-types';
+
+export interface ValidateArgs {
+  diagramId: string;
+  config?: {
+    extends?: string | string[];
+    rules?: Record<string, string | number | [string | number, any]>;
+  };
+  lintMinSeverity?: 'error' | 'warning';
+}
 
 interface ValidationIssue {
   severity: 'error' | 'warning' | 'info';

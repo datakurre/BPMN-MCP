@@ -9,7 +9,7 @@
  * - Data associations: auto-detected when source/target is a data object/store
  */
 
-import { type ConnectArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import {
   requireDiagram,
@@ -22,6 +22,16 @@ import {
   getService,
 } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface ConnectArgs {
+  diagramId: string;
+  sourceElementId: string;
+  targetElementId: string;
+  label?: string;
+  connectionType?: string;
+  conditionExpression?: string;
+  isDefault?: boolean;
+}
 
 /** Types that must be connected via bpmn:Association, not SequenceFlow. */
 const ANNOTATION_TYPES = new Set(['bpmn:TextAnnotation', 'bpmn:Group']);

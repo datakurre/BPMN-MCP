@@ -8,10 +8,17 @@
  * Multiple operations can be combined in a single call.
  */
 
-import { type MoveElementArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface MoveElementArgs {
+  diagramId: string;
+  elementId: string;
+  x: number;
+  y: number;
+}
 
 /** Apply absolute move, returning the final position. */
 function applyMove(

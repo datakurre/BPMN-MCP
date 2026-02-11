@@ -2,9 +2,14 @@
  * Handler for clone_diagram tool.
  */
 
-import { type CloneDiagramArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { storeDiagram, generateDiagramId, createModelerFromXml } from '../diagram-manager';
 import { requireDiagram, jsonResult } from './helpers';
+
+export interface CloneDiagramArgs {
+  diagramId: string;
+  name?: string;
+}
 
 export async function handleCloneDiagram(args: CloneDiagramArgs): Promise<ToolResult> {
   const { diagramId, name } = args;

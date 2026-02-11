@@ -2,10 +2,14 @@
  * Handler for delete_diagram tool.
  */
 
-import { type DeleteDiagramArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { deleteDiagram as deleteDiagramFromStore } from '../diagram-manager';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { jsonResult } from './helpers';
+
+export interface DeleteDiagramArgs {
+  diagramId: string;
+}
 
 export async function handleDeleteDiagram(args: DeleteDiagramArgs): Promise<ToolResult> {
   const { diagramId } = args;

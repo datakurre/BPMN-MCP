@@ -2,9 +2,14 @@
  * Handler for create_bpmn_diagram tool.
  */
 
-import { type CreateDiagramArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { storeDiagram, generateDiagramId, createModeler } from '../diagram-manager';
 import { jsonResult, getService } from './helpers';
+
+export interface CreateDiagramArgs {
+  name?: string;
+  draftMode?: boolean;
+}
 
 /** Convert a human name into a valid BPMN process id (XML NCName). */
 function toProcessId(name: string): string {

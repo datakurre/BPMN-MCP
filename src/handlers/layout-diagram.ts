@@ -10,11 +10,22 @@
  * elements and their inter-connections are arranged.
  */
 
-import { type LayoutDiagramArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { requireDiagram, jsonResult, syncXml, getVisibleElements } from './helpers';
 import { appendLintFeedback } from '../linter';
 import { adjustDiagramLabels, adjustFlowLabels } from './adjust-labels';
 import { elkLayout, elkLayoutSubset } from '../elk';
+
+export interface LayoutDiagramArgs {
+  diagramId: string;
+  direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
+  nodeSpacing?: number;
+  layerSpacing?: number;
+  scopeElementId?: string;
+  preserveHappyPath?: boolean;
+  compactness?: 'compact' | 'spacious';
+  simplifyRoutes?: boolean;
+}
 
 export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<ToolResult> {
   const {

@@ -5,7 +5,7 @@
  * (elementIds array) to avoid repeated round-trips.
  */
 
-import { type DeleteElementArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import {
   requireDiagram,
@@ -16,6 +16,11 @@ import {
   getService,
 } from './helpers';
 import { appendLintFeedback } from '../linter';
+
+export interface DeleteElementArgs {
+  diagramId: string;
+  elementId: string;
+}
 
 export async function handleDeleteElement(args: DeleteElementArgs): Promise<ToolResult> {
   const { diagramId, elementId } = args;

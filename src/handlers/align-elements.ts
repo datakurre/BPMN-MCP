@@ -6,10 +6,24 @@
  * elements along the perpendicular axis with ~50px edge-to-edge gaps.
  */
 
-import { type AlignElementsArgs, type DistributeElementsArgs, type ToolResult } from '../types';
+import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
 import { STANDARD_BPMN_GAP } from '../constants';
+
+export interface AlignElementsArgs {
+  diagramId: string;
+  elementIds: string[];
+  alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+  compact?: boolean;
+}
+
+export interface DistributeElementsArgs {
+  diagramId: string;
+  elementIds: string[];
+  orientation: 'horizontal' | 'vertical';
+  gap?: number;
+}
 
 // ── Pure alignment computation ─────────────────────────────────────────────
 
