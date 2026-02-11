@@ -47,6 +47,9 @@ import {
   repositionBoundaryEvents,
   saveBoundaryEventData,
   restoreBoundaryEventData,
+  identifyBoundaryLeafTargets,
+  repositionBoundaryEventTargets,
+  alignOffPathEndEventsToSecondRow,
 } from './boundary-events';
 import {
   snapSameLayerElements,
@@ -195,7 +198,18 @@ export async function elkLayout(
   }
 
   const allElements: any[] = elementRegistry.getAll();
-  const { children, edges, hasDiverseY } = buildContainerGraph(allElements, rootElement);
+
+  // Identify boundary-only leaf targets (end events reached only from
+  // boundary events).  These are excluded from the ELK graph to prevent
+  // proxy edges from creating extra layers that distort horizontal spacing.
+  // They are positioned manually after boundary events are placed.
+  const boundaryLeafTargetIds = identifyBoundaryLeafTargets(allElements, rootElement);
+
+  const { children, edges, hasDiverseY } = buildContainerGraph(
+    allElements,
+    rootElement,
+    boundaryLeafTargetIds
+  );
 
   if (children.length === 0) return {};
 
@@ -354,6 +368,21 @@ export async function elkLayout(
   // once more before edge routing.
   restoreBoundaryEventData(elementRegistry, boundarySnapshots);
   repositionBoundaryEvents(elementRegistry, modeling, boundarySnapshots);
+
+  // Step 6.6: Reposition boundary-only leaf targets below their hosts.
+  // These elements were excluded from the ELK graph and need manual
+  // positioning after boundary events are at their final positions.
+  repositionBoundaryEventTargets(elementRegistry, modeling, boundaryLeafTargetIds);
+
+  // Step 6.7: Align off-path end events to the boundary target row.
+  // Gateway "No" branch end events that sit between the happy path and
+  // the boundary target row are pushed down for consistent alignment.
+  alignOffPathEndEventsToSecondRow(
+    elementRegistry,
+    modeling,
+    boundaryLeafTargetIds,
+    happyPathEdgeIds
+  );
 
   // Step 7: Apply ELK edge routes as waypoints (orthogonal, no diagonals).
   // Uses ELK's own edge sections instead of bpmn-js ManhattanLayout,

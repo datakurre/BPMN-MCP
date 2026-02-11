@@ -28,9 +28,19 @@ async function exportSvg(diagramId: string): Promise<string> {
   return text;
 }
 
+async function exportXml(diagramId: string): Promise<string> {
+  const res = await handleExportBpmn({ diagramId, format: 'xml', skipLint: true });
+  return res.content[0].text;
+}
+
 function writeSvg(name: string, svg: string) {
   ensureDir();
   writeFileSync(join(SNAPSHOT_DIR, `${name}.svg`), svg);
+}
+
+function writeBpmn(name: string, xml: string) {
+  ensureDir();
+  writeFileSync(join(SNAPSHOT_DIR, `${name}.bpmn`), xml);
 }
 
 // ── Reference BPMN names ───────────────────────────────────────────────────
@@ -44,6 +54,7 @@ const REFERENCES = [
   '06-boundary-events',
   '07-complex-workflow',
   '08-collaboration-collapsed',
+  '09-complex-workflow',
 ];
 
 // ── Test fixtures ──────────────────────────────────────────────────────────
@@ -62,8 +73,11 @@ describe('SVG snapshot generation', () => {
       const { diagramId } = await importReference(refName);
       await handleLayoutDiagram({ diagramId });
       const svg = await exportSvg(diagramId);
+      const xml = await exportXml(diagramId);
       expect(svg).toContain('<svg');
+      expect(xml).toContain('<bpmn:definitions');
       writeSvg(refName, svg);
+      writeBpmn(refName, xml);
     });
   }
 });

@@ -20,13 +20,15 @@ import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
  */
 export function buildContainerGraph(
   allElements: any[],
-  container: any
+  container: any,
+  excludeIds?: Set<string>
 ): { children: ElkNode[]; edges: ElkExtendedEdge[]; hasDiverseY: boolean } {
   const children: ElkNode[] = [];
   const edges: ElkExtendedEdge[] = [];
   const nodeIds = new Set<string>();
 
-  // Direct child shapes (skip connections, boundary events, infrastructure, artifacts, lanes)
+  // Direct child shapes (skip connections, boundary events, infrastructure, artifacts, lanes,
+  // and boundary-only leaf targets that are excluded from the ELK graph)
   const childShapes = allElements.filter(
     (el: any) =>
       el.parent === container &&
@@ -34,7 +36,8 @@ export function buildContainerGraph(
       !isConnection(el.type) &&
       !isArtifact(el.type) &&
       !isLane(el.type) &&
-      el.type !== 'bpmn:BoundaryEvent'
+      el.type !== 'bpmn:BoundaryEvent' &&
+      !(excludeIds && excludeIds.has(el.id))
   );
 
   // Sort child shapes by their DI Y-position (ascending = top-first).
@@ -77,7 +80,7 @@ export function buildContainerGraph(
     if (hasChildren) {
       // Compound node — recurse
       const isParticipant = shape.type === 'bpmn:Participant';
-      const nested = buildContainerGraph(allElements, shape);
+      const nested = buildContainerGraph(allElements, shape, excludeIds);
       children.push({
         id: shape.id,
         width: shape.width || 300,

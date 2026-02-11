@@ -26,9 +26,54 @@ function getLabelRect(label: any): Rect {
   };
 }
 
-/** Collect all connection segments from visible connections. */
-function collectConnectionSegments(elements: any[]): [Point, Point][] {
+/** Indexed shape rects: parallel arrays of Rects and their element IDs. */
+interface ShapeRectIndex {
+  rects: Rect[];
+  ids: string[];
+}
+
+/** Build shape rects with element IDs for per-flow endpoint exclusion. */
+function buildShapeRectIndex(elements: any[]): ShapeRectIndex {
+  const shapes = elements.filter(
+    (el: any) =>
+      el.type &&
+      !el.type.includes('SequenceFlow') &&
+      !el.type.includes('MessageFlow') &&
+      !el.type.includes('Association') &&
+      el.width &&
+      el.height
+  );
+  return {
+    rects: shapes.map((el: any) => ({ x: el.x, y: el.y, width: el.width, height: el.height })),
+    ids: shapes.map((el: any) => el.id),
+  };
+}
+
+/**
+ * Return shape rects excluding the flow's own source and target.
+ * A flow label is expected to be near its endpoints — nudging it away
+ * from them is counterproductive, especially for short connections.
+ */
+function getNonEndpointShapes(index: ShapeRectIndex, sourceId?: string, targetId?: string): Rect[] {
+  const result: Rect[] = [];
+  for (let i = 0; i < index.rects.length; i++) {
+    if (index.ids[i] !== sourceId && index.ids[i] !== targetId) {
+      result.push(index.rects[i]);
+    }
+  }
+  return result;
+}
+
+/** Indexed connection segments for per-flow exclusion. */
+interface ConnectionSegmentIndex {
+  segments: [Point, Point][];
+  flowIds: string[];
+}
+
+/** Collect all connection segments with their flow IDs. */
+function collectConnectionSegmentIndex(elements: any[]): ConnectionSegmentIndex {
   const segments: [Point, Point][] = [];
+  const flowIds: string[] = [];
   for (const el of elements) {
     if (
       (el.type === 'bpmn:SequenceFlow' ||
@@ -41,10 +86,22 @@ function collectConnectionSegments(elements: any[]): [Point, Point][] {
           { x: el.waypoints[i].x, y: el.waypoints[i].y },
           { x: el.waypoints[i + 1].x, y: el.waypoints[i + 1].y },
         ]);
+        flowIds.push(el.id);
       }
     }
   }
-  return segments;
+  return { segments, flowIds };
+}
+
+/** Get connection segments excluding a specific flow's own segments. */
+function getNonOwnSegments(index: ConnectionSegmentIndex, excludeFlowId: string): [Point, Point][] {
+  const result: [Point, Point][] = [];
+  for (let i = 0; i < index.segments.length; i++) {
+    if (index.flowIds[i] !== excludeFlowId) {
+      result.push(index.segments[i]);
+    }
+  }
+  return result;
 }
 
 /** Score a nudge candidate for a flow label. Lower is better (0 = no overlap). */
@@ -113,19 +170,8 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
   const elementRegistry = diagram.modeler.get('elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
-  const shapeRects: Rect[] = allElements
-    .filter(
-      (el: any) =>
-        el.type &&
-        !el.type.includes('SequenceFlow') &&
-        !el.type.includes('MessageFlow') &&
-        !el.type.includes('Association') &&
-        el.width &&
-        el.height
-    )
-    .map((el: any) => ({ x: el.x, y: el.y, width: el.width, height: el.height }));
-
-  const connectionSegments = collectConnectionSegments(allElements);
+  const shapeIndex = buildShapeRectIndex(allElements);
+  const segmentIndex = collectConnectionSegmentIndex(allElements);
 
   const labeledFlows = allElements.filter(
     (el: any) =>
@@ -145,15 +191,21 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     const label = flow.label;
     const labelRect = getLabelRect(label);
 
-    const overlapsShape = shapeRects.some((sr) => rectsOverlap(labelRect, sr));
-    const tooCloseToShape = shapeRects.some((sr) =>
+    const shapes = getNonEndpointShapes(shapeIndex, flow.source?.id, flow.target?.id);
+
+    // Exclude the flow's own segments — a label naturally sits near its
+    // own connection line and should not be nudged away from it.
+    const otherSegments = getNonOwnSegments(segmentIndex, flow.id);
+
+    const overlapsShape = shapes.some((sr) => rectsOverlap(labelRect, sr));
+    const tooCloseToShape = shapes.some((sr) =>
       rectsNearby(labelRect, sr, LABEL_SHAPE_PROXIMITY_MARGIN)
     );
     const otherFlowLabels = Array.from(flowLabelRects.entries())
       .filter(([id]) => id !== flow.id)
       .map(([, r]) => r);
     const overlapsLabel = otherFlowLabels.some((lr) => rectsOverlap(labelRect, lr));
-    const crossesConnection = connectionSegments.some(([p1, p2]) =>
+    const crossesConnection = otherSegments.some(([p1, p2]) =>
       segmentIntersectsRect(p1, p2, labelRect)
     );
 
@@ -173,9 +225,9 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
       labelRect,
       -dy / len,
       dx / len,
-      shapeRects,
+      shapes,
       otherFlowLabels,
-      connectionSegments
+      otherSegments
     );
 
     if (bestNudge) {

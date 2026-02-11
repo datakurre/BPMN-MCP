@@ -209,8 +209,14 @@ export function applyElkEdgeRoutes(
         if (src.type === 'bpmn:BoundaryEvent' && tgt) {
           const srcCx = src.x + (src.width || 36) / 2;
           const srcBottom = src.y + (src.height || 36);
-          const tgtCx = tgt.x + (tgt.width || 36) / 2;
+          const tgtW = tgt.width || 36;
           const tgtCy = tgt.y + (tgt.height || 36) / 2;
+
+          // Enter target from the side facing the source (L-shaped route:
+          // vertical from boundary event, then horizontal to target).
+          // Use the left edge when the target is to the right of the
+          // boundary event, or the right edge when it's to the left.
+          const tgtCx = srcCx <= tgt.x + tgtW / 2 ? tgt.x : tgt.x + tgtW;
 
           // Determine if target is below or above the boundary event
           const goDown = tgtCy >= src.y;

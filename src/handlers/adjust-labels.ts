@@ -11,6 +11,7 @@ import { type DiagramState } from '../types';
 import {
   type Point,
   type Rect,
+  type LabelOrientation,
   getLabelCandidatePositions,
   scoreLabelPosition,
 } from './label-utils';
@@ -61,6 +62,24 @@ function getLabelRect(label: any): Rect {
 
 // ── Core adjustment logic ──────────────────────────────────────────────────
 
+/**
+ * Determine the current label orientation relative to its element.
+ * Compares the label's centre position to the element's bounding box
+ * to classify as 'top', 'bottom', 'left', or 'right'.
+ */
+function getCurrentLabelOrientation(el: any, label: any): LabelOrientation {
+  const labelMidY = label.y + (label.height || 20) / 2;
+  const labelMidX = label.x + (label.width || 90) / 2;
+
+  // Check vertical position first (most common for events)
+  if (labelMidY < el.y) return 'top';
+  if (labelMidY > el.y + el.height) return 'bottom';
+
+  // Horizontal position
+  if (labelMidX < el.x) return 'left';
+  return 'right';
+}
+
 /** Try to reposition a single element label. Returns updated rect if moved. */
 function tryRepositionLabel(
   el: any,
@@ -93,9 +112,42 @@ function tryRepositionLabel(
     hostRect,
     otherShapeRects
   );
-  if (currentScore === 0) return null;
 
-  const candidates = getLabelCandidatePositions(el);
+  const actualLabelSize = { width: label.width || 90, height: label.height || 20 };
+  const candidates = getLabelCandidatePositions(el, actualLabelSize);
+
+  // When current position has no overlaps, still check if the label is at
+  // the preferred orientation for this element type.  Events prefer bottom
+  // labels (matching bpmn-js convention), gateways prefer top.  After ELK
+  // layout moves elements, labels may end up at non-preferred orientations
+  // that happen to be overlap-free.
+  if (currentScore === 0) {
+    const currentOrientation = getCurrentLabelOrientation(el, el.label);
+    const preferredOrientation = candidates[0]?.orientation;
+
+    if (currentOrientation !== preferredOrientation && preferredOrientation) {
+      // Label is at a non-preferred orientation — try the preferred position
+      const preferredCandidate = candidates[0];
+      const preferredScore = scoreLabelPosition(
+        preferredCandidate.rect,
+        connectionSegments,
+        otherLabelRects,
+        hostRect,
+        otherShapeRects
+      );
+
+      if (preferredScore === 0) {
+        // Preferred position is also overlap-free — move there
+        const dx = preferredCandidate.rect.x - label.x;
+        const dy = preferredCandidate.rect.y - label.y;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          modeling.moveShape(label, { x: dx, y: dy });
+          return preferredCandidate.rect;
+        }
+      }
+    }
+    return null;
+  }
   let bestScore = currentScore;
   let bestCandidate: (typeof candidates)[0] | null = null;
 
@@ -176,6 +228,25 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
     }
   }
 
+  // Centering pass: ensure top/bottom labels have their horizontal centre
+  // aligned with the element centre.  This catches labels that were moved
+  // by external code (boundary event repositioning, ELK layout) rather
+  // than by tryRepositionLabel above.
+  for (const el of labelBearers) {
+    const label = el.label;
+    if (!label) continue;
+    const orientation = getCurrentLabelOrientation(el, label);
+    if (orientation !== 'top' && orientation !== 'bottom') continue;
+
+    const elementCenterX = el.x + el.width / 2;
+    const labelCenterX = label.x + (label.width || 90) / 2;
+    const dx = Math.round(elementCenterX - labelCenterX);
+    if (Math.abs(dx) > 1) {
+      modeling.moveShape(label, { x: dx, y: 0 });
+      movedCount++;
+    }
+  }
+
   if (movedCount > 0) {
     await syncXml(diagram);
   }
@@ -242,7 +313,8 @@ export async function adjustElementLabel(
 
   if (currentScore === 0) return false;
 
-  const candidates = getLabelCandidatePositions(el);
+  const labelSz = { width: label.width || 90, height: label.height || 20 };
+  const candidates = getLabelCandidatePositions(el, labelSz);
   let bestScore = currentScore;
   let bestCandidate: (typeof candidates)[0] | null = null;
 

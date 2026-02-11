@@ -127,11 +127,9 @@ function chooseBoundaryBorder(be: any, host: any): 'top' | 'bottom' | 'left' | '
     if (dx < 0 && Math.abs(dx) > Math.abs(dy)) {
       return 'left';
     }
-    // Only pick 'right' if target is on roughly the same row
-    if (dx > 0 && Math.abs(dy) < hostH) {
-      return 'right';
-    }
-
+    // BPMN convention: exception flows exit downward from the bottom border.
+    // Do not pick 'right' — ELK proxy edges place targets on the same row
+    // as the host, which would incorrectly trigger a 'right' border choice.
     return 'bottom'; // default: exception flows exit downward
   }
 
@@ -295,6 +293,194 @@ export function repositionBoundaryEvents(
   // When multiple events share a border, spread them evenly along that
   // edge to prevent overlap.
   spreadBoundaryEventsOnSameBorder(boundaryEvents);
+}
+
+// ── Boundary event target repositioning ────────────────────────────────────
+
+/** Distance (px) from host bottom to boundary target centre Y. */
+const BOUNDARY_TARGET_Y_OFFSET = 85;
+
+/** Distance (px) from boundary event centre X to target centre X. */
+const BOUNDARY_TARGET_X_OFFSET = 90;
+
+/**
+ * Identify boundary-only leaf targets: end events whose only incoming
+ * connection is from a boundary event.  These are excluded from the ELK
+ * graph to prevent proxy edges from creating extra layers that distort
+ * horizontal spacing.  They are positioned manually after boundary events
+ * are placed.
+ */
+export function identifyBoundaryLeafTargets(allElements: any[], container: any): Set<string> {
+  const result = new Set<string>();
+
+  const boundaryEventIds = new Set(
+    allElements
+      .filter((el: any) => el.parent === container && el.type === 'bpmn:BoundaryEvent')
+      .map((el: any) => el.id)
+  );
+
+  if (boundaryEventIds.size === 0) return result;
+
+  const containerConnections = allElements.filter(
+    (el: any) =>
+      el.parent === container &&
+      (el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow') &&
+      el.source &&
+      el.target
+  );
+
+  for (const conn of containerConnections) {
+    if (!boundaryEventIds.has(conn.source.id)) continue;
+    const target = conn.target;
+    if (!target || target.type !== 'bpmn:EndEvent') continue;
+
+    // Check if this end event has any incoming from a non-boundary source
+    const hasNonBoundaryIncoming = containerConnections.some(
+      (c: any) => c.target.id === target.id && !boundaryEventIds.has(c.source.id)
+    );
+    if (!hasNonBoundaryIncoming) {
+      result.add(target.id);
+    }
+  }
+
+  // Recurse into compound containers (participants, expanded subprocesses)
+  for (const el of allElements) {
+    if (
+      el.parent === container &&
+      (el.type === 'bpmn:Participant' || el.type === 'bpmn:SubProcess') &&
+      el.isExpanded !== false
+    ) {
+      const nested = identifyBoundaryLeafTargets(allElements, el);
+      for (const id of nested) result.add(id);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Reposition direct leaf targets of boundary events below the host.
+ *
+ * After boundary events are placed at the host's bottom border, their
+ * outgoing flow targets (end events) should be positioned below the
+ * host at a consistent offset.  This counteracts ELK's tendency to
+ * place boundary targets on the same row as the happy path.
+ *
+ * Only repositions elements in the given excludedIds set (those that
+ * were excluded from the ELK graph).
+ */
+export function repositionBoundaryEventTargets(
+  elementRegistry: any,
+  modeling: any,
+  excludedIds: Set<string>
+): void {
+  if (excludedIds.size === 0) return;
+
+  const boundaryEvents = elementRegistry.filter(
+    (el: any) => el.type === 'bpmn:BoundaryEvent' && el.host
+  );
+
+  for (const be of boundaryEvents) {
+    const host = be.host;
+    const outgoing: any[] = be.outgoing || [];
+
+    for (const flow of outgoing) {
+      const target = flow.target;
+      if (!target || !excludedIds.has(target.id)) continue;
+
+      const hostBottom = host.y + (host.height || 80);
+      const beCx = be.x + (be.width || 36) / 2;
+      const targetW = target.width || 36;
+      const targetH = target.height || 36;
+
+      // Target centre: below host bottom + offset, to the right of boundary
+      const desiredCx = beCx + BOUNDARY_TARGET_X_OFFSET;
+      const desiredCy = hostBottom + BOUNDARY_TARGET_Y_OFFSET;
+
+      const currentCx = target.x + targetW / 2;
+      const currentCy = target.y + targetH / 2;
+
+      const dx = Math.round(desiredCx - currentCx);
+      const dy = Math.round(desiredCy - currentCy);
+
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        modeling.moveElements([target], { x: dx, y: dy });
+      }
+    }
+  }
+}
+
+/**
+ * Align off-path end events to the boundary target row.
+ *
+ * After boundary targets are positioned below the happy path, off-path
+ * end events (e.g. gateway "No" branch targets) may sit between the
+ * happy path and the boundary target row.  This function pushes them
+ * down to the boundary target row for consistent visual alignment.
+ *
+ * Only moves end events that:
+ * - Are NOT on the happy path
+ * - Are NOT already positioned as boundary targets
+ * - Are below the happy-path median Y but above the boundary target row
+ */
+export function alignOffPathEndEventsToSecondRow(
+  elementRegistry: any,
+  modeling: any,
+  excludedIds: Set<string>,
+  happyPathEdgeIds?: Set<string>
+): void {
+  if (excludedIds.size === 0) return;
+
+  // Find the boundary target row centre Y (maximum of repositioned targets)
+  let belowRowCy = 0;
+  for (const id of excludedIds) {
+    const el = elementRegistry.get(id);
+    if (!el) continue;
+    const cy = el.y + (el.height || 36) / 2;
+    if (cy > belowRowCy) belowRowCy = cy;
+  }
+  if (belowRowCy === 0) return;
+
+  // Compute happy-path node IDs
+  const happyPathNodeIds = new Set<string>();
+  const allElements: any[] = elementRegistry.getAll();
+  if (happyPathEdgeIds && happyPathEdgeIds.size > 0) {
+    for (const el of allElements) {
+      if (
+        (el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow') &&
+        happyPathEdgeIds.has(el.id)
+      ) {
+        if (el.source) happyPathNodeIds.add(el.source.id);
+        if (el.target) happyPathNodeIds.add(el.target.id);
+      }
+    }
+  }
+
+  // Compute happy-path median Y-centre
+  const happyShapes = allElements.filter(
+    (el: any) => happyPathNodeIds.has(el.id) && el.width !== undefined
+  );
+  if (happyShapes.length === 0) return;
+  const happyCentres = happyShapes.map((el: any) => el.y + (el.height || 0) / 2);
+  happyCentres.sort((a: number, b: number) => a - b);
+  const happyMedianCy = happyCentres[Math.floor(happyCentres.length / 2)];
+
+  // Push qualifying off-path end events to the boundary target row
+  for (const el of allElements) {
+    if (el.type !== 'bpmn:EndEvent') continue;
+    if (happyPathNodeIds.has(el.id)) continue;
+    if (excludedIds.has(el.id)) continue;
+
+    const cy = el.y + (el.height || 36) / 2;
+
+    // Must be below the happy path but above the boundary target row
+    if (cy > happyMedianCy + 10 && cy < belowRowCy - 10) {
+      const dy = Math.round(belowRowCy - cy);
+      if (Math.abs(dy) > 2) {
+        modeling.moveElements([el], { x: 0, y: dy });
+      }
+    }
+  }
 }
 
 /**

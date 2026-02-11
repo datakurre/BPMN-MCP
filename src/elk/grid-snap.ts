@@ -620,6 +620,15 @@ export function alignOffPathEndEvents(
     const sourceCy = incoming.source.y + (incoming.source.height || 0) / 2;
     const targetCy = el.y + (el.height || 0) / 2;
     const dy = Math.round(sourceCy - targetCy);
+
+    // Skip if incoming source is a split gateway — the end event is on a
+    // downward branch and should stay on its ELK-assigned row.
+    const isSourceBoundaryEvent = incoming.source.type === 'bpmn:BoundaryEvent';
+    const sourceOutgoing: any[] = incoming.source.outgoing || [];
+    const isSourceSplitGateway =
+      incoming.source.type?.includes('Gateway') && sourceOutgoing.length >= 2;
+    if (isSourceBoundaryEvent || isSourceSplitGateway) continue;
+
     if (Math.abs(dy) > 2) {
       modeling.moveElements([el], { x: 0, y: dy });
     }

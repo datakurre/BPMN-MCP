@@ -389,3 +389,95 @@ function median(values: number[]): number {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
+
+// ── BPMN XML comparison utilities ──────────────────────────────────────────
+
+/**
+ * Normalise a BPMN XML string for structural comparison.
+ *
+ * Strips volatile attributes that change between runs (random ID parts,
+ * `_di` suffixes, exact coordinate values in diagram interchange) and
+ * normalises whitespace so that semantically identical BPMN produces
+ * identical normalised output.
+ *
+ * Coordinates are NOT stripped — they are key for layout comparison.
+ * Only random ID middle segments (e.g. `UserTask_a1b2c3d_DoWork` →
+ * `UserTask_*_DoWork`) are normalised to tolerate ID randomness.
+ */
+export function normaliseBpmnXml(xml: string): string {
+  return (
+    xml
+      // Normalise 3-part IDs with random middle: Type_randomPart_Name → Type_*_Name
+      // These match the pattern from ADR-013: 7-char alphanumeric middle segment
+      .replace(
+        /(\b(?:Flow|UserTask|ServiceTask|ScriptTask|ManualTask|BusinessRuleTask|SendTask|ReceiveTask|CallActivity|ExclusiveGateway|ParallelGateway|InclusiveGateway|EventBasedGateway|StartEvent|EndEvent|IntermediateCatchEvent|IntermediateThrowEvent|BoundaryEvent|SubProcess|Gateway|Activity|Event|Participant|Lane|DataObjectReference|DataStoreReference|TextAnnotation|Group|ErrorEventDefinition)_)[a-z0-9]{7}_/gi,
+        '$1*_'
+      )
+      // Normalise standalone random IDs (unnamed elements): Type_randomPart (no second _Name)
+      // Only match if NOT followed by underscore+word (to avoid clobbering named IDs)
+      .replace(/(\b(?:Flow|Gateway|Activity|Event)_)[a-z0-9]{5,8}\b(?!_\w)/gi, '$1*')
+      // Normalise the DI shape/edge id suffixes which may have random parts
+      .replace(/(id=")[^"]*_di"/g, '$1*_di"')
+      // Strip the exporter/exporterVersion attributes (differ between tools)
+      .replace(/\s+exporter="[^"]*"/g, '')
+      .replace(/\s+exporterVersion="[^"]*"/g, '')
+      // Normalise whitespace: collapse multiple spaces/newlines
+      .replace(/\r\n/g, '\n')
+  );
+}
+
+/**
+ * Extract the process-level BPMN XML (everything inside `<bpmn:process>`)
+ * without diagram interchange (DI) elements. Useful for comparing the
+ * semantic process structure independently of layout coordinates.
+ */
+export function extractProcessXml(xml: string): string {
+  const processMatch = xml.match(/<bpmn:process[\s\S]*?<\/bpmn:process>/);
+  return processMatch ? processMatch[0] : '';
+}
+
+/**
+ * Extract diagram interchange (DI) positions from BPMN XML.
+ * Returns the same format as loadReferencePositions but from any XML string.
+ */
+export function extractBpmnPositions(xml: string): Map<string, RefPosition> {
+  const positions = new Map<string, RefPosition>();
+  const shapeRegex =
+    /<bpmndi:BPMNShape[^>]*id="([^"]*)"[^>]*bpmnElement="([^"]*)"[^>]*>([\s\S]*?)<\/bpmndi:BPMNShape>/g;
+  const boundsRegex =
+    /<dc:Bounds\s+x="([^"]*?)"\s+y="([^"]*?)"\s+width="([^"]*?)"\s+height="([^"]*?)"/;
+
+  let match;
+  while ((match = shapeRegex.exec(xml)) !== null) {
+    const bpmnElement = match[2];
+    const inner = match[3];
+    const boundsMatch = boundsRegex.exec(inner);
+    if (boundsMatch) {
+      positions.set(bpmnElement, {
+        x: parseFloat(boundsMatch[1]),
+        y: parseFloat(boundsMatch[2]),
+        width: parseFloat(boundsMatch[3]),
+        height: parseFloat(boundsMatch[4]),
+      });
+    }
+  }
+  return positions;
+}
+
+/**
+ * Compare BPMN DI positions from two XML strings using origin normalisation.
+ * Wraps `compareWithNormalisation` for BPMN-to-BPMN comparison.
+ */
+export function compareBpmnPositions(referenceXml: string, generatedXml: string, tolerance = 20) {
+  const refPositions = extractBpmnPositions(referenceXml);
+  const genPositions = extractBpmnPositions(generatedXml);
+  return compareWithNormalisation(refPositions, genPositions, tolerance);
+}
+
+/**
+ * Load a reference BPMN file as raw XML string.
+ */
+export function loadReferenceBpmn(name: string): string {
+  const filePath = resolve(REFERENCES_DIR, `${name}.bpmn`);
+  return readFileSync(filePath, 'utf-8');
+}

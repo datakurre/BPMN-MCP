@@ -142,17 +142,23 @@ export function segmentIntersectsRect(p1: Point, p2: Point, rect: Rect): boolean
  * - Events prefer bottom first (matching bpmn-js default placement).
  * - Gateways and others prefer top first.
  */
-export function getLabelCandidatePositions(element: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  type?: string;
-}): LabelCandidate[] {
+// eslint-disable-next-line max-lines-per-function
+export function getLabelCandidatePositions(
+  element: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    type?: string;
+  },
+  labelSize?: { width: number; height: number }
+): LabelCandidate[] {
   const midX = element.x + element.width / 2;
   const midY = element.y + element.height / 2;
-  const lw = DEFAULT_LABEL_SIZE.width;
-  const lh = DEFAULT_LABEL_SIZE.height;
+  // Use actual label dimensions when available so that top/bottom
+  // candidates are centred on the element, not on a 90px default.
+  const lw = labelSize?.width || DEFAULT_LABEL_SIZE.width;
+  const lh = labelSize?.height || DEFAULT_LABEL_SIZE.height;
   const gap = ELEMENT_LABEL_DISTANCE;
 
   // Choose priority order based on element type
@@ -186,32 +192,36 @@ export function getLabelCandidatePositions(element: {
 
   // Diagonal positions (top-left, top-right, bottom-left, bottom-right)
   const diagonalGap = gap + 5;
+  // For diagonals, use default width for scoring envelope but keep actual
+  // width for rect sizing so the label centre is computed correctly.
+  const dlw = DEFAULT_LABEL_SIZE.width;
+  const dlh = DEFAULT_LABEL_SIZE.height;
   const diagonals: LabelCandidate[] = [
     {
       orientation: 'top' as LabelOrientation,
       rect: {
-        x: element.x - lw - diagonalGap + element.width / 2,
-        y: element.y - diagonalGap - lh,
-        width: lw,
-        height: lh,
+        x: element.x - dlw - diagonalGap + element.width / 2,
+        y: element.y - diagonalGap - dlh,
+        width: dlw,
+        height: dlh,
       },
     },
     {
       orientation: 'top' as LabelOrientation,
       rect: {
         x: element.x + element.width / 2 + diagonalGap,
-        y: element.y - diagonalGap - lh,
-        width: lw,
-        height: lh,
+        y: element.y - diagonalGap - dlh,
+        width: dlw,
+        height: dlh,
       },
     },
     {
       orientation: 'bottom' as LabelOrientation,
       rect: {
-        x: element.x - lw - diagonalGap + element.width / 2,
+        x: element.x - dlw - diagonalGap + element.width / 2,
         y: element.y + element.height + diagonalGap + ELEMENT_LABEL_BOTTOM_EXTRA,
-        width: lw,
-        height: lh,
+        width: dlw,
+        height: dlh,
       },
     },
     {
@@ -219,8 +229,8 @@ export function getLabelCandidatePositions(element: {
       rect: {
         x: element.x + element.width / 2 + diagonalGap,
         y: element.y + element.height + diagonalGap + ELEMENT_LABEL_BOTTOM_EXTRA,
-        width: lw,
-        height: lh,
+        width: dlw,
+        height: dlh,
       },
     },
   ];
