@@ -1,9 +1,10 @@
 /**
- * Channel routing tests.
+ * Gateway branch routing tests.
  *
  * Verifies that gateway branch connections route their vertical segments
- * through the inter-column channel (midpoint between columns) rather than
- * hugging the gateway edge.
+ * through the gateway centre (top/bottom exit for splits, top/bottom entry
+ * for joins), matching the bpmn-js convention where off-row branches exit
+ * the gateway diamond at its centre-X rather than from the right edge.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -106,10 +107,11 @@ describe('Channel routing for gateway branches', () => {
     }
 
     // The gateway is in one column, the branch tasks are in the next column.
-    // Vertical segments of branch connections should be between those columns,
-    // not hugging the gateway.
+    // Off-row branch connections should exit from the gateway diamond's
+    // top/bottom edge at the gateway centre-X (L-bend convention), matching
+    // how bpmn-js renders these connections in the reference files.
     const gwEl = reg.get(gw);
-    const gwRight = gwEl.x + (gwEl.width || 0);
+    const gwCx = centreX(gwEl);
 
     // Find the branch connections (gw → taskYes, gw → taskNo)
     const branchConns = connections.filter(
@@ -119,7 +121,7 @@ describe('Channel routing for gateway branches', () => {
     for (const conn of branchConns) {
       // One branch is on the happy path (same Y as gateway), which will
       // be a straight horizontal line with no vertical segment. The other
-      // branch must travel vertically and should do so in the channel.
+      // branch must travel vertically from the gateway top/bottom edge.
       const srcCy = centreY(conn.source);
       const tgtCy = centreY(conn.target);
       if (Math.abs(srcCy - tgtCy) < 5) continue; // same row — skip
@@ -127,14 +129,10 @@ describe('Channel routing for gateway branches', () => {
       const vertSegs = findVerticalSegments(conn);
       if (vertSegs.length === 0) continue;
 
-      // The vertical segment's X should be between the gateway right edge
-      // and the target task left edge — i.e. in the channel
-      const tgtEl = reg.get(conn.target.id);
-      const tgtLeft = tgtEl.x;
-
+      // The vertical segment's X should be at the gateway centre-X
+      // (top/bottom L-bend exit convention)
       for (const seg of vertSegs) {
-        expect(seg.x).toBeGreaterThan(gwRight);
-        expect(seg.x).toBeLessThan(tgtLeft);
+        expect(Math.abs(seg.x - gwCx)).toBeLessThanOrEqual(2);
       }
     }
   });

@@ -54,10 +54,26 @@ export const ELEMENT_LABEL_BOTTOM_EXTRA = 5;
 /** Default external label dimensions (matches bpmn-js). */
 export const DEFAULT_LABEL_SIZE = { width: 90, height: 20 };
 
-/** Preferred label position priority (customizable). */
+/**
+ * Default label position priority (top first).
+ * Used for gateways and data objects/stores where top is preferred.
+ */
 export const LABEL_POSITION_PRIORITY: readonly ('top' | 'bottom' | 'left' | 'right')[] = [
   'top',
   'bottom',
+  'left',
+  'right',
+];
+
+/**
+ * Label position priority for events (start, end, intermediate, boundary).
+ * Events prefer bottom labels because their connections typically exit
+ * left/right, leaving the bottom clear.  bpmn-js places event labels
+ * below by default.
+ */
+export const EVENT_LABEL_POSITION_PRIORITY: readonly ('top' | 'bottom' | 'left' | 'right')[] = [
+  'bottom',
+  'top',
   'left',
   'right',
 ];

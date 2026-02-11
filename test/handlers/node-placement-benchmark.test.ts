@@ -1,5 +1,5 @@
 /**
- * Benchmark: ELK node-placement strategies on reference.bpmn.
+ * Benchmark: ELK node-placement strategies on 07-complex-workflow.bpmn.
  *
  * Compares NETWORK_SIMPLEX, BRANDES_KOEPF, and LINEAR_SEGMENTS to
  * determine which produces the best layout for BPMN diagrams.
@@ -7,16 +7,14 @@
  * Metrics per strategy:
  * - Y-variance of main-path elements (lower = better straight-line alignment)
  * - Total diagram width and height
- * - Whether parallel branches (Task_Ship, Task_Invoice) are on distinct Y rows
+ * - Whether parallel branches (Process Payment, Reserve Inventory) are on distinct Y rows
  * - Whether all main-path flows are orthogonal
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { handleLayoutDiagram, handleImportXml } from '../../src/handlers';
-import { clearDiagrams } from '../helpers';
-import { getDiagram } from '../../src/diagram-manager';
+import { handleLayoutDiagram } from '../../src/handlers';
+import { clearDiagrams, importReference } from '../helpers';
 import { ELK_LAYOUT_OPTIONS } from '../../src/elk/constants';
-import * as path from 'path';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -33,8 +31,6 @@ interface StrategyMetrics {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-const FIXTURE_PATH = path.resolve(__dirname, '../fixtures/reference.bpmn');
 
 /** Centre-X of an element. */
 function centreX(el: any): number {
@@ -67,48 +63,57 @@ function isOrthogonal(conn: any): boolean {
   return true;
 }
 
+// ── Element IDs in 07-complex-workflow.bpmn ────────────────────────────────
+//
+// Event_1kc0fqv    → StartEvent "Order Placed"
+// Activity_0glogve → ServiceTask "Validate Order"
+// Gateway_0ircx6m  → ExclusiveGateway "Valid?"
+// Gateway_0g0pyit  → ParallelGateway (fork)
+// Activity_0rnc8vk → ServiceTask "Process Payment"
+// Activity_0mr8w51 → ServiceTask "Reserve Inventory"
+// Gateway_0rzojmn  → ParallelGateway (join)
+// Activity_1kdlney → UserTask "Ship Order"
+// Event_1hm7wwe    → EndEvent "Order Fulfilled"
+// Activity_02pkc1i → SendTask "Send Rejection"
+// Event_01cpts6    → EndEvent "Order Rejected"
+
 /** Main-path element IDs in left-to-right order. */
 const MAIN_PATH_IDS = [
-  'Start_1',
-  'Task_Review',
-  'Gateway_Valid',
-  'Task_Process',
-  'Gateway_Split',
-  'Gateway_Join',
-  'Task_Confirm',
-  'End_Success',
+  'Event_1kc0fqv', // StartEvent "Order Placed"
+  'Activity_0glogve', // ServiceTask "Validate Order"
+  'Gateway_0ircx6m', // ExclusiveGateway "Valid?"
+  'Gateway_0g0pyit', // ParallelGateway (fork)
+  'Gateway_0rzojmn', // ParallelGateway (join)
+  'Activity_1kdlney', // UserTask "Ship Order"
+  'Event_1hm7wwe', // EndEvent "Order Fulfilled"
 ];
 
 /** Main-path flow IDs for orthogonality checks. */
 const MAIN_PATH_FLOW_IDS = new Set([
-  'Flow_1',
-  'Flow_2',
-  'Flow_Yes',
-  'Flow_3',
-  'Flow_Ship',
-  'Flow_Invoice',
-  'Flow_ShipDone',
-  'Flow_InvDone',
-  'Flow_4',
-  'Flow_5',
+  'Flow_0710ei0', // Order Placed → Validate Order
+  'Flow_007jsi5', // Validate Order → Valid?
+  'Flow_0f3s1zc', // Valid? → fork (Yes)
+  'Flow_0mgoijn', // fork → Process Payment
+  'Flow_0rpogl4', // fork → Reserve Inventory
+  'Flow_033c36g', // Process Payment → join
+  'Flow_11j4u79', // Reserve Inventory → join
+  'Flow_1gzog11', // join → Ship Order
+  'Flow_12mfwdq', // Ship Order → Order Fulfilled
 ]);
 
 /**
- * Import reference.bpmn, apply a node-placement strategy, run layout,
+ * Import 07-complex-workflow.bpmn, apply a node-placement strategy, run layout,
  * and collect quality metrics.
  */
 async function runWithStrategy(strategy: Strategy): Promise<StrategyMetrics> {
-  const importResult = JSON.parse(
-    (await handleImportXml({ filePath: FIXTURE_PATH })).content[0].text as string
-  );
-  const diagramId = importResult.diagramId;
+  const { diagramId, registry } = await importReference('07-complex-workflow');
 
   // Patch ELK options with the target strategy
   ELK_LAYOUT_OPTIONS['elk.layered.nodePlacement.strategy'] = strategy;
 
   await handleLayoutDiagram({ diagramId });
 
-  const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+  const reg = registry;
 
   // Collect main-path elements
   const mainPathElements = MAIN_PATH_IDS.map((id) => reg.get(id)).filter(Boolean);
@@ -147,10 +152,10 @@ async function runWithStrategy(strategy: Strategy): Promise<StrategyMetrics> {
   const diagramHeight = maxY - minY;
 
   // Parallel branches on distinct Y rows
-  const ship = reg.get('Task_Ship');
-  const invoice = reg.get('Task_Invoice');
+  const payment = reg.get('Activity_0rnc8vk');
+  const inventory = reg.get('Activity_0mr8w51');
   const parallelBranchesDistinct =
-    ship && invoice ? Math.abs(centreY(ship) - centreY(invoice)) > 10 : false;
+    payment && inventory ? Math.abs(centreY(payment) - centreY(inventory)) > 10 : false;
 
   // Orthogonality of main-path flows
   const connections = reg.filter((el: any) => el.type === 'bpmn:SequenceFlow');

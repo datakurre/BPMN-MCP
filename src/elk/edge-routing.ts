@@ -263,6 +263,117 @@ export function applyElkEdgeRoutes(
   }
 }
 
+// ── Rebuild off-row gateway routes ──────────────────────────────────────────
+
+/**
+ * Rebuild flat horizontal routes for gateway connections that now span
+ * different Y rows.
+ *
+ * **Problem:** ELK may place a gateway and its branch target on the same
+ * row, producing a flat 2-waypoint horizontal route.  Post-ELK grid snap
+ * and happy-path alignment can then move elements to different rows,
+ * leaving a flat route that should be an L-bend.
+ *
+ * **Fix:** Detect connections where:
+ * - Source or target is a gateway
+ * - Source and target centres are now on different Y rows (ΔY > threshold)
+ * - Current route is a flat or near-flat 2-waypoint horizontal line
+ *
+ * Rebuild these as 3-waypoint L-bends matching bpmn-js conventions:
+ * - **Split gateway → off-row target:** exit gateway bottom/top edge at
+ *   gateway centre-X, go vertically to target centre-Y, then horizontally
+ *   to target left edge.
+ * - **Off-row source → join gateway:** exit source right edge at source
+ *   centre-Y, go horizontally to gateway centre-X, then vertically into
+ *   gateway bottom/top edge.
+ *
+ * Also rebuilds flat routes for **non-gateway** off-row connections
+ * (e.g. exclusive gateway → task via a default flow that isn't marked
+ * as a gateway outgoing in the topology) using a Z-shape through the
+ * midpoint.
+ */
+export function rebuildOffRowGatewayRoutes(elementRegistry: any, modeling: any): void {
+  const DIFFERENT_ROW_Y = 15; // minimum Y-centre diff to consider "different row"
+
+  const connections = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:SequenceFlow' &&
+      el.source &&
+      el.target &&
+      el.waypoints?.length >= 2 &&
+      el.source.type !== 'bpmn:BoundaryEvent'
+  );
+
+  for (const conn of connections) {
+    const src = conn.source;
+    const tgt = conn.target;
+    const wps: Array<{ x: number; y: number }> = conn.waypoints;
+
+    const srcCx = Math.round(src.x + (src.width || 0) / 2);
+    const srcCy = Math.round(src.y + (src.height || 0) / 2);
+    const srcRight = src.x + (src.width || 0);
+    const tgtCx = Math.round(tgt.x + (tgt.width || 0) / 2);
+    const tgtCy = Math.round(tgt.y + (tgt.height || 0) / 2);
+    const tgtLeft = tgt.x;
+
+    // Only process if source and target are on different rows
+    const yCentreDiff = Math.abs(srcCy - tgtCy);
+    if (yCentreDiff < DIFFERENT_ROW_Y) continue;
+
+    // Target must be to the right of source
+    if (tgtLeft <= srcRight) continue;
+
+    const srcIsGateway = src.type?.includes('Gateway');
+    const tgtIsGateway = tgt.type?.includes('Gateway');
+
+    // For non-gateway off-row connections, only process routes that are
+    // flat or near-flat (all waypoints within a small Y band).
+    // For gateway branches, ALWAYS rebuild to canonical L-bends regardless
+    // of existing waypoint structure — ELK and simplifyGatewayBranchRoutes
+    // produce Z-shapes exiting the gateway right edge, but the bpmn-js
+    // convention is to exit from top/bottom of the diamond.
+    if (!srcIsGateway && !tgtIsGateway) {
+      const yValues = wps.map((wp) => wp.y);
+      const yRange = Math.max(...yValues) - Math.min(...yValues);
+      if (yRange > DIFFERENT_ROW_Y) continue; // Already has vertical movement
+    }
+
+    if (srcIsGateway) {
+      // Split gateway → off-row target: L-bend from gateway edge
+      // Exit from gateway bottom (if target is below) or top (if above)
+      const goDown = tgtCy > srcCy;
+      const exitY = goDown ? src.y + (src.height || 0) : src.y;
+      const newWps = [
+        { x: srcCx, y: Math.round(exitY) },
+        { x: srcCx, y: tgtCy },
+        { x: Math.round(tgtLeft), y: tgtCy },
+      ];
+      modeling.updateWaypoints(conn, newWps);
+    } else if (tgtIsGateway) {
+      // Off-row source → join gateway: L-bend into gateway edge
+      // Enter gateway from bottom (if source is below) or top (if above)
+      const enterFromBelow = srcCy > tgtCy;
+      const gwEntryY = enterFromBelow ? tgt.y + (tgt.height || 0) : tgt.y;
+      const newWps = [
+        { x: Math.round(srcRight), y: srcCy },
+        { x: tgtCx, y: srcCy },
+        { x: tgtCx, y: Math.round(gwEntryY) },
+      ];
+      modeling.updateWaypoints(conn, newWps);
+    } else {
+      // Non-gateway off-row connection: Z-shape through midpoint
+      const midX = Math.round((srcRight + tgtLeft) / 2);
+      const newWps = [
+        { x: Math.round(srcRight), y: srcCy },
+        { x: midX, y: srcCy },
+        { x: midX, y: tgtCy },
+        { x: Math.round(tgtLeft), y: tgtCy },
+      ];
+      modeling.updateWaypoints(conn, newWps);
+    }
+  }
+}
+
 // ── Collinear waypoint simplification ───────────────────────────────────────
 
 /**

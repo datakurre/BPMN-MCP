@@ -9,6 +9,7 @@ import {
   ELEMENT_LABEL_BOTTOM_EXTRA,
   DEFAULT_LABEL_SIZE,
   LABEL_POSITION_PRIORITY,
+  EVENT_LABEL_POSITION_PRIORITY,
   LABEL_SHAPE_PROXIMITY_MARGIN,
 } from '../constants';
 
@@ -136,12 +137,17 @@ export function segmentIntersectsRect(p1: Point, p2: Point, rect: Rect): boolean
  * 4 diagonal positions for elements with many connections.
  * Each candidate is centred on the relevant edge, offset by
  * `ELEMENT_LABEL_DISTANCE`.
+ *
+ * The cardinal order depends on the element type:
+ * - Events prefer bottom first (matching bpmn-js default placement).
+ * - Gateways and others prefer top first.
  */
 export function getLabelCandidatePositions(element: {
   x: number;
   y: number;
   width: number;
   height: number;
+  type?: string;
 }): LabelCandidate[] {
   const midX = element.x + element.width / 2;
   const midY = element.y + element.height / 2;
@@ -149,8 +155,12 @@ export function getLabelCandidatePositions(element: {
   const lh = DEFAULT_LABEL_SIZE.height;
   const gap = ELEMENT_LABEL_DISTANCE;
 
+  // Choose priority order based on element type
+  const isEvent = element.type ? element.type.includes('Event') : false;
+  const priority = isEvent ? EVENT_LABEL_POSITION_PRIORITY : LABEL_POSITION_PRIORITY;
+
   // Cardinal positions (priority order)
-  const cardinals: LabelCandidate[] = LABEL_POSITION_PRIORITY.map((orientation) => {
+  const cardinals: LabelCandidate[] = priority.map((orientation) => {
     let rect: Rect;
     switch (orientation) {
       case 'top':

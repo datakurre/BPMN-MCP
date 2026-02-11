@@ -25,7 +25,7 @@ export const ELK_LAYOUT_OPTIONS: LayoutOptions = {
 export const SAME_ROW_THRESHOLD = 20;
 
 /** Padding inside compound containers (expanded subprocesses). */
-export const CONTAINER_PADDING = '[top=60,left=40,bottom=60,right=40]';
+export const CONTAINER_PADDING = '[top=60,left=40,bottom=60,right=50]';
 
 /** Padding inside participant pools — extra left for the ~30px bpmn-js label band. */
 export const PARTICIPANT_PADDING = '[top=80,left=50,bottom=80,right=40]';
@@ -44,3 +44,81 @@ export const ORTHO_SNAP_TOLERANCE = 15;
 export const ARTIFACT_BELOW_OFFSET = 80;
 /** Default vertical offset (px) above the flow for text annotations. */
 export const ARTIFACT_ABOVE_OFFSET = 80;
+
+// ── Happy-path alignment ────────────────────────────────────────────────
+
+/**
+ * Maximum Y-centre correction (px) for happy-path wobble.
+ * Larger deviations indicate the element is on a different branch.
+ */
+export const MAX_WOBBLE_CORRECTION = 20;
+
+/**
+ * Extended Y-correction threshold (px) for imported diagrams where
+ * fork-join patterns pull elements away from the happy-path row.
+ */
+export const MAX_EXTENDED_CORRECTION = 200;
+
+/**
+ * X-centre proximity (px) for two elements to be in the same column.
+ * Used by alignHappyPath to identify column-mates.
+ */
+export const COLUMN_PROXIMITY = 30;
+
+// ── ELK graph construction ──────────────────────────────────────────────
+
+/**
+ * Y-range threshold (px) to classify a container as having DI-imported
+ * coordinates (diverse Y).  Imported BPMNs span hundreds of pixels;
+ * programmatically created diagrams cluster within ~80-100px.
+ */
+export const DIVERSE_Y_THRESHOLD = 100;
+
+/**
+ * ELK priority for happy-path edges (straightness + direction) and
+ * split-gateway shortness.  Must be noticeably higher than default (0)
+ * to dominate NETWORK_SIMPLEX decisions.
+ */
+export const ELK_HIGH_PRIORITY = '10';
+
+// ── Spacing helpers ─────────────────────────────────────────────────────
+
+/** Extra gap (px) added between event↔task layers for breathing room. */
+export const EVENT_TASK_GAP_EXTRA = 10;
+
+/** Gap reduction (px) between gateway↔event layers (both compact shapes). */
+export const GATEWAY_EVENT_GAP_REDUCE = 5;
+
+/**
+ * Gap (px) between the bottom of the last expanded pool and the first
+ * collapsed pool.  Matches STANDARD_BPMN_GAP.
+ */
+export const COLLAPSED_POOL_GAP = 50;
+
+// ── Edge routing ────────────────────────────────────────────────────────
+
+/**
+ * Tolerance (px) for snapping near-orthogonal segments within edge routes.
+ * Covers ELK rounding and gateway port placement offsets.
+ */
+export const SEGMENT_ORTHO_SNAP = 8;
+
+/**
+ * Maximum distance (px) for an endpoint to be considered disconnected
+ * from its source/target element boundary.
+ */
+export const DISCONNECT_THRESHOLD = 20;
+
+/**
+ * Minimum Y-difference (px) between source and target for a gateway
+ * branch route to qualify as a different-row connection.
+ */
+export const DIFFERENT_ROW_THRESHOLD = 10;
+
+// ── Movement guards ─────────────────────────────────────────────────────
+
+/**
+ * Minimum Y-delta (px) to justify moving an element during alignment.
+ * Prevents churn from sub-pixel rounding.
+ */
+export const MIN_MOVE_THRESHOLD = 2;

@@ -30,12 +30,18 @@ import type { DiagramState } from '../types';
 import type { ElkNode, ElkExtendedEdge, LayoutOptions } from 'elkjs';
 
 import { isConnection, isInfrastructure, isArtifact } from './helpers';
-import { ELK_LAYOUT_OPTIONS, ORIGIN_OFFSET_X, ORIGIN_OFFSET_Y } from './constants';
+import {
+  ELK_LAYOUT_OPTIONS,
+  ORIGIN_OFFSET_X,
+  ORIGIN_OFFSET_Y,
+  ELK_HIGH_PRIORITY,
+} from './constants';
 import { buildContainerGraph } from './graph-builder';
 import {
   applyElkPositions,
   resizeCompoundNodes,
   centreElementsInPools,
+  reorderCollapsedPoolsBelow,
 } from './position-application';
 import {
   repositionBoundaryEvents,
@@ -53,11 +59,17 @@ import {
   simplifyCollinearWaypoints,
   simplifyGatewayBranchRoutes,
   snapEndpointsToElementCentres,
+  rebuildOffRowGatewayRoutes,
 } from './edge-routing';
 import { repositionArtifacts } from './artifacts';
 import { routeBranchConnectionsThroughChannels } from './channel-routing';
 import { detectHappyPath } from './happy-path';
-import { gridSnapPass, gridSnapExpandedSubprocesses, alignHappyPath } from './grid-snap';
+import {
+  gridSnapPass,
+  gridSnapExpandedSubprocesses,
+  alignHappyPath,
+  alignOffPathEndEvents,
+} from './grid-snap';
 import { detectCrossingFlows } from './crossing-detection';
 import { resolveOverlaps } from './overlap-resolution';
 import type { ElkLayoutOptions } from './types';
@@ -183,12 +195,20 @@ export async function elkLayout(
   }
 
   const allElements: any[] = elementRegistry.getAll();
-  const { children, edges } = buildContainerGraph(allElements, rootElement);
+  const { children, edges, hasDiverseY } = buildContainerGraph(allElements, rootElement);
 
   if (children.length === 0) return {};
 
   // Merge user-provided options with defaults
   const { layoutOptions, effectiveLayerSpacing } = resolveLayoutOptions(options);
+
+  // When the imported BPMN has DI coordinates with diverse Y positions,
+  // force node model order so crossing minimisation preserves the DI-based
+  // Y-position sort applied in graph-builder.ts.  For programmatically
+  // created diagrams (all at same Y), let ELK freely optimise.
+  if (hasDiverseY) {
+    layoutOptions['elk.layered.crossingMinimization.forceNodeModelOrder'] = 'true';
+  }
 
   // When preserveHappyPath is enabled (default: true), detect the main path
   // and tag its edges with high straightness priority so ELK keeps them in
@@ -201,8 +221,8 @@ export async function elkLayout(
       for (const edge of edges) {
         if (happyPathEdgeIds.has(edge.id)) {
           edge.layoutOptions = {
-            'elk.priority.straightness': '10',
-            'elk.priority.direction': '10',
+            'elk.priority.straightness': ELK_HIGH_PRIORITY,
+            'elk.priority.direction': ELK_HIGH_PRIORITY,
           };
         }
       }
@@ -305,7 +325,15 @@ export async function elkLayout(
     (effectiveDirection === 'RIGHT' || effectiveDirection === 'LEFT')
   ) {
     forEachScope(elementRegistry, (scope) => {
-      alignHappyPath(elementRegistry, modeling, happyPathEdgeIds, scope);
+      alignHappyPath(elementRegistry, modeling, happyPathEdgeIds, scope, hasDiverseY);
+    });
+
+    // Step 5.55: Align off-path end events with their predecessor.
+    // After happy-path alignment moves happy-path elements (and their
+    // column-mates), off-path end events may be stranded at the wrong Y.
+    // This pass aligns them to their incoming source element's Y-centre.
+    forEachScope(elementRegistry, (scope) => {
+      alignOffPathEndEvents(elementRegistry, modeling, happyPathEdgeIds, scope);
     });
   }
 
@@ -314,6 +342,11 @@ export async function elkLayout(
   // not be vertically centred.  This pass shifts elements to be centred
   // within each pool's usable area.
   centreElementsInPools(elementRegistry, modeling);
+
+  // Step 5.8: Ensure collapsed pools are below expanded pools.
+  // ELK may place collapsed participants above expanded ones; this pass
+  // moves them below the bottommost expanded pool with a consistent gap.
+  reorderCollapsedPoolsBelow(elementRegistry, modeling);
 
   // Step 6.5: Final boundary event restore + reposition.
   // Snap/grid passes (steps 4-5) may have moved host tasks, which can
@@ -357,6 +390,16 @@ export async function elkLayout(
   // centres, causing subtle Y-wobble on horizontal flows.  This pass
   // adjusts endpoints so they connect at element centre lines.
   snapEndpointsToElementCentres(elementRegistry, modeling);
+
+  // Step 8.4: Rebuild off-row gateway routes.
+  // ELK may route gateway branches as flat horizontal lines when it
+  // places elements on the same row.  Post-ELK grid snap and happy-path
+  // alignment can separate elements vertically, leaving flat routes that
+  // should be L-bends.  This pass detects such routes and rebuilds them
+  // with proper L-bend routing matching bpmn-js conventions:
+  // - Split gateway → off-row target: exit bottom/top of diamond
+  // - Off-row source → join gateway: enter bottom/top of diamond
+  rebuildOffRowGatewayRoutes(elementRegistry, modeling);
 
   // Step 8.5: Simplify collinear waypoints.
   // Remove redundant middle points where three consecutive waypoints

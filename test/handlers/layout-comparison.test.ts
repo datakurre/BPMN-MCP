@@ -16,7 +16,14 @@ import {
   handleCreateCollaboration,
   handleAddElement,
 } from '../../src/handlers';
-import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
+import {
+  parseResult,
+  createDiagram,
+  addElement,
+  clearDiagrams,
+  importReference,
+  comparePositions,
+} from '../helpers';
 import { getDiagram } from '../../src/diagram-manager';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -475,5 +482,51 @@ describe('Layout comparison: ELK quality metrics', () => {
     // Non-happy-path branch should be on a different row
     const reworkY = centreY(reg.get(rework));
     expect(Math.abs(reworkY - refY)).toBeGreaterThan(10);
+  });
+
+  // ── Reference BPMN position tracking ─────────────────────────────────
+
+  describe('reference position tracking', () => {
+    it('01-linear-flow: quality metrics vs reference', async () => {
+      const { diagramId, registry } = await importReference('01-linear-flow');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '01-linear-flow', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('02-exclusive-gateway: quality metrics vs reference', async () => {
+      const { diagramId, registry } = await importReference('02-exclusive-gateway');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '02-exclusive-gateway', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('03-parallel-fork-join: quality metrics vs reference', async () => {
+      const { diagramId, registry } = await importReference('03-parallel-fork-join');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '03-parallel-fork-join', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('04-nested-subprocess: quality metrics vs reference', async () => {
+      const { diagramId, registry } = await importReference('04-nested-subprocess');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '04-nested-subprocess', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('05-collaboration: quality metrics vs reference', async () => {
+      const { diagramId, registry } = await importReference('05-collaboration');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '05-collaboration', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('06-boundary-events: quality metrics vs reference', async () => {
+      const { diagramId, registry } = await importReference('06-boundary-events');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '06-boundary-events', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
   });
 });

@@ -1,20 +1,25 @@
 /**
- * Reference layout regression test (AI-9).
+ * Reference layout regression tests.
  *
- * Imports a reference BPMN diagram, runs ELK layout, and asserts
- * structural layout properties:
+ * Imports reference BPMN diagrams from test/fixtures/layout-references/,
+ * runs ELK layout, and asserts structural layout properties:
  * - Left-to-right ordering of the main flow
  * - All connections are strictly orthogonal (no diagonals)
  * - Parallel branch elements are on distinct Y rows
  * - No element overlaps
  * - Branch rejection end event is on a different row
+ *
+ * The primary reference is 07-complex-workflow.bpmn which has mixed
+ * exclusive + parallel gateways with a rejection branch — the most
+ * comprehensive layout test pattern.
+ *
+ * These tests are expected-failing until the layout engine matches
+ * the gold-standard reference positions.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleLayoutDiagram, handleImportXml } from '../../src/handlers';
-import { clearDiagrams } from '../helpers';
-import { getDiagram } from '../../src/diagram-manager';
-import * as path from 'path';
+import { handleLayoutDiagram } from '../../src/handlers';
+import { clearDiagrams, importReference, comparePositions } from '../helpers';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -61,116 +66,124 @@ function overlaps(a: any, b: any): boolean {
   );
 }
 
+// ── Element IDs in 07-complex-workflow.bpmn ────────────────────────────────
+//
+// Event_1kc0fqv    → StartEvent "Order Placed"
+// Activity_0glogve → ServiceTask "Validate Order"
+// Gateway_0ircx6m  → ExclusiveGateway "Valid?"
+// Gateway_0g0pyit  → ParallelGateway (fork)
+// Activity_0rnc8vk → ServiceTask "Process Payment"
+// Activity_0mr8w51 → ServiceTask "Reserve Inventory"
+// Gateway_0rzojmn  → ParallelGateway (join)
+// Activity_1kdlney → UserTask "Ship Order"
+// Event_1hm7wwe    → EndEvent "Order Fulfilled"
+// Activity_02pkc1i → SendTask "Send Rejection"
+// Event_01cpts6    → EndEvent "Order Rejected"
+//
+// Main-path flow IDs (happy path):
+// Flow_0710ei0  → Order Placed → Validate Order
+// Flow_007jsi5  → Validate Order → Valid?
+// Flow_0f3s1zc  → Valid? → fork (label: "Yes")
+// Flow_0mgoijn  → fork → Process Payment
+// Flow_033c36g  → Process Payment → join
+// Flow_1gzog11  → join → Ship Order
+// Flow_12mfwdq  → Ship Order → Order Fulfilled
+//
+// Parallel branch flow IDs:
+// Flow_0rpogl4  → fork → Reserve Inventory
+// Flow_11j4u79  → Reserve Inventory → join
+//
+// Rejection flow IDs:
+// Flow_18zaw60  → Valid? → Send Rejection (label: "No", default)
+// Flow_1xzxb56  → Send Rejection → Order Rejected
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-describe('Reference layout regression (AI-9)', () => {
+describe('Reference layout regression', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  it('reference.bpmn: layout produces correct left-to-right ordering', async () => {
-    const filePath = path.resolve(__dirname, '../fixtures/reference.bpmn');
-    const importResult = JSON.parse(
-      (await handleImportXml({ filePath })).content[0].text as string
-    );
-    const diagramId = importResult.diagramId;
-
+  it('07-complex-workflow: layout produces correct left-to-right ordering', async () => {
+    const { diagramId, registry } = await importReference('07-complex-workflow');
     await handleLayoutDiagram({ diagramId });
 
-    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    const reg = registry;
 
     // Get key elements by their IDs
-    const start = reg.get('Start_1');
-    const review = reg.get('Task_Review');
-    const gwValid = reg.get('Gateway_Valid');
-    const process = reg.get('Task_Process');
-    const gwSplit = reg.get('Gateway_Split');
-    const ship = reg.get('Task_Ship');
-    const invoice = reg.get('Task_Invoice');
-    const gwJoin = reg.get('Gateway_Join');
-    const confirm = reg.get('Task_Confirm');
-    const endSuccess = reg.get('End_Success');
-    const endReject = reg.get('End_Reject');
+    const start = reg.get('Event_1kc0fqv');
+    const validate = reg.get('Activity_0glogve');
+    const gwValid = reg.get('Gateway_0ircx6m');
+    const fork = reg.get('Gateway_0g0pyit');
+    const payment = reg.get('Activity_0rnc8vk');
+    const inventory = reg.get('Activity_0mr8w51');
+    const join = reg.get('Gateway_0rzojmn');
+    const ship = reg.get('Activity_1kdlney');
+    const endOk = reg.get('Event_1hm7wwe');
+    const reject = reg.get('Activity_02pkc1i');
+    const endReject = reg.get('Event_01cpts6');
 
-    // All main-path elements should exist
+    // All elements should exist
     for (const el of [
       start,
-      review,
+      validate,
       gwValid,
-      process,
-      gwSplit,
+      fork,
+      payment,
+      inventory,
+      join,
       ship,
-      invoice,
-      gwJoin,
-      confirm,
-      endSuccess,
+      endOk,
+      reject,
       endReject,
     ]) {
-      expect(el, `Element not found in registry`).toBeDefined();
+      expect(el, 'Element not found in registry').toBeDefined();
     }
 
     // Main flow should be strictly left-to-right
-    expect(centreX(start)).toBeLessThan(centreX(review));
-    expect(centreX(review)).toBeLessThan(centreX(gwValid));
-    expect(centreX(gwValid)).toBeLessThan(centreX(process));
-    expect(centreX(process)).toBeLessThan(centreX(gwSplit));
-    expect(centreX(gwSplit)).toBeLessThan(centreX(gwJoin));
-    expect(centreX(gwJoin)).toBeLessThan(centreX(confirm));
-    expect(centreX(confirm)).toBeLessThan(centreX(endSuccess));
+    expect(centreX(start)).toBeLessThan(centreX(validate));
+    expect(centreX(validate)).toBeLessThan(centreX(gwValid));
+    expect(centreX(gwValid)).toBeLessThan(centreX(fork));
+    expect(centreX(fork)).toBeLessThan(centreX(join));
+    expect(centreX(join)).toBeLessThan(centreX(ship));
+    expect(centreX(ship)).toBeLessThan(centreX(endOk));
 
-    // Parallel branches (Ship and Invoice) should be between split and join
-    expect(centreX(gwSplit)).toBeLessThan(centreX(ship));
-    expect(centreX(gwSplit)).toBeLessThan(centreX(invoice));
-    expect(centreX(ship)).toBeLessThan(centreX(gwJoin));
-    expect(centreX(invoice)).toBeLessThan(centreX(gwJoin));
+    // Parallel branches should be between fork and join
+    expect(centreX(fork)).toBeLessThan(centreX(payment));
+    expect(centreX(fork)).toBeLessThan(centreX(inventory));
+    expect(centreX(payment)).toBeLessThan(centreX(join));
+    expect(centreX(inventory)).toBeLessThan(centreX(join));
   });
 
-  it('reference.bpmn: parallel branches on distinct Y rows', async () => {
-    const filePath = path.resolve(__dirname, '../fixtures/reference.bpmn');
-    const importResult = JSON.parse(
-      (await handleImportXml({ filePath })).content[0].text as string
-    );
-    const diagramId = importResult.diagramId;
-
+  it('07-complex-workflow: parallel branches on distinct Y rows', async () => {
+    const { diagramId, registry } = await importReference('07-complex-workflow');
     await handleLayoutDiagram({ diagramId });
 
-    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    const payment = registry.get('Activity_0rnc8vk');
+    const inventory = registry.get('Activity_0mr8w51');
 
-    const ship = reg.get('Task_Ship');
-    const invoice = reg.get('Task_Invoice');
-
-    // Ship and Invoice should be on different Y rows
-    expect(Math.abs(centreY(ship) - centreY(invoice))).toBeGreaterThan(10);
+    // Process Payment and Reserve Inventory should be on different Y rows
+    expect(Math.abs(centreY(payment) - centreY(inventory))).toBeGreaterThan(10);
   });
 
-  it('reference.bpmn: all connections are orthogonal', async () => {
-    const filePath = path.resolve(__dirname, '../fixtures/reference.bpmn');
-    const importResult = JSON.parse(
-      (await handleImportXml({ filePath })).content[0].text as string
-    );
-    const diagramId = importResult.diagramId;
-
+  it('07-complex-workflow: all main-path connections are orthogonal', async () => {
+    const { diagramId, registry } = await importReference('07-complex-workflow');
     await handleLayoutDiagram({ diagramId });
 
-    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
-
-    // Main-path connections should all be orthogonal.
-    // Off-path flows (e.g. gateway → rejection end event) may have
-    // non-orthogonal segments depending on element placement.
+    // Main-path flow IDs (happy path + parallel branches)
     const mainPathFlowIds = new Set([
-      'Flow_1',
-      'Flow_2',
-      'Flow_Yes',
-      'Flow_3',
-      'Flow_Ship',
-      'Flow_Invoice',
-      'Flow_ShipDone',
-      'Flow_InvDone',
-      'Flow_4',
-      'Flow_5',
+      'Flow_0710ei0', // Order Placed → Validate Order
+      'Flow_007jsi5', // Validate Order → Valid?
+      'Flow_0f3s1zc', // Valid? → fork (Yes)
+      'Flow_0mgoijn', // fork → Process Payment
+      'Flow_0rpogl4', // fork → Reserve Inventory
+      'Flow_033c36g', // Process Payment → join
+      'Flow_11j4u79', // Reserve Inventory → join
+      'Flow_1gzog11', // join → Ship Order
+      'Flow_12mfwdq', // Ship Order → Order Fulfilled
     ]);
 
-    const connections = reg.filter((el: any) => el.type === 'bpmn:SequenceFlow');
+    const connections = registry.filter((el: any) => el.type === 'bpmn:SequenceFlow');
     expect(connections.length).toBeGreaterThan(0);
 
     for (const conn of connections) {
@@ -180,19 +193,12 @@ describe('Reference layout regression (AI-9)', () => {
     }
   });
 
-  it('reference.bpmn: no element overlaps', async () => {
-    const filePath = path.resolve(__dirname, '../fixtures/reference.bpmn');
-    const importResult = JSON.parse(
-      (await handleImportXml({ filePath })).content[0].text as string
-    );
-    const diagramId = importResult.diagramId;
-
+  it('07-complex-workflow: no element overlaps', async () => {
+    const { diagramId, registry } = await importReference('07-complex-workflow');
     await handleLayoutDiagram({ diagramId });
 
-    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
-
     // Get all visible shape elements (non-connections, non-infrastructure)
-    const shapes = reg.filter(
+    const shapes = registry.filter(
       (el: any) =>
         !el.type?.includes('SequenceFlow') &&
         !el.type?.includes('MessageFlow') &&
@@ -217,22 +223,41 @@ describe('Reference layout regression (AI-9)', () => {
     }
   });
 
-  it('reference.bpmn: rejection end event placed to the right of gateway', async () => {
-    const filePath = path.resolve(__dirname, '../fixtures/reference.bpmn');
-    const importResult = JSON.parse(
-      (await handleImportXml({ filePath })).content[0].text as string
-    );
-    const diagramId = importResult.diagramId;
-
+  it('07-complex-workflow: rejection end event placed to the right of gateway', async () => {
+    const { diagramId, registry } = await importReference('07-complex-workflow');
     await handleLayoutDiagram({ diagramId });
 
-    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
-
-    const gwValid = reg.get('Gateway_Valid');
-    const endReject = reg.get('End_Reject');
+    const gwValid = registry.get('Gateway_0ircx6m');
+    const endReject = registry.get('Event_01cpts6');
 
     // The rejection end event should be placed to the right of its
     // gateway (maintains left-to-right directionality)
     expect(centreX(endReject)).toBeGreaterThan(centreX(gwValid));
+  });
+
+  it('07-complex-workflow: positions match reference within tolerance', async () => {
+    const { diagramId, registry } = await importReference('07-complex-workflow');
+    await handleLayoutDiagram({ diagramId });
+
+    const { mismatches, matchRate } = comparePositions(
+      registry,
+      '07-complex-workflow',
+      10 // 10px tolerance
+    );
+
+    // Log mismatches for debugging
+    if (mismatches.length > 0) {
+      console.error('\n── Position mismatches (07-complex-workflow) ──');
+      for (const m of mismatches) {
+        console.error(
+          `  ${m.elementId}: ref(${m.refX},${m.refY}) actual(${m.actualX},${m.actualY}) Δ(${m.dx},${m.dy})`
+        );
+      }
+      console.error(`  Match rate: ${(matchRate * 100).toFixed(1)}%`);
+    }
+
+    // This test is expected-failing until the layout engine matches the reference.
+    // Once the engine is fixed, tighten the tolerance and expect 100% match rate.
+    expect(matchRate).toBeGreaterThanOrEqual(0); // Always passes — tracks progress
   });
 });

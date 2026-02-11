@@ -12,7 +12,7 @@
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 
 /** Minimum gap (px) enforced between elements after overlap resolution. */
-const MIN_OVERLAP_GAP = 10;
+const MIN_OVERLAP_GAP = 30;
 
 interface Rect {
   x: number;
@@ -58,7 +58,15 @@ export function resolveOverlaps(elementRegistry: any, modeling: any, container?:
         const rectA: Rect = { x: a.x, y: a.y, width: a.width || 0, height: a.height || 0 };
         const rectB: Rect = { x: b.x, y: b.y, width: b.width || 0, height: b.height || 0 };
 
-        if (!rectsOverlap(rectA, rectB)) continue;
+        // Check both actual overlap AND insufficient vertical gap.
+        // Elements that horizontally overlap but have less than MIN_OVERLAP_GAP
+        // vertical separation should also be pushed apart.
+        const horizontallyOverlaps =
+          rectA.x < rectB.x + rectB.width && rectA.x + rectA.width > rectB.x;
+        if (!horizontallyOverlaps) continue;
+        if (!rectsOverlap(rectA, rectB) && !verticallyTooClose(rectA, rectB, MIN_OVERLAP_GAP)) {
+          continue;
+        }
 
         // Determine which element to push and in which direction.
         // Push the element that is lower (or to the right if same Y).
@@ -94,6 +102,25 @@ function isBoundaryHostPair(a: any, b: any): boolean {
   if (a.type === 'bpmn:BoundaryEvent' && a.host?.id === b.id) return true;
   if (b.type === 'bpmn:BoundaryEvent' && b.host?.id === a.id) return true;
   return false;
+}
+
+/**
+ * Check if two non-overlapping rects are vertically closer than the
+ * minimum gap.  Returns true when the vertical distance between the
+ * bottom of the upper rect and the top of the lower rect is less
+ * than `minGap`.
+ */
+function verticallyTooClose(a: Rect, b: Rect, minGap: number): boolean {
+  const aBottom = a.y + a.height;
+  const bBottom = b.y + b.height;
+  // Determine which is upper vs lower
+  if (a.y <= b.y) {
+    const gap = b.y - aBottom;
+    return gap >= 0 && gap < minGap;
+  } else {
+    const gap = a.y - bBottom;
+    return gap >= 0 && gap < minGap;
+  }
 }
 
 /** Get all shapes eligible for overlap resolution (excludes connections, infrastructure, etc.). */

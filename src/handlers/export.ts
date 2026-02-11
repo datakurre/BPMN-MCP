@@ -92,6 +92,84 @@ async function checkLintGate(
   return { blocked: false };
 }
 
+/** Padding (px) around diagram content in exported SVG. */
+const SVG_PADDING = 5;
+
+/**
+ * Adjust the SVG viewBox to tightly fit the diagram content with
+ * consistent padding.  Computes the bounding box from the element
+ * registry (all shapes + labels + connection waypoints) and sets
+ * the viewBox to `(minX-pad, minY-pad, width+2*pad, height+2*pad)`.
+ *
+ * This matches the reference convention where SVG viewBoxes preserve
+ * the BPMN DI coordinate space with 5px padding on all sides.
+ */
+function adjustSvgViewBox(svg: string, diagram: any): string {
+  if (!svg) return svg;
+
+  try {
+    const elementRegistry = diagram.modeler.get('elementRegistry');
+    const allElements = getVisibleElements(elementRegistry);
+    const bounds = computeDiagramBounds(allElements);
+
+    if (!bounds) return svg;
+
+    const vbX = Math.round(bounds.minX - SVG_PADDING);
+    const vbY = Math.round(bounds.minY - SVG_PADDING);
+    const vbW = Math.round(bounds.maxX - bounds.minX + 2 * SVG_PADDING);
+    const vbH = Math.round(bounds.maxY - bounds.minY + 2 * SVG_PADDING);
+
+    return svg.replace(/viewBox="[^"]*"/, `viewBox="${vbX} ${vbY} ${vbW} ${vbH}"`);
+  } catch {
+    return svg;
+  }
+}
+
+/** Compute the tight bounding box of all diagram elements, labels, and waypoints. */
+function computeDiagramBounds(
+  elements: any[]
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+
+  for (const el of elements) {
+    expandBoundsForShape(el);
+    expandBoundsForLabel(el);
+    expandBoundsForWaypoints(el);
+  }
+
+  if (minX === Infinity) return null;
+  return { minX, minY, maxX, maxY };
+
+  function expandBoundsForShape(el: any): void {
+    if (el.x === undefined || el.y === undefined) return;
+    update(el.x, el.y, el.x + (el.width || 0), el.y + (el.height || 0));
+  }
+
+  function expandBoundsForLabel(el: any): void {
+    if (!el.label || el.label.x === undefined || el.label.y === undefined) return;
+    const lx = el.label.x,
+      ly = el.label.y;
+    update(lx, ly, lx + (el.label.width || 90), ly + (el.label.height || 20));
+  }
+
+  function expandBoundsForWaypoints(el: any): void {
+    if (!el.waypoints) return;
+    for (const wp of el.waypoints) {
+      update(wp.x, wp.y, wp.x, wp.y);
+    }
+  }
+
+  function update(x1: number, y1: number, x2: number, y2: number): void {
+    if (x1 < minX) minX = x1;
+    if (y1 < minY) minY = y1;
+    if (x2 > maxX) maxX = x2;
+    if (y2 > maxY) maxY = y2;
+  }
+}
+
 /** Perform the actual XML/SVG export from the modeler. */
 async function performExport(diagram: any, format: string): Promise<ToolResult['content']> {
   const content: ToolResult['content'] = [];
@@ -101,11 +179,13 @@ async function performExport(diagram: any, format: string): Promise<ToolResult['
     const xmlOutput = xml || '';
     validateXmlOutput(xmlOutput);
     const { svg } = await diagram.modeler.saveSVG();
+    const adjustedSvg = adjustSvgViewBox(svg || '', diagram);
     content.push({ type: 'text', text: xmlOutput });
-    content.push({ type: 'text', text: svg || '' });
+    content.push({ type: 'text', text: adjustedSvg });
   } else if (format === 'svg') {
     const { svg } = await diagram.modeler.saveSVG();
-    content.push({ type: 'text', text: svg || '' });
+    const adjustedSvg = adjustSvgViewBox(svg || '', diagram);
+    content.push({ type: 'text', text: adjustedSvg });
   } else {
     const { xml } = await diagram.modeler.saveXML({ format: true });
     const xmlOutput = xml || '';

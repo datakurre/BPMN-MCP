@@ -3,7 +3,13 @@
  */
 
 import type { ElkNode, ElkExtendedEdge } from 'elkjs';
-import { ELK_LAYOUT_OPTIONS, CONTAINER_PADDING, PARTICIPANT_PADDING } from './constants';
+import {
+  ELK_LAYOUT_OPTIONS,
+  CONTAINER_PADDING,
+  PARTICIPANT_PADDING,
+  DIVERSE_Y_THRESHOLD,
+  ELK_HIGH_PRIORITY,
+} from './constants';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 
 /**
@@ -15,7 +21,7 @@ import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 export function buildContainerGraph(
   allElements: any[],
   container: any
-): { children: ElkNode[]; edges: ElkExtendedEdge[] } {
+): { children: ElkNode[]; edges: ElkExtendedEdge[]; hasDiverseY: boolean } {
   const children: ElkNode[] = [];
   const edges: ElkExtendedEdge[] = [];
   const nodeIds = new Set<string>();
@@ -30,6 +36,31 @@ export function buildContainerGraph(
       !isLane(el.type) &&
       el.type !== 'bpmn:BoundaryEvent'
   );
+
+  // Sort child shapes by their DI Y-position (ascending = top-first).
+  // When importing a BPMN with DI coordinates, bpmn-js sets element.y from
+  // the DI before ELK runs.  By sorting children by Y, we tell ELK's
+  // NODES_AND_EDGES model order strategy to preserve the imported diagram's
+  // vertical arrangement.  For newly created diagrams without DI, all
+  // elements start at similar Y positions, so the sort is a no-op.
+  childShapes.sort((a: any, b: any) => {
+    const ay = a.y + (a.height || 0) / 2;
+    const by = b.y + (b.height || 0) / 2;
+    return ay - by;
+  });
+
+  // Detect if elements have diverse DI Y-positions (imported BPMN).
+  // If so, force node model order to prevent crossing minimisation from
+  // reordering branches away from the DI-based Y-position sort above.
+  // For programmatically created diagrams (all at same Y), skip this so
+  // ELK's crossing minimiser can freely optimise branch placement.
+  // Threshold of 100px distinguishes genuine imported DI layouts
+  // (which typically span hundreds of pixels) from auto-positioned
+  // elements (which cluster within ~80-100px of each other).
+  const yCentres = childShapes.map((s: any) => s.y + (s.height || 0) / 2);
+  const minY = Math.min(...yCentres);
+  const maxY = Math.max(...yCentres);
+  const hasDiverseY = maxY - minY > DIVERSE_Y_THRESHOLD;
 
   for (const shape of childShapes) {
     nodeIds.add(shape.id);
@@ -79,6 +110,21 @@ export function buildContainerGraph(
   const internalConns = childConnections.filter(
     (c: any) => nodeIds.has(c.source.id) && nodeIds.has(c.target.id)
   );
+
+  // Sort edges from split gateways by target's current Y-position (DI order).
+  // When importing a BPMN with DI coordinates, bpmn-js sets element.y from the
+  // DI before ELK runs.  By sorting edges by target Y, we tell ELK's
+  // NODES_AND_EDGES model order strategy to place branches in the same vertical
+  // order as the imported diagram's DI coordinates.
+  // For newly created diagrams (no DI), all targets start at the same Y,
+  // so the sort is a no-op — original behaviour preserved.
+  internalConns.sort((a: any, b: any) => {
+    if (a.source.id !== b.source.id) return 0;
+    const aTargetY = a.target.y + (a.target.height || 0) / 2;
+    const bTargetY = b.target.y + (b.target.height || 0) / 2;
+    return aTargetY - bTargetY;
+  });
+
   const backEdgeIds = detectBackEdges(internalConns, nodeIds);
 
   // Count outgoing edges per source to identify split gateways (≥2 outgoing).
@@ -96,11 +142,31 @@ export function buildContainerGraph(
   // are excluded — ELK already handles them well, and the shortness hint
   // can interfere with crossing minimisation for many-branch fork-joins.
   const decisionGatewayIds = new Set<string>();
+  // Also track gateway default flows for short-branch detection.
+  const gatewayDefaults = new Map<string, string>();
   for (const shape of childShapes) {
     if (shape.type === 'bpmn:ExclusiveGateway' || shape.type === 'bpmn:InclusiveGateway') {
       decisionGatewayIds.add(shape.id);
+      if (shape.businessObject?.default) {
+        gatewayDefaults.set(shape.id, shape.businessObject.default.id);
+      }
     }
   }
+
+  // Build outgoing adjacency for short-branch detection.
+  const outgoingAdj = new Map<string, any[]>();
+  for (const conn of internalConns) {
+    const list = outgoingAdj.get(conn.source.id) || [];
+    list.push(conn);
+    outgoingAdj.set(conn.source.id, list);
+  }
+
+  const shortBranchEdgeIds = detectShortBranches(
+    gatewayDefaults,
+    decisionGatewayIds,
+    internalConns,
+    outgoingAdj
+  );
 
   for (const conn of internalConns) {
     const edge: ElkExtendedEdge = {
@@ -116,17 +182,31 @@ export function buildContainerGraph(
       const srcId = conn.source.id;
       const isSplitDecisionGateway =
         decisionGatewayIds.has(srcId) && (outgoingCount.get(srcId) || 0) >= 2;
-      if (isSplitDecisionGateway) {
+      if (isSplitDecisionGateway && !shortBranchEdgeIds.has(conn.id)) {
         // High shortness priority encourages NETWORK_SIMPLEX to place
         // all targets of a split gateway in the same layer (column).
+        // Skip for short rejection branches (default flows that reach
+        // an end event within ≤2 hops) to avoid pulling the rejection
+        // target into the same layer as the main branch.
         edge.layoutOptions = {
           ...edge.layoutOptions,
-          'elk.priority.shortness': '10',
+          'elk.priority.shortness': ELK_HIGH_PRIORITY,
         };
       }
     }
     edges.push(edge);
   }
+
+  addSyntheticOrderingEdges(
+    gatewayDefaults,
+    shortBranchEdgeIds,
+    internalConns,
+    backEdgeIds,
+    nodeIds,
+    childShapes,
+    outgoingAdj,
+    edges
+  );
 
   // Include proxy edges for boundary event flows.
   // Boundary events are excluded from ELK nodes, but their outgoing flows
@@ -154,7 +234,135 @@ export function buildContainerGraph(
     }
   }
 
-  return { children, edges };
+  return { children, edges, hasDiverseY };
+}
+
+/**
+ * Detect short rejection branches: from a decision gateway, if the
+ * default (rejection) flow reaches an end event within ≤2 hops,
+ * its edge ID is returned.  This prevents ELK from pulling the
+ * rejection target into the same layer as the main branch target.
+ */
+function detectShortBranches(
+  gatewayDefaults: Map<string, string>,
+  decisionGatewayIds: Set<string>,
+  internalConns: any[],
+  outgoingAdj: Map<string, any[]>
+): Set<string> {
+  const shortBranchEdgeIds = new Set<string>();
+  for (const [gwId, defaultFlowId] of gatewayDefaults) {
+    if (!decisionGatewayIds.has(gwId)) continue;
+    const defaultConn = internalConns.find((c: any) => c.id === defaultFlowId);
+    if (!defaultConn) continue;
+    let current = defaultConn.target;
+    let hops = 1;
+    let reachesEnd = current?.type === 'bpmn:EndEvent';
+    while (!reachesEnd && hops < 2 && current) {
+      const nextConns = outgoingAdj.get(current.id);
+      if (!nextConns || nextConns.length !== 1) break;
+      current = nextConns[0].target;
+      hops++;
+      reachesEnd = current?.type === 'bpmn:EndEvent';
+    }
+    if (reachesEnd) {
+      shortBranchEdgeIds.add(defaultFlowId);
+    }
+  }
+  return shortBranchEdgeIds;
+}
+
+/**
+ * Add synthetic ordering edges for short rejection branches.
+ *
+ * When an exclusive gateway has a short rejection branch (≤2 hops to
+ * end event) alongside a happy-path branch to a fork gateway, synthetic
+ * edges ensure proper layer assignment so ELK doesn't collapse the
+ * rejection branch into the fork gateway's layer.
+ */
+function addSyntheticOrderingEdges(
+  gatewayDefaults: Map<string, string>,
+  shortBranchEdgeIds: Set<string>,
+  internalConns: any[],
+  backEdgeIds: Set<string>,
+  nodeIds: Set<string>,
+  childShapes: any[],
+  outgoingAdj: Map<string, any[]>,
+  edges: ElkExtendedEdge[]
+): void {
+  for (const [gwId, defaultFlowId] of gatewayDefaults) {
+    if (!shortBranchEdgeIds.has(defaultFlowId)) continue;
+
+    const defaultConn = internalConns.find((c: any) => c.id === defaultFlowId);
+    if (!defaultConn?.target) continue;
+    const rejTargetId = defaultConn.target.id;
+    if (!nodeIds.has(rejTargetId)) continue;
+
+    // Find a non-default (happy-path) outgoing edge that leads to a gateway
+    const happyEdge = internalConns.find(
+      (c: any) =>
+        c.source.id === gwId &&
+        c.id !== defaultFlowId &&
+        !backEdgeIds.has(c.id) &&
+        c.target &&
+        nodeIds.has(c.target.id)
+    );
+    if (!happyEdge?.target) continue;
+    const forkId = happyEdge.target.id;
+
+    // Only add synthetic edges if the happy-path target is a gateway
+    const forkShape = childShapes.find((s: any) => s.id === forkId);
+    if (!forkShape?.type?.includes('Gateway')) continue;
+
+    // Synthetic edge 1: Fork → rejection target
+    edges.push({
+      id: `__align_rej_task__${defaultFlowId}`,
+      sources: [forkId],
+      targets: [rejTargetId],
+      layoutOptions: { 'elk.priority.shortness': ELK_HIGH_PRIORITY },
+    });
+
+    // Find the rejection end event (follow forward from rejection target)
+    let rejEndEventId: string | null = null;
+    if (defaultConn.target.type === 'bpmn:EndEvent') {
+      rejEndEventId = rejTargetId;
+    } else {
+      const rejOutConns = outgoingAdj.get(rejTargetId);
+      if (rejOutConns?.length === 1 && rejOutConns[0].target?.type === 'bpmn:EndEvent') {
+        rejEndEventId = rejOutConns[0].target.id;
+      }
+    }
+    if (!rejEndEventId || !nodeIds.has(rejEndEventId)) continue;
+
+    // Trace happy path from fork to find predecessor of end event
+    let traceId = forkId;
+    let predecessorOfEnd: string | null = null;
+    const traceVisited = new Set<string>([gwId]);
+
+    for (let step = 0; step < 15; step++) {
+      traceVisited.add(traceId);
+      const nextConns = (outgoingAdj.get(traceId) || []).filter(
+        (c: any) => c.target && !traceVisited.has(c.target.id) && nodeIds.has(c.target.id)
+      );
+      if (nextConns.length === 0) break;
+
+      const endConn = nextConns.find((c: any) => c.target.type === 'bpmn:EndEvent');
+      if (endConn) {
+        predecessorOfEnd = traceId;
+        break;
+      }
+
+      traceId = nextConns[0].target.id;
+    }
+
+    if (predecessorOfEnd && predecessorOfEnd !== rejEndEventId) {
+      edges.push({
+        id: `__align_rej_end__${defaultFlowId}`,
+        sources: [predecessorOfEnd],
+        targets: [rejEndEventId],
+        layoutOptions: { 'elk.priority.shortness': ELK_HIGH_PRIORITY },
+      });
+    }
+  }
 }
 
 /**

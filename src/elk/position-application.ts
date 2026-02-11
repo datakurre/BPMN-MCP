@@ -4,6 +4,7 @@
 
 import type { ElkNode } from 'elkjs';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
+import { COLLAPSED_POOL_GAP } from './constants';
 
 /**
  * Recursively apply ELK layout results to bpmn-js elements.
@@ -140,5 +141,101 @@ export function centreElementsInPools(elementRegistry: any, modeling: any): void
     if (Math.abs(dy) > 5) {
       modeling.moveElements(children, { x: 0, y: dy });
     }
+  }
+}
+
+/**
+ * Ensure collapsed pools are placed below expanded pools.
+ *
+ * ELK may place collapsed participants (thin bars without internal process)
+ * above expanded ones because it treats them as simple nodes with no
+ * content-based size constraint.  This pass detects such misordering and
+ * moves collapsed pools below the bottommost expanded pool with a
+ * consistent gap, matching the standard Camunda 7 collaboration pattern
+ * where only the executable (expanded) pool is on top.
+ */
+export function reorderCollapsedPoolsBelow(elementRegistry: any, modeling: any): void {
+  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  if (participants.length < 2) return;
+
+  // Classify pools: expanded have flow-element children, collapsed do not
+  const expanded: any[] = [];
+  const collapsed: any[] = [];
+
+  for (const pool of participants) {
+    const hasFlowChildren =
+      elementRegistry.filter(
+        (el: any) =>
+          el.parent === pool &&
+          !isConnection(el.type) &&
+          !isInfrastructure(el.type) &&
+          !isArtifact(el.type) &&
+          !isLane(el.type) &&
+          el.type !== 'bpmn:BoundaryEvent' &&
+          el.type !== 'label'
+      ).length > 0;
+
+    if (hasFlowChildren) {
+      expanded.push(pool);
+    } else {
+      collapsed.push(pool);
+    }
+  }
+
+  if (expanded.length === 0 || collapsed.length === 0) return;
+
+  // Find the bottommost expanded pool
+  let maxExpandedBottom = -Infinity;
+  for (const p of expanded) {
+    const bottom = p.y + (p.height || 0);
+    if (bottom > maxExpandedBottom) maxExpandedBottom = bottom;
+  }
+
+  // Move collapsed pools below the bottommost expanded pool
+  const POOL_GAP = COLLAPSED_POOL_GAP;
+  let nextY = maxExpandedBottom + POOL_GAP;
+
+  // Compute the horizontal extent of expanded pools for edge snapping.
+  // Collapsed pools should share the same left/right edges as the
+  // expanded pools (matching the standard BPMN modeler convention).
+  let expandedMinX = Infinity;
+  let expandedMaxRight = -Infinity;
+  for (const p of expanded) {
+    if (p.x < expandedMinX) expandedMinX = p.x;
+    const right = p.x + (p.width || 0);
+    if (right > expandedMaxRight) expandedMaxRight = right;
+  }
+  const expandedWidth = expandedMaxRight - expandedMinX;
+
+  // Sort collapsed pools by current Y for stable ordering
+  collapsed.sort((a: any, b: any) => a.y - b.y);
+
+  for (const pool of collapsed) {
+    // Snap x/width to match expanded pool edges
+    const dx = Math.round(expandedMinX - pool.x);
+    const dy = Math.round(nextY - pool.y);
+    const needsMove = Math.abs(dx) > 2 || (pool.y < nextY && Math.abs(dy) > 2);
+
+    if (needsMove) {
+      modeling.moveElements([pool], {
+        x: Math.abs(dx) > 2 ? dx : 0,
+        y: pool.y < nextY && Math.abs(dy) > 2 ? dy : 0,
+      });
+    }
+
+    // Resize width to match expanded pool span
+    const currentPool = elementRegistry.get(pool.id);
+    if (Math.abs((currentPool.width || 0) - expandedWidth) > 5) {
+      modeling.resizeShape(currentPool, {
+        x: currentPool.x,
+        y: currentPool.y,
+        width: expandedWidth,
+        height: currentPool.height || 60,
+      });
+    }
+
+    // Advance nextY for multiple collapsed pools
+    const updatedPool = elementRegistry.get(pool.id);
+    nextY = updatedPool.y + (updatedPool.height || 0) + POOL_GAP;
   }
 }

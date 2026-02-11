@@ -8,6 +8,13 @@
 
 import { ELK_LAYER_SPACING, ELK_NODE_SPACING } from '../constants';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
+import {
+  EVENT_TASK_GAP_EXTRA,
+  GATEWAY_EVENT_GAP_REDUCE,
+  MAX_WOBBLE_CORRECTION,
+  MAX_EXTENDED_CORRECTION,
+  COLUMN_PROXIMITY,
+} from './constants';
 import type { GridLayer } from './types';
 
 /**
@@ -155,7 +162,7 @@ function computeInterLayerGap(
 
   // Event ↔ Task: add breathing room (events are small beside large tasks)
   if ((prevCat === 'event' && nextCat === 'task') || (prevCat === 'task' && nextCat === 'event')) {
-    return base + 10;
+    return base + EVENT_TASK_GAP_EXTRA;
   }
 
   // Gateway ↔ Event: tighten (both compact shapes)
@@ -163,7 +170,7 @@ function computeInterLayerGap(
     (prevCat === 'gateway' && nextCat === 'event') ||
     (prevCat === 'event' && nextCat === 'gateway')
   ) {
-    return base - 5;
+    return base - GATEWAY_EVENT_GAP_REDUCE;
   }
 
   // All other pairs (task→task, task↔gateway, event→event): baseline
@@ -407,7 +414,10 @@ function symmetriseGatewayBranches(
       .map((conn: any) => conn.target)
       .filter((t: any) => t.type !== 'bpmn:EndEvent' && !t.type?.includes('Gateway'));
 
-    // For 2-branch patterns with tasks, symmetrise both around the gateway Y
+    // For 2-branch patterns with tasks, symmetrise around the gateway Y.
+    // When one branch is on the happy path, pin it at the gateway row and
+    // push the off-path branch below — this matches the BPMN convention
+    // where the "normal" flow goes straight and exceptions descend.
     if (branchTargets.length === 2) {
       const [t1, t2] = branchTargets;
       const t1Cy = t1.y + (t1.height || 0) / 2;
@@ -418,28 +428,58 @@ function symmetriseGatewayBranches(
       const t2Cx = t2.x + (t2.width || 0) / 2;
       if (Math.abs(t1Cx - t2Cx) > 50) continue; // Different layers, skip
 
-      // Ideal: both equidistant from gateway centre
-      const totalSpan = Math.abs(t1Cy - t2Cy);
-      const idealSpan = Math.max(totalSpan, nodeSpacing + Math.max(t1.height || 0, t2.height || 0));
-      const halfSpan = idealSpan / 2;
+      const t1OnPath = happyPathNodeIds.has(t1.id);
+      const t2OnPath = happyPathNodeIds.has(t2.id);
 
-      // Sort by current Y to determine which goes above/below
-      const [upper, lower] = t1Cy < t2Cy ? [t1, t2] : [t2, t1];
+      if (t1OnPath !== t2OnPath) {
+        // One on-path, one off-path: pin the on-path target at the gateway
+        // row and move the off-path target below.
+        const onPath = t1OnPath ? t1 : t2;
+        const offPath = t1OnPath ? t2 : t1;
 
-      const upperDesiredCy = gwCy - halfSpan;
-      const lowerDesiredCy = gwCy + halfSpan;
+        // Pin on-path target to gateway Y
+        const onPathCy = onPath.y + (onPath.height || 0) / 2;
+        const dyOn = Math.round(gwCy - onPathCy);
+        if (Math.abs(dyOn) > 2) {
+          modeling.moveElements([onPath], { x: 0, y: dyOn });
+        }
 
-      const upperCy = upper.y + (upper.height || 0) / 2;
-      const lowerCy = lower.y + (lower.height || 0) / 2;
+        // Move off-path target below the gateway row
+        const offPathH = offPath.height || 0;
+        const onPathH = onPath.height || 0;
+        const desiredOffCy = gwCy + Math.max(onPathH, offPathH) / 2 + nodeSpacing;
+        const offPathCy = offPath.y + offPathH / 2;
+        const dyOff = Math.round(desiredOffCy - offPathCy);
+        if (Math.abs(dyOff) > 2) {
+          modeling.moveElements([offPath], { x: 0, y: dyOff });
+        }
+      } else {
+        // Both on-path or both off-path: symmetric distribution
+        const totalSpan = Math.abs(t1Cy - t2Cy);
+        const idealSpan = Math.max(
+          totalSpan,
+          nodeSpacing + Math.max(t1.height || 0, t2.height || 0)
+        );
+        const halfSpan = idealSpan / 2;
 
-      const dyUpper = Math.round(upperDesiredCy - upperCy);
-      const dyLower = Math.round(lowerDesiredCy - lowerCy);
+        // Sort by current Y to determine which goes above/below
+        const [upper, lower] = t1Cy < t2Cy ? [t1, t2] : [t2, t1];
 
-      if (Math.abs(dyUpper) > 2) {
-        modeling.moveElements([upper], { x: 0, y: dyUpper });
-      }
-      if (Math.abs(dyLower) > 2) {
-        modeling.moveElements([lower], { x: 0, y: dyLower });
+        const upperDesiredCy = gwCy - halfSpan;
+        const lowerDesiredCy = gwCy + halfSpan;
+
+        const upperCy = upper.y + (upper.height || 0) / 2;
+        const lowerCy = lower.y + (lower.height || 0) / 2;
+
+        const dyUpper = Math.round(upperDesiredCy - upperCy);
+        const dyLower = Math.round(lowerDesiredCy - lowerCy);
+
+        if (Math.abs(dyUpper) > 2) {
+          modeling.moveElements([upper], { x: 0, y: dyUpper });
+        }
+        if (Math.abs(dyLower) > 2) {
+          modeling.moveElements([lower], { x: 0, y: dyLower });
+        }
       }
     }
 
@@ -528,6 +568,65 @@ function alignBoundarySubFlowEndEvents(elementRegistry: any, modeling: any): voi
 }
 
 /**
+ * Align off-path end events with their incoming source element.
+ *
+ * End events not on the happy path (e.g. "Order Rejected" on a rejection
+ * branch) should sit at the same Y-centre as the element that feeds into
+ * them, producing a clean horizontal sub-flow.
+ *
+ * This is a more general version of the off-path end-event handling in
+ * `symmetriseGatewayBranches` (which only covers direct gateway targets)
+ * and `alignBoundarySubFlowEndEvents` (which only traces from boundary
+ * events).  The `Math.abs(dy) > 2` guard prevents double-moves for end
+ * events already aligned by those earlier passes.
+ */
+export function alignOffPathEndEvents(
+  elementRegistry: any,
+  modeling: any,
+  happyPathEdgeIds?: Set<string>,
+  container?: any
+): void {
+  // Compute happy-path node IDs from edge IDs
+  const happyPathNodeIds = new Set<string>();
+  const allElements: any[] = elementRegistry.getAll();
+  if (happyPathEdgeIds && happyPathEdgeIds.size > 0) {
+    for (const el of allElements) {
+      if (isConnection(el.type) && happyPathEdgeIds.has(el.id)) {
+        if (el.source) happyPathNodeIds.add(el.source.id);
+        if (el.target) happyPathNodeIds.add(el.target.id);
+      }
+    }
+  }
+
+  // Scope to container if provided
+  let parentFilter: any = container;
+  if (!parentFilter) {
+    parentFilter = elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+    )[0];
+  }
+
+  for (const el of allElements) {
+    if (el.type !== 'bpmn:EndEvent') continue;
+    if (happyPathNodeIds.has(el.id)) continue;
+    if (parentFilter && el.parent !== parentFilter) continue;
+
+    // Find incoming connection
+    const incoming = allElements.find(
+      (conn: any) => isConnection(conn.type) && conn.target?.id === el.id && conn.source
+    );
+    if (!incoming) continue;
+
+    const sourceCy = incoming.source.y + (incoming.source.height || 0) / 2;
+    const targetCy = el.y + (el.height || 0) / 2;
+    const dy = Math.round(sourceCy - targetCy);
+    if (Math.abs(dy) > 2) {
+      modeling.moveElements([el], { x: 0, y: dy });
+    }
+  }
+}
+
+/**
  * Align all happy-path elements to a single Y-centre.
  *
  * After gridSnapPass, elements on the detected happy path may have small
@@ -547,13 +646,10 @@ export function alignHappyPath(
   elementRegistry: any,
   modeling: any,
   happyPathEdgeIds?: Set<string>,
-  container?: any
+  container?: any,
+  hasDiverseY?: boolean
 ): void {
   if (!happyPathEdgeIds || happyPathEdgeIds.size === 0) return;
-
-  /** Maximum Y-centre correction (px) to apply.  Larger deviations
-   *  indicate the element is on a different branch, not a wobble. */
-  const MAX_WOBBLE_CORRECTION = 20;
 
   // Determine which container to scope to
   let parentFilter: any = container;
@@ -598,14 +694,87 @@ export function alignHappyPath(
   // Use the median Y-centre as the alignment target
   const medianY = yCentres[Math.floor(yCentres.length / 2)];
 
-  // Snap only happy-path elements that are within MAX_WOBBLE_CORRECTION
-  // of the median.  Elements further away are on split/join branches
+  // Count how many elements are already close to the median (within wobble threshold).
+  // If the majority agrees AND the diagram was imported with DI coordinates
+  // (hasDiverseY), extend the correction threshold for outlier elements
+  // (e.g. join gateways pulled away by fork-join patterns).
+  // For programmatically created diagrams, keep the conservative threshold
+  // to avoid pulling genuine off-path elements to the happy-path row.
+  const nearMedianCount = yCentres.filter(
+    (y) => Math.abs(y - medianY) <= MAX_WOBBLE_CORRECTION
+  ).length;
+  const majorityAgrees = nearMedianCount > yCentres.length / 2;
+
+  let targetY = medianY;
+  let effectiveThreshold: number;
+
+  if (majorityAgrees && hasDiverseY) {
+    // Majority agrees on median → extend threshold for outliers
+    effectiveThreshold = MAX_EXTENDED_CORRECTION;
+  } else if (hasDiverseY) {
+    // No majority at median — synthetic edges or fork-join patterns may
+    // have split happy-path elements across multiple Y levels.  Find the
+    // Y-centre that has the most nearby elements (within wobble threshold)
+    // to use as the alignment target.
+    // Tiebreaker: topmost (smallest Y) to match BPMN convention where
+    // the happy path is the topmost row and exceptions descend.
+    let bestCount = nearMedianCount;
+    let bestY = medianY;
+    for (const candidateY of yCentres) {
+      const count = yCentres.filter(
+        (y) => Math.abs(y - candidateY) <= MAX_WOBBLE_CORRECTION
+      ).length;
+      if (count > bestCount || (count === bestCount && candidateY < bestY)) {
+        bestCount = count;
+        bestY = candidateY;
+      }
+    }
+    targetY = bestY;
+    effectiveThreshold = MAX_EXTENDED_CORRECTION;
+  } else {
+    effectiveThreshold = MAX_WOBBLE_CORRECTION;
+  }
+
+  // Snap only happy-path elements that are within the effective threshold
+  // of the target Y.  Elements further away are on split/join branches
   // and should keep their gridSnap-assigned Y.
+  //
+  // Also move non-happy-path elements that share the same column (within
+  // 30px X-centre) by the same delta.  Without this, gridSnap's vertical
+  // distribution places non-happy elements relative to the pre-alignment
+  // happy-path position, creating inconsistent Y gaps after alignment.
+  const columnThreshold = COLUMN_PROXIMITY; // X-centre proximity to consider same column
+  const nonHappyShapes = allElements.filter(
+    (el: any) =>
+      !happyPathNodeIds.has(el.id) &&
+      !isConnection(el.type) &&
+      !isInfrastructure(el.type) &&
+      !isArtifact(el.type) &&
+      el.type !== 'bpmn:BoundaryEvent' &&
+      el.type !== 'label' &&
+      el.type !== 'bpmn:Participant' &&
+      (!parentFilter || el.parent === parentFilter)
+  );
+
   for (const el of happyShapes) {
     const cy = el.y + (el.height || 0) / 2;
-    const dy = Math.round(medianY - cy);
-    if (Math.abs(dy) > 0.5 && Math.abs(dy) <= MAX_WOBBLE_CORRECTION) {
+    const dy = Math.round(targetY - cy);
+    if (Math.abs(dy) > 0.5 && Math.abs(dy) <= effectiveThreshold) {
       modeling.moveElements([el], { x: 0, y: dy });
+
+      // Move non-happy column-mates by the same delta to preserve
+      // the relative vertical distribution within the column.
+      // Exclude end events — they follow their predecessor's Y via
+      // alignOffPathEndEvents, not their column's happy-path element.
+      const elCx = el.x + (el.width || 0) / 2;
+      const columnMates = nonHappyShapes.filter(
+        (f: any) =>
+          Math.abs(f.x + (f.width || 0) / 2 - elCx) < columnThreshold &&
+          !f.type?.includes('EndEvent')
+      );
+      for (const mate of columnMates) {
+        modeling.moveElements([mate], { x: 0, y: dy });
+      }
     }
   }
 }

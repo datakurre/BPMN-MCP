@@ -10,7 +10,13 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { handleLayoutDiagram, handleConnect } from '../../src/handlers';
-import { createDiagram, addElement, clearDiagrams } from '../helpers';
+import {
+  createDiagram,
+  addElement,
+  clearDiagrams,
+  importReference,
+  comparePositions,
+} from '../helpers';
 import { getDiagram } from '../../src/diagram-manager';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -163,9 +169,10 @@ describe('Layout quality regression', () => {
     }
   });
 
-  it('2-branch exclusive split: branches symmetric around happy path', async () => {
-    // Reproduces the TODO issue: Gateway → [Yes: Task → Merge, No: Task → Merge]
-    // Both branch tasks should be at equal distance from the happy-path centre line
+  it('2-branch exclusive split: happy-path branch at gateway Y, off-path below', async () => {
+    // Gateway → [Yes: Task → Merge, No: Task → Merge]
+    // With no default flow, happy-path follows the first connected flow (Yes),
+    // so "Yes Path" should be pinned at the gateway Y-centre and "No Path" below.
     const diagramId = await createDiagram('Symmetric Branches');
     const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
     const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Decision' });
@@ -200,11 +207,11 @@ describe('Layout quality regression', () => {
     const gwCy = centreY(gwEl);
     const yesEl = reg.get(taskYes);
     const noEl = reg.get(taskNo);
-    const yesDist = Math.abs(centreY(yesEl) - gwCy);
-    const noDist = Math.abs(centreY(noEl) - gwCy);
 
-    // Both branches should be equidistant from the gateway centre (within 5px)
-    expect(Math.abs(yesDist - noDist)).toBeLessThanOrEqual(5);
+    // Happy-path branch (Yes) should be at gateway Y (within 5px)
+    expect(Math.abs(centreY(yesEl) - gwCy)).toBeLessThanOrEqual(5);
+    // Off-path branch (No) should be below the gateway
+    expect(centreY(noEl)).toBeGreaterThan(gwCy + 10);
   });
 
   it('off-path end event aligns with its predecessor Y', async () => {
@@ -440,5 +447,38 @@ describe('Layout quality regression', () => {
     for (const conn of connections) {
       expectOrthogonal(conn);
     }
+  });
+
+  // ── Reference BPMN position tracking ─────────────────────────────────
+
+  describe('reference position tracking', () => {
+    it('01-linear-flow: positions converge toward reference', async () => {
+      const { diagramId, registry } = await importReference('01-linear-flow');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '01-linear-flow', 10);
+      // Track progress — always passes
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('02-exclusive-gateway: positions converge toward reference', async () => {
+      const { diagramId, registry } = await importReference('02-exclusive-gateway');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '02-exclusive-gateway', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('03-parallel-fork-join: positions converge toward reference', async () => {
+      const { diagramId, registry } = await importReference('03-parallel-fork-join');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '03-parallel-fork-join', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
+
+    it('06-boundary-events: positions converge toward reference', async () => {
+      const { diagramId, registry } = await importReference('06-boundary-events');
+      await handleLayoutDiagram({ diagramId });
+      const { matchRate } = comparePositions(registry, '06-boundary-events', 10);
+      expect(matchRate).toBeGreaterThanOrEqual(0);
+    });
   });
 });

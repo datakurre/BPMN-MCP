@@ -6,7 +6,6 @@
       "GitHub.copilot"
       "GitHub.copilot-chat"
       "mkhl.direnv"
-      "robocorp.robotframework-lsp"
       "vscodevim.vim"
     ];
   };
