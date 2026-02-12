@@ -33,6 +33,68 @@ export interface CreateCollaborationArgs {
   }>;
 }
 
+/** Compute the Y position for participant at index i. */
+function computeParticipantY(
+  participants: CreateCollaborationArgs['participants'],
+  index: number,
+  defaultPoolHeight: number
+): number {
+  if (index === 0) return 100;
+  let y = 100;
+  const verticalGap = 30;
+  for (let j = 0; j < index; j++) {
+    const h =
+      participants[j].height ||
+      (participants[j].collapsed ? COLLAPSED_POOL_HEIGHT : defaultPoolHeight);
+    y += h + verticalGap;
+  }
+  return y;
+}
+
+/** Create a single participant pool shape in the diagram. */
+function createParticipantShape(
+  diagram: any,
+  p: CreateCollaborationArgs['participants'][number],
+  index: number,
+  participants: CreateCollaborationArgs['participants'],
+  defaultPoolHeight: number
+): string {
+  const modeling = diagram.modeler.get('modeling');
+  const elementFactory = diagram.modeler.get('elementFactory');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const canvas = diagram.modeler.get('canvas');
+
+  const id = generateDescriptiveId(elementRegistry, 'bpmn:Participant', p.name);
+  const poolHeight = p.height || (p.collapsed ? COLLAPSED_POOL_HEIGHT : defaultPoolHeight);
+  const y = p.y ?? computeParticipantY(participants, index, defaultPoolHeight);
+  const x = p.x ?? 300;
+
+  const shapeAttrs: Record<string, any> = { type: 'bpmn:Participant', id };
+  if (p.collapsed) shapeAttrs.isExpanded = false;
+  const shape = elementFactory.createShape(shapeAttrs);
+
+  if (p.width) shape.width = p.width;
+  shape.height = poolHeight;
+
+  const createdElement = modeling.createShape(shape, { x, y }, canvas.getRootElement());
+  modeling.updateProperties(createdElement, { name: p.name });
+
+  if (p.collapsed && createdElement.di) createdElement.di.isExpanded = false;
+
+  modeling.resizeShape(createdElement, {
+    x: createdElement.x,
+    y: createdElement.y,
+    width: p.width || createdElement.width,
+    height: poolHeight,
+  });
+
+  if (p.processId && createdElement.businessObject?.processRef) {
+    createdElement.businessObject.processRef.id = p.processId;
+  }
+
+  return createdElement.id;
+}
+
 export async function handleCreateCollaboration(
   args: CreateCollaborationArgs
 ): Promise<ToolResult> {
@@ -47,75 +109,14 @@ export async function handleCreateCollaboration(
   }
 
   const diagram = requireDiagram(diagramId);
-  const modeling = diagram.modeler.get('modeling');
-  const elementFactory = diagram.modeler.get('elementFactory');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const canvas = diagram.modeler.get('canvas');
 
   const createdIds: string[] = [];
   const defaultPoolHeight = ELEMENT_SIZES.participant.height;
-  const verticalGap = 30;
 
   for (let i = 0; i < participants.length; i++) {
-    const p = participants[i];
-    const id = generateDescriptiveId(elementRegistry, 'bpmn:Participant', p.name);
-    const poolHeight = p.height || (p.collapsed ? COLLAPSED_POOL_HEIGHT : defaultPoolHeight);
-    const prevBottom =
-      i === 0
-        ? 100
-        : (() => {
-            // Sum up previous participants' heights + gaps
-            let y = 100;
-            for (let j = 0; j < i; j++) {
-              const h =
-                participants[j].height ||
-                (participants[j].collapsed ? COLLAPSED_POOL_HEIGHT : defaultPoolHeight);
-              y += h + verticalGap;
-            }
-            return y;
-          })();
-    const y = p.y ?? prevBottom;
-    const x = p.x ?? 300;
-
-    const shapeAttrs: Record<string, any> = {
-      type: 'bpmn:Participant',
-      id,
-    };
-    if (p.collapsed) {
-      shapeAttrs.isExpanded = false;
-    }
-    const shape = elementFactory.createShape(shapeAttrs);
-
-    // Apply custom dimensions before placement
-    if (p.width) shape.width = p.width;
-    shape.height = poolHeight;
-
-    const rootElement = canvas.getRootElement();
-    const createdElement = modeling.createShape(shape, { x, y }, rootElement);
-    modeling.updateProperties(createdElement, { name: p.name });
-
-    // Mark collapsed pools in the DI and resize
-    if (p.collapsed && createdElement.di) {
-      createdElement.di.isExpanded = false;
-    }
-
-    // Resize to requested or default dimensions
-    const newBounds = {
-      x: createdElement.x,
-      y: createdElement.y,
-      width: p.width || createdElement.width,
-      height: poolHeight,
-    };
-    modeling.resizeShape(createdElement, newBounds);
-
-    if (p.processId) {
-      const bo = createdElement.businessObject;
-      if (bo.processRef) {
-        bo.processRef.id = p.processId;
-      }
-    }
-
-    createdIds.push(createdElement.id);
+    createdIds.push(
+      createParticipantShape(diagram, participants[i], i, participants, defaultPoolHeight)
+    );
   }
 
   await syncXml(diagram);
@@ -125,6 +126,18 @@ export async function handleCreateCollaboration(
     participantIds: createdIds,
     participantCount: createdIds.length,
     message: `Created collaboration with ${createdIds.length} participants: ${createdIds.join(', ')}`,
+    nextSteps: [
+      {
+        tool: 'add_bpmn_element',
+        description:
+          'Add start events, tasks, and end events inside the executable (expanded) pool using participantId',
+      },
+      {
+        tool: 'connect_bpmn_elements',
+        description:
+          'Create message flows between the expanded pool elements and collapsed partner pools to document message exchanges',
+      },
+    ],
   });
   return appendLintFeedback(result, diagram);
 }

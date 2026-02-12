@@ -7,7 +7,7 @@
  */
 
 /** Hint record with a short description and the tool name to call. */
-interface Hint {
+export interface Hint {
   tool: string;
   description: string;
 }
@@ -103,6 +103,45 @@ const TYPE_HINTS: Array<{ match: (type: string) => boolean; hints: Hint[] }> = [
       },
     ],
   },
+  {
+    match: (t) => t === 'bpmn:ExclusiveGateway' || t === 'bpmn:InclusiveGateway',
+    hints: [
+      {
+        tool: 'set_bpmn_element_properties',
+        description:
+          'Name the gateway as a yes/no question (e.g. "Order valid?", "Payment successful?"). Set `default` to a sequence flow ID for the default branch.',
+      },
+      {
+        tool: 'connect_bpmn_elements',
+        description:
+          'Create conditional outgoing flows with conditionExpression and optional isDefault flag',
+      },
+    ],
+  },
+  {
+    match: (t) => t === 'bpmn:ParallelGateway',
+    hints: [
+      {
+        tool: 'connect_bpmn_elements',
+        description:
+          'Create outgoing flows for parallel branches. Parallel gateways typically don\u2019t need a name unless it adds clarity.',
+      },
+    ],
+  },
+  {
+    match: (t) => t === 'bpmn:SubProcess',
+    hints: [
+      {
+        tool: 'set_bpmn_element_properties',
+        description:
+          'Set triggeredByEvent: true for event subprocesses, or isExpanded to toggle inline/collapsed view',
+      },
+      {
+        tool: 'add_bpmn_element',
+        description: 'Add start/end events and tasks inside the subprocess',
+      },
+    ],
+  },
 ];
 
 /**
@@ -113,6 +152,41 @@ export function getTypeSpecificHints(elementType: string): { nextSteps?: Hint[] 
   for (const entry of TYPE_HINTS) {
     if (entry.match(elementType)) {
       return { nextSteps: entry.hints };
+    }
+  }
+  return {};
+}
+
+/** Naming convention categories for BPMN elements. */
+const NAMING_CATEGORIES: Array<{ match: (t: string) => boolean; convention: string }> = [
+  {
+    match: (t) => t.includes('Task') || t === 'bpmn:CallActivity',
+    convention:
+      'Use verb-object pattern (e.g. "Process Order", "Send Invoice", "Review Application")',
+  },
+  {
+    match: (t) => t.includes('Event') && !t.includes('Gateway'),
+    convention:
+      'Use object-participle or noun-state pattern (e.g. "Order Received", "Payment Completed", "Timeout Reached")',
+  },
+  {
+    match: (t) => t === 'bpmn:ExclusiveGateway' || t === 'bpmn:InclusiveGateway',
+    convention:
+      'Use a yes/no question ending with "?" (e.g. "Order valid?", "Payment successful?")',
+  },
+];
+
+/**
+ * Get a naming convention reminder when an element is created without a name.
+ * Returns `{ namingHint: string }` if applicable, or an empty object.
+ */
+export function getNamingHint(elementType: string, name?: string): { namingHint?: string } {
+  if (name) return {};
+  // Parallel gateways typically don't need naming
+  if (elementType === 'bpmn:ParallelGateway') return {};
+  for (const entry of NAMING_CATEGORIES) {
+    if (entry.match(elementType)) {
+      return { namingHint: entry.convention };
     }
   }
   return {};

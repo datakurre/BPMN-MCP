@@ -42,6 +42,7 @@ const CAMUNDA_DIRECT_PROPS = [
   'historyTimeToLive',
   'isStartableInTasklist',
   'versionTag',
+  'resource',
 ] as const;
 
 function serializeCamundaAttrs(bo: any): Record<string, any> | undefined {

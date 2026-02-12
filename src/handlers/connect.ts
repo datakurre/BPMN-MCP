@@ -285,6 +285,13 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
     diagramCounts: buildElementCounts(elementRegistry),
     message: `Connected ${sourceElementId} to ${targetElementId}`,
     ...(autoHint ? { hint: autoHint } : {}),
+    nextSteps: [
+      {
+        tool: 'layout_bpmn_diagram',
+        description:
+          'Arrange elements automatically after connecting — especially useful after multiple connections',
+      },
+    ],
   });
   return appendLintFeedback(result, diagram);
 }
@@ -336,6 +343,13 @@ async function handleChainConnect(diagramId: string, elementIds: string[]): Prom
     connections,
     diagramCounts: buildElementCounts(elementRegistry),
     message: `Created ${connections.length} sequential connection(s) between ${elementIds.length} elements`,
+    nextSteps: [
+      {
+        tool: 'layout_bpmn_diagram',
+        description:
+          'Arrange elements automatically after connecting — especially useful after multiple connections',
+      },
+    ],
   });
   return appendLintFeedback(result, diagram);
 }

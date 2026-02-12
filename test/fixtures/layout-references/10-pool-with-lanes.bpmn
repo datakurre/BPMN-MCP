@@ -22,7 +22,7 @@
       <bpmn:outgoing>Flow_1pda693</bpmn:outgoing>
     </bpmn:sendTask>
     <bpmn:sequenceFlow id="Flow_0b8esdu" sourceRef="Event_0rkf2lz" targetRef="Activity_0umkpno" />
-    <bpmn:endEvent id="Event_0qsv9hq" name="Order Completd">
+    <bpmn:endEvent id="Event_0qsv9hq" name="Order Completed">
       <bpmn:incoming>Flow_1g120lj</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_1g120lj" sourceRef="Activity_1mlpqg7" targetRef="Event_0qsv9hq" />
@@ -58,7 +58,7 @@
       <bpmndi:BPMNShape id="Event_0qsv9hq_di" bpmnElement="Event_0qsv9hq">
         <dc:Bounds x="632" y="432" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="611" y="475" width="79" height="14" />
+          <dc:Bounds x="608" y="475" width="85" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0n7jjtv_di" bpmnElement="Activity_1mlpqg7">

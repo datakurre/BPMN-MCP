@@ -141,6 +141,174 @@ function handleRetryTimeCycle(element: any, camundaProps: Record<string, any>, d
   }
 }
 
+/**
+ * Handle `camunda:connector` — creates/removes a camunda:Connector extension element
+ * with connectorId and optional nested inputOutput.
+ *
+ * Expected format: `{ connectorId: string, inputOutput?: { inputParameters?: [...], outputParameters?: [...] } }`
+ * Set to `null` or empty object to remove.
+ * Mutates `camundaProps` in-place (deletes the key after processing).
+ */
+function handleConnector(element: any, camundaProps: Record<string, any>, diagram: any): void {
+  if (!('camunda:connector' in camundaProps)) return;
+
+  const moddle = diagram.modeler.get('moddle');
+  const modeling = diagram.modeler.get('modeling');
+  const bo = element.businessObject;
+  const connectorDef = camundaProps['camunda:connector'];
+  delete camundaProps['camunda:connector'];
+
+  if (connectorDef == null || (typeof connectorDef === 'object' && !connectorDef.connectorId)) {
+    // Remove existing Connector
+    const extensionElements = bo.extensionElements;
+    if (extensionElements?.values) {
+      extensionElements.values = extensionElements.values.filter(
+        (v: any) => v.$type !== 'camunda:Connector'
+      );
+      modeling.updateProperties(element, { extensionElements });
+    }
+    return;
+  }
+
+  const connectorAttrs: Record<string, any> = {
+    connectorId: connectorDef.connectorId,
+  };
+
+  // Build nested InputOutput if provided
+  if (connectorDef.inputOutput) {
+    const ioAttrs: Record<string, any> = {};
+    if (connectorDef.inputOutput.inputParameters) {
+      ioAttrs.inputParameters = connectorDef.inputOutput.inputParameters.map(
+        (p: { name: string; value?: string }) =>
+          moddle.create('camunda:InputParameter', { name: p.name, value: p.value })
+      );
+    }
+    if (connectorDef.inputOutput.outputParameters) {
+      ioAttrs.outputParameters = connectorDef.inputOutput.outputParameters.map(
+        (p: { name: string; value?: string }) =>
+          moddle.create('camunda:OutputParameter', { name: p.name, value: p.value })
+      );
+    }
+    connectorAttrs.inputOutput = moddle.create('camunda:InputOutput', ioAttrs);
+  }
+
+  const connectorEl = moddle.create('camunda:Connector', connectorAttrs);
+  upsertExtensionElement(moddle, bo, modeling, element, 'camunda:Connector', connectorEl);
+}
+
+/**
+ * Handle `camunda:field` — creates camunda:Field extension elements on ServiceTaskLike elements.
+ *
+ * Expected format: array of `{ name: string, stringValue?: string, string?: string, expression?: string }`
+ * Set to `null` or empty array to remove all fields.
+ * Mutates `camundaProps` in-place (deletes the key after processing).
+ */
+function handleField(element: any, camundaProps: Record<string, any>, diagram: any): void {
+  if (!('camunda:field' in camundaProps)) return;
+
+  const moddle = diagram.modeler.get('moddle');
+  const modeling = diagram.modeler.get('modeling');
+  const bo = element.businessObject;
+  const fields = camundaProps['camunda:field'];
+  delete camundaProps['camunda:field'];
+
+  // Ensure extensionElements container exists
+  let extensionElements = bo.extensionElements;
+  if (!extensionElements) {
+    extensionElements = moddle.create('bpmn:ExtensionElements', { values: [] });
+    extensionElements.$parent = bo;
+  }
+
+  // Remove existing Field entries
+  extensionElements.values = (extensionElements.values || []).filter(
+    (v: any) => v.$type !== 'camunda:Field'
+  );
+
+  if (fields && Array.isArray(fields) && fields.length > 0) {
+    for (const f of fields) {
+      const attrs: Record<string, any> = { name: f.name };
+      if (f.stringValue != null) attrs.stringValue = f.stringValue;
+      if (f.string != null) attrs.string = f.string;
+      if (f.expression != null) attrs.expression = f.expression;
+      const fieldEl = moddle.create('camunda:Field', attrs);
+      fieldEl.$parent = extensionElements;
+      extensionElements.values.push(fieldEl);
+    }
+  }
+
+  modeling.updateProperties(element, { extensionElements });
+}
+
+/**
+ * Handle `camunda:properties` — creates camunda:Properties extension element with
+ * camunda:Property children for generic key-value metadata.
+ *
+ * Expected format: `Record<string, string>` (key-value pairs).
+ * Set to `null` or empty object to remove.
+ * Mutates `camundaProps` in-place (deletes the key after processing).
+ */
+function handleProperties(element: any, camundaProps: Record<string, any>, diagram: any): void {
+  if (!('camunda:properties' in camundaProps)) return;
+
+  const moddle = diagram.modeler.get('moddle');
+  const modeling = diagram.modeler.get('modeling');
+  const bo = element.businessObject;
+  const propsMap = camundaProps['camunda:properties'];
+  delete camundaProps['camunda:properties'];
+
+  if (propsMap == null || (typeof propsMap === 'object' && Object.keys(propsMap).length === 0)) {
+    // Remove existing Properties
+    const extensionElements = bo.extensionElements;
+    if (extensionElements?.values) {
+      extensionElements.values = extensionElements.values.filter(
+        (v: any) => v.$type !== 'camunda:Properties'
+      );
+      modeling.updateProperties(element, { extensionElements });
+    }
+    return;
+  }
+
+  const propertyValues = Object.entries(propsMap).map(([name, value]) =>
+    moddle.create('camunda:Property', { name, value: String(value) })
+  );
+
+  const propertiesEl = moddle.create('camunda:Properties', { values: propertyValues });
+  upsertExtensionElement(moddle, bo, modeling, element, 'camunda:Properties', propertiesEl);
+}
+
+// ── Contextual hints ───────────────────────────────────────────────────────
+
+/**
+ * Build contextual next-step hints based on properties that were set.
+ */
+function buildPropertyHints(
+  props: Record<string, any>,
+  camundaProps: Record<string, any>,
+  element: any
+): Array<{ tool: string; description: string }> {
+  const hints: Array<{ tool: string; description: string }> = [];
+
+  if (props['triggeredByEvent'] === true) {
+    hints.push({
+      tool: 'add_bpmn_element',
+      description:
+        'Add a start event with an event definition (timer, message, error, signal) inside the event subprocess',
+    });
+  }
+
+  if (camundaProps['camunda:topic'] || camundaProps['camunda:class']) {
+    if (!props['camunda:asyncBefore'] && !element.businessObject?.asyncBefore) {
+      hints.push({
+        tool: 'set_bpmn_element_properties',
+        description:
+          'Consider setting camunda:asyncBefore=true for reliable execution with external tasks or Java delegates',
+      });
+    }
+  }
+
+  return hints;
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 export async function handleSetProperties(args: SetPropertiesArgs): Promise<ToolResult> {
@@ -177,6 +345,15 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
   // Handle `camunda:retryTimeCycle` — creates camunda:FailedJobRetryTimeCycle extension element
   handleRetryTimeCycle(element, camundaProps, diagram);
 
+  // Handle `camunda:connector` — creates camunda:Connector extension element
+  handleConnector(element, camundaProps, diagram);
+
+  // Handle `camunda:field` — creates camunda:Field extension elements
+  handleField(element, camundaProps, diagram);
+
+  // Handle `camunda:properties` — creates camunda:Properties extension element
+  handleProperties(element, camundaProps, diagram);
+
   // Handle `documentation` — creates/updates bpmn:documentation child element
   if ('documentation' in standardProps) {
     const moddle = diagram.modeler.get('moddle');
@@ -205,6 +382,9 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
 
   await syncXml(diagram);
 
+  // Build contextual hints based on what was set
+  const hints = buildPropertyHints(props, camundaProps, element);
+
   const result = jsonResult({
     success: true,
     elementId: element.id,
@@ -213,6 +393,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
     ...(element.id !== elementId
       ? { note: `Element ID changed from ${elementId} to ${element.id}` }
       : {}),
+    ...(hints.length > 0 ? { nextSteps: hints } : {}),
   });
   return appendLintFeedback(result, diagram);
 }
@@ -220,7 +401,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
 export const TOOL_DEFINITION = {
   name: 'set_bpmn_element_properties',
   description:
-    "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable, documentation) and Camunda extensions (e.g. camunda:assignee, camunda:candidateUsers, camunda:candidateGroups, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:expression, camunda:asyncBefore, camunda:asyncAfter, camunda:topic, camunda:type). UserTask-specific: camunda:dueDate, camunda:followUpDate, camunda:priority. Process-specific: camunda:historyTimeToLive, camunda:candidateStarterGroups, camunda:candidateStarterUsers, camunda:versionTag, camunda:isStartableInTasklist. CallActivity: camunda:calledElementBinding, camunda:calledElementVersion, camunda:calledElementVersionTag. BusinessRuleTask (DMN): camunda:decisionRef, camunda:decisionRefBinding, camunda:mapDecisionResult. StartEvent: camunda:initiator. Supports camunda:retryTimeCycle to create a camunda:FailedJobRetryTimeCycle extension element (e.g. 'R3/PT10M'). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). Supports `isExpanded` on SubProcess elements — properly toggles between expanded (inline children) and collapsed (drilldown plane) via element replacement. For loop characteristics, use the dedicated set_loop_characteristics tool.",
+    "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable, documentation) and Camunda extensions (e.g. camunda:assignee, camunda:candidateUsers, camunda:candidateGroups, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:expression, camunda:asyncBefore, camunda:asyncAfter, camunda:topic, camunda:type). UserTask-specific: camunda:dueDate, camunda:followUpDate, camunda:priority. Process-specific: camunda:historyTimeToLive, camunda:candidateStarterGroups, camunda:candidateStarterUsers, camunda:versionTag, camunda:isStartableInTasklist. CallActivity: camunda:calledElementBinding, camunda:calledElementVersion, camunda:calledElementVersionTag. BusinessRuleTask (DMN): camunda:decisionRef, camunda:decisionRefBinding, camunda:mapDecisionResult. StartEvent: camunda:initiator. Supports camunda:retryTimeCycle to create a camunda:FailedJobRetryTimeCycle extension element (e.g. 'R3/PT10M'). Supports camunda:connector to create a camunda:Connector extension element (e.g. { connectorId: 'http-connector', inputOutput: { inputParameters: [{ name: 'url', value: 'https://...' }] } }). Supports camunda:field for field injection on ServiceTask/SendTask/BusinessRuleTask (array of { name, stringValue?, string?, expression? }). Supports camunda:properties for generic key-value properties on any element (object of { key: value } pairs). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). Supports `isExpanded` on SubProcess elements — properly toggles between expanded (inline children) and collapsed (drilldown plane) via element replacement. For loop characteristics, use the dedicated set_loop_characteristics tool.",
   inputSchema: {
     type: 'object',
     properties: {

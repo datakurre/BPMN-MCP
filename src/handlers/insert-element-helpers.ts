@@ -6,6 +6,7 @@
 
 import { STANDARD_BPMN_GAP } from '../constants';
 import { buildElementCounts } from './helpers';
+import { getTypeSpecificHints } from './type-hints';
 
 /**
  * Detect elements that overlap with the newly inserted element.
@@ -101,7 +102,15 @@ export function buildInsertResult(opts: {
     ],
     diagramCounts: buildElementCounts(opts.elementRegistry),
     message: `Inserted ${opts.elementType}${opts.elementName ? ` "${opts.elementName}"` : ''} between ${opts.sourceId} and ${opts.targetId}`,
+    ...getTypeSpecificHints(opts.elementType),
   };
+  // Append layout hint as an additional next step
+  if (!data.nextSteps) data.nextSteps = [];
+  data.nextSteps.push({
+    tool: 'layout_bpmn_diagram',
+    description:
+      'Re-layout after insertion \u2014 use elementIds for partial re-layout of affected elements',
+  });
   if (opts.shiftApplied > 0) {
     data.shiftApplied = opts.shiftApplied;
     data.shiftNote = 'Downstream elements shifted right to make space';

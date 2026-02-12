@@ -10,6 +10,79 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from './helpers';
 import { appendLintFeedback } from '../linter';
 
+/** Build contextual hints for multi-instance loop characteristics. */
+function buildLoopHints(
+  loopType: string,
+  options: { collection?: string; elementVariable?: string; completionCondition?: string }
+): Array<{ tool: string; description: string }> {
+  const hints: Array<{ tool: string; description: string }> = [];
+  if (
+    (loopType === 'parallel' || loopType === 'sequential') &&
+    options.collection &&
+    !options.elementVariable
+  ) {
+    hints.push({
+      tool: 'set_bpmn_loop_characteristics',
+      description:
+        'Consider setting elementVariable to name the loop iteration variable (current item from the collection)',
+    });
+  }
+  if (loopType === 'parallel' && !options.completionCondition) {
+    hints.push({
+      tool: 'set_bpmn_loop_characteristics',
+      description:
+        'Consider setting completionCondition to allow early completion (e.g. "${nrOfCompletedInstances >= 2}")',
+    });
+  }
+  return hints;
+}
+
+/** Build a StandardLoopCharacteristics moddle element. */
+function buildStandardLoop(
+  moddle: any,
+  options: { loopCondition?: string; loopMaximum?: number }
+): any {
+  const loopChar = moddle.create('bpmn:StandardLoopCharacteristics', {});
+  if (options.loopCondition) {
+    loopChar.loopCondition = moddle.create('bpmn:FormalExpression', {
+      body: options.loopCondition,
+    });
+  }
+  if (options.loopMaximum !== undefined) {
+    loopChar.loopMaximum = options.loopMaximum;
+  }
+  return loopChar;
+}
+
+/** Build a MultiInstanceLoopCharacteristics moddle element. */
+function buildMultiInstanceLoop(
+  moddle: any,
+  isSequential: boolean,
+  options: {
+    loopCardinality?: string;
+    completionCondition?: string;
+    collection?: string;
+    elementVariable?: string;
+  }
+): any {
+  const loopChar = moddle.create('bpmn:MultiInstanceLoopCharacteristics', {
+    isSequential,
+  });
+  if (options.loopCardinality) {
+    loopChar.loopCardinality = moddle.create('bpmn:FormalExpression', {
+      body: options.loopCardinality,
+    });
+  }
+  if (options.completionCondition) {
+    loopChar.completionCondition = moddle.create('bpmn:FormalExpression', {
+      body: options.completionCondition,
+    });
+  }
+  if (options.collection) loopChar.collection = options.collection;
+  if (options.elementVariable) loopChar.elementVariable = options.elementVariable;
+  return loopChar;
+}
+
 export interface SetLoopCharacteristicsArgs {
   diagramId: string;
   elementId: string;
@@ -65,35 +138,9 @@ export async function handleSetLoopCharacteristics(
   }
 
   if (loopType === 'standard') {
-    loopChar = moddle.create('bpmn:StandardLoopCharacteristics', {});
-    if (options.loopCondition) {
-      loopChar.loopCondition = moddle.create('bpmn:FormalExpression', {
-        body: options.loopCondition,
-      });
-    }
-    if (options.loopMaximum !== undefined) {
-      loopChar.loopMaximum = options.loopMaximum;
-    }
+    loopChar = buildStandardLoop(moddle, options);
   } else if (loopType === 'parallel' || loopType === 'sequential') {
-    loopChar = moddle.create('bpmn:MultiInstanceLoopCharacteristics', {
-      isSequential: loopType === 'sequential',
-    });
-    if (options.loopCardinality) {
-      loopChar.loopCardinality = moddle.create('bpmn:FormalExpression', {
-        body: options.loopCardinality,
-      });
-    }
-    if (options.completionCondition) {
-      loopChar.completionCondition = moddle.create('bpmn:FormalExpression', {
-        body: options.completionCondition,
-      });
-    }
-    if (options.collection) {
-      loopChar.collection = options.collection;
-    }
-    if (options.elementVariable) {
-      loopChar.elementVariable = options.elementVariable;
-    }
+    loopChar = buildMultiInstanceLoop(moddle, loopType === 'sequential', options);
   } else {
     throw new McpError(
       ErrorCode.InvalidRequest,
@@ -104,11 +151,14 @@ export async function handleSetLoopCharacteristics(
   modeling.updateProperties(element, { loopCharacteristics: loopChar });
   await syncXml(diagram);
 
+  const hints = buildLoopHints(loopType, options);
+
   const result = jsonResult({
     success: true,
     elementId,
     loopType,
     message: `Set ${loopType} loop characteristics on ${elementId}`,
+    ...(hints.length > 0 ? { nextSteps: hints } : {}),
   });
   return appendLintFeedback(result, diagram);
 }
