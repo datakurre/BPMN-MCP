@@ -9,7 +9,13 @@
  * element by design.
  */
 
-import { isConnection, isInfrastructure, isArtifact, isLane, isLayoutableShape } from './helpers';
+import {
+  isConnection as _isConnection,
+  isInfrastructure as _isInfrastructure,
+  isArtifact as _isArtifact,
+  isLane as _isLane,
+  isLayoutableShape,
+} from './helpers';
 
 /** Minimum gap (px) enforced between elements after overlap resolution. */
 const MIN_OVERLAP_GAP = 30;

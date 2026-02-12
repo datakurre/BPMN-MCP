@@ -304,6 +304,49 @@ export function getVisibleElements(elementRegistry: any): any[] {
   );
 }
 
+// ── Element type classification ────────────────────────────────────────────
+
+/** Connection types (sequence flows, message flows, associations). */
+const CONNECTION_TYPES = new Set([
+  'bpmn:SequenceFlow',
+  'bpmn:MessageFlow',
+  'bpmn:DataInputAssociation',
+  'bpmn:DataOutputAssociation',
+  'bpmn:Association',
+]);
+
+/** Container / structural types that are not flow elements. */
+const CONTAINER_TYPES = new Set(['bpmn:Participant', 'bpmn:Lane', 'bpmn:Group']);
+
+/**
+ * Check if an element is a connection (flow/association).
+ * Useful for filtering elements to only flow nodes.
+ */
+export function isConnectionElement(type: string): boolean {
+  return CONNECTION_TYPES.has(type);
+}
+
+/**
+ * Check if an element is a container or structural element (pool, lane, group).
+ * These are not flow elements and should be excluded from most counts.
+ */
+export function isContainerElement(type: string): boolean {
+  return CONTAINER_TYPES.has(type);
+}
+
+/**
+ * Check if an element is "infrastructure" — a connection, container, or
+ * structural element that is not a flow node (task, event, gateway, etc.).
+ *
+ * This consolidates the repeated filter pattern:
+ * `is('bpmn:SequenceFlow') || is('bpmn:MessageFlow') || is('bpmn:Association') ||
+ *  is('bpmn:Participant') || is('bpmn:Lane') || is('bpmn:Group')`
+ * which appeared in 4+ handler files.
+ */
+export function isInfrastructureElement(type: string): boolean {
+  return CONNECTION_TYPES.has(type) || CONTAINER_TYPES.has(type);
+}
+
 // ── Element count summary ──────────────────────────────────────────────────
 
 /**

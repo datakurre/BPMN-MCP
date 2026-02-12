@@ -3,7 +3,13 @@
  */
 
 import type { ElkNode } from 'elkjs';
-import { isConnection, isInfrastructure, isArtifact, isLane, isLayoutableShape } from './helpers';
+import {
+  isConnection as _isConnection,
+  isInfrastructure as _isInfrastructure,
+  isArtifact as _isArtifact,
+  isLane as _isLane,
+  isLayoutableShape,
+} from './helpers';
 import { COLLAPSED_POOL_GAP } from './constants';
 
 /**

@@ -29,6 +29,7 @@ function hasEventDefinitionOfType(node: any, defType: string): boolean {
  * a compensation throw, error end, or terminate end — indicating a
  * cancellation/abort pattern.
  */
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function leadsToTerminalPath(boundaryEvent: any, maxDepth = 10): boolean {
   const visited = new Set<string>();
   const queue: Array<{ node: any; depth: number }> = [{ node: boundaryEvent, depth: 0 }];

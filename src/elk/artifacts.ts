@@ -6,8 +6,25 @@
  * their associated flow elements after layout.
  */
 
-import { ARTIFACT_BELOW_OFFSET, ARTIFACT_ABOVE_OFFSET } from './constants';
-import { isConnection, isInfrastructure, isArtifact, isLayoutableShape } from './helpers';
+import {
+  ARTIFACT_BELOW_OFFSET,
+  ARTIFACT_ABOVE_OFFSET,
+  ARTIFACT_BELOW_MIN,
+  ARTIFACT_ABOVE_MIN,
+  ARTIFACT_PADDING,
+  ARTIFACT_NEGATIVE_PADDING,
+  ARTIFACT_SEARCH_HEIGHT,
+  BPMN_TASK_WIDTH,
+  BPMN_DUMMY_HEIGHT,
+  CENTER_FACTOR,
+  MOVEMENT_THRESHOLD,
+} from './constants';
+import {
+  isConnection as _isConnection,
+  isInfrastructure as _isInfrastructure,
+  isArtifact,
+  isLayoutableShape,
+} from './helpers';
 
 /**
  * Find the flow element linked to an artifact via an association.
@@ -36,23 +53,26 @@ function findLinkedFlowElement(artifact: any, associations: any[]): any {
  * - Unlinked artifacts positioned below the flow bounding box
  */
 
-export function repositionArtifacts(elementRegistry: any, modeling: any): void {
-  const artifacts = elementRegistry.filter((el: any) => isArtifact(el.type));
-  if (artifacts.length === 0) return;
+interface FlowBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
 
-  const associations = elementRegistry.filter(
-    (el: any) =>
-      el.type === 'bpmn:Association' ||
-      el.type === 'bpmn:DataInputAssociation' ||
-      el.type === 'bpmn:DataOutputAssociation'
-  );
+interface OccupiedRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
-  // Compute flow bounding box (for unlinked artifact fallback)
-  const flowElements = elementRegistry.filter((el: any) => el.type && isLayoutableShape(el));
-  let flowMaxY = 200;
+function computeFlowBounds(flowElements: any[]): FlowBounds {
+  let flowMaxY = ARTIFACT_SEARCH_HEIGHT;
   let flowMinY = Infinity;
   let flowMinX = Infinity;
   let flowMaxX = -Infinity;
+
   for (const el of flowElements) {
     const bottom = el.y + (el.height || 0);
     const right = el.x + (el.width || 0);
@@ -61,10 +81,17 @@ export function repositionArtifacts(elementRegistry: any, modeling: any): void {
     if (el.x < flowMinX) flowMinX = el.x;
     if (right > flowMaxX) flowMaxX = right;
   }
-  if (flowMinY === Infinity) flowMinY = 80;
-  if (flowMinX === Infinity) flowMinX = 150;
 
-  // Group artifacts by their linked element to handle multiple artifacts per element
+  if (flowMinY === Infinity) flowMinY = ARTIFACT_BELOW_MIN;
+  if (flowMinX === Infinity) flowMinX = ARTIFACT_ABOVE_MIN;
+
+  return { minX: flowMinX, minY: flowMinY, maxX: flowMaxX, maxY: flowMaxY };
+}
+
+function groupArtifactsByLinkedElement(
+  artifacts: any[],
+  associations: any[]
+): { linked: Map<string, any[]>; unlinked: any[] } {
   const artifactsByLinkedElement = new Map<string, any[]>();
   const unlinkedArtifacts: any[] = [];
 
@@ -79,20 +106,67 @@ export function repositionArtifacts(elementRegistry: any, modeling: any): void {
     }
   }
 
-  const occupiedRects: Array<{ x: number; y: number; w: number; h: number }> = [];
+  return { linked: artifactsByLinkedElement, unlinked: unlinkedArtifacts };
+}
 
-  // Position linked artifacts — spread horizontally when multiple share the same element
+function resolveOverlap(
+  pos: { x: number; y: number },
+  w: number,
+  h: number,
+  isAnnotation: boolean,
+  occupiedRects: OccupiedRect[],
+  flowMaxX: number
+): void {
+  for (const rect of occupiedRects) {
+    if (
+      pos.x < rect.x + rect.w &&
+      pos.x + w > rect.x &&
+      pos.y < rect.y + rect.h &&
+      pos.y + h > rect.y
+    ) {
+      const rightShift = rect.x + rect.w + ARTIFACT_PADDING;
+      const vertShift = isAnnotation
+        ? rect.y - h - ARTIFACT_PADDING
+        : rect.y + rect.h + ARTIFACT_PADDING;
+
+      if (rightShift + w <= flowMaxX + ARTIFACT_SEARCH_HEIGHT) {
+        pos.x = rightShift;
+      } else {
+        pos.y = vertShift;
+      }
+    }
+  }
+}
+
+function moveArtifactIfNeeded(artifact: any, pos: { x: number; y: number }, modeling: any): void {
+  const dx = pos.x - artifact.x;
+  const dy = pos.y - artifact.y;
+  if (Math.abs(dx) > MOVEMENT_THRESHOLD || Math.abs(dy) > MOVEMENT_THRESHOLD) {
+    modeling.moveElements([artifact], { x: dx, y: dy });
+  }
+}
+
+function positionLinkedArtifacts(
+  artifactsByLinkedElement: Map<string, any[]>,
+  elementRegistry: any,
+  modeling: any,
+  occupiedRects: OccupiedRect[],
+  flowMaxX: number
+): void {
   for (const [linkedId, group] of artifactsByLinkedElement) {
     const linkedElement = elementRegistry.get(linkedId);
     if (!linkedElement) continue;
 
-    const linkCx = linkedElement.x + (linkedElement.width || 0) / 2;
-    const totalWidth = group.reduce((sum: number, a: any) => sum + (a.width || 100) + 20, -20);
-    let startX = linkCx - totalWidth / 2;
+    const linkCx = linkedElement.x + (linkedElement.width || 0) * CENTER_FACTOR;
+    const totalWidth = group.reduce(
+      (sum: number, a: any) => sum + (a.width || BPMN_TASK_WIDTH) + ARTIFACT_PADDING,
+      ARTIFACT_NEGATIVE_PADDING
+    );
+    let startX = linkCx - totalWidth * CENTER_FACTOR;
 
     for (const artifact of group) {
-      const w = artifact.width || 100;
-      const h = artifact.height || 30;
+      const w = artifact.width || BPMN_TASK_WIDTH;
+      const h = artifact.height || BPMN_DUMMY_HEIGHT;
       const isAnnotation = artifact.type === 'bpmn:TextAnnotation';
 
       const pos = {
@@ -101,47 +175,32 @@ export function repositionArtifacts(elementRegistry: any, modeling: any): void {
           ? linkedElement.y - h - ARTIFACT_ABOVE_OFFSET
           : linkedElement.y + (linkedElement.height || 0) + ARTIFACT_BELOW_OFFSET,
       };
-      startX += w + 20;
+      startX += w + ARTIFACT_PADDING;
 
-      // Avoid overlap with previously placed artifacts (both vertical and horizontal)
-      for (const rect of occupiedRects) {
-        if (
-          pos.x < rect.x + rect.w &&
-          pos.x + w > rect.x &&
-          pos.y < rect.y + rect.h &&
-          pos.y + h > rect.y
-        ) {
-          // Try shifting horizontally first, then vertically
-          const rightShift = rect.x + rect.w + 20;
-          const vertShift = isAnnotation ? rect.y - h - 20 : rect.y + rect.h + 20;
-
-          if (rightShift + w <= flowMaxX + 200) {
-            pos.x = rightShift;
-          } else {
-            pos.y = vertShift;
-          }
-        }
-      }
-
-      const dx = pos.x - artifact.x;
-      const dy = pos.y - artifact.y;
-      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-        modeling.moveElements([artifact], { x: dx, y: dy });
-      }
-
+      resolveOverlap(pos, w, h, isAnnotation, occupiedRects, flowMaxX);
+      moveArtifactIfNeeded(artifact, pos, modeling);
       occupiedRects.push({ x: pos.x, y: pos.y, w, h });
     }
   }
+}
 
-  // Position unlinked artifacts outside the flow bounding box
-  let unlinkedX = flowMinX;
+function positionUnlinkedArtifacts(
+  unlinkedArtifacts: any[],
+  bounds: FlowBounds,
+  modeling: any,
+  occupiedRects: OccupiedRect[]
+): void {
+  let unlinkedX = bounds.minX;
+
   for (const artifact of unlinkedArtifacts) {
-    const w = artifact.width || 100;
-    const h = artifact.height || 30;
+    const w = artifact.width || BPMN_TASK_WIDTH;
+    const h = artifact.height || BPMN_DUMMY_HEIGHT;
     const isAnnotation = artifact.type === 'bpmn:TextAnnotation';
     const pos = {
       x: unlinkedX,
-      y: isAnnotation ? flowMinY - h - ARTIFACT_ABOVE_OFFSET : flowMaxY + ARTIFACT_BELOW_OFFSET,
+      y: isAnnotation
+        ? bounds.minY - h - ARTIFACT_ABOVE_OFFSET
+        : bounds.maxY + ARTIFACT_BELOW_OFFSET,
     };
 
     // Avoid overlap
@@ -152,17 +211,32 @@ export function repositionArtifacts(elementRegistry: any, modeling: any): void {
         pos.y < rect.y + rect.h &&
         pos.y + h > rect.y
       ) {
-        pos.y = isAnnotation ? rect.y - h - 20 : rect.y + rect.h + 20;
+        pos.y = isAnnotation ? rect.y - h - ARTIFACT_PADDING : rect.y + rect.h + ARTIFACT_PADDING;
       }
     }
 
-    const dx = pos.x - artifact.x;
-    const dy = pos.y - artifact.y;
-    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-      modeling.moveElements([artifact], { x: dx, y: dy });
-    }
-
+    moveArtifactIfNeeded(artifact, pos, modeling);
     occupiedRects.push({ x: pos.x, y: pos.y, w, h });
-    unlinkedX += w + 20;
+    unlinkedX += w + ARTIFACT_PADDING;
   }
+}
+
+export function repositionArtifacts(elementRegistry: any, modeling: any): void {
+  const artifacts = elementRegistry.filter((el: any) => isArtifact(el.type));
+  if (artifacts.length === 0) return;
+
+  const associations = elementRegistry.filter(
+    (el: any) =>
+      el.type === 'bpmn:Association' ||
+      el.type === 'bpmn:DataInputAssociation' ||
+      el.type === 'bpmn:DataOutputAssociation'
+  );
+
+  const flowElements = elementRegistry.filter((el: any) => el.type && isLayoutableShape(el));
+  const bounds = computeFlowBounds(flowElements);
+  const { linked, unlinked } = groupArtifactsByLinkedElement(artifacts, associations);
+  const occupiedRects: OccupiedRect[] = [];
+
+  positionLinkedArtifacts(linked, elementRegistry, modeling, occupiedRects, bounds.maxX);
+  positionUnlinkedArtifacts(unlinked, bounds, modeling, occupiedRects);
 }

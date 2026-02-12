@@ -35,7 +35,18 @@ import {
   ORIGIN_OFFSET_X,
   ORIGIN_OFFSET_Y,
   ELK_HIGH_PRIORITY,
+  START_OFFSET_X,
+  START_OFFSET_Y,
+  BPMN_TASK_WIDTH,
+  BPMN_TASK_HEIGHT,
+  BPMN_DUMMY_HEIGHT,
 } from './constants';
+import {
+  ELK_COMPACT_NODE_SPACING,
+  ELK_COMPACT_LAYER_SPACING,
+  ELK_SPACIOUS_NODE_SPACING,
+  ELK_SPACIOUS_LAYER_SPACING,
+} from '../constants.js';
 import { buildContainerGraph } from './graph-builder';
 import {
   applyElkPositions,
@@ -43,6 +54,7 @@ import {
   centreElementsInPools,
   reorderCollapsedPoolsBelow,
 } from './position-application';
+import { repositionLanes, saveLaneNodeAssignments } from './lane-layout';
 import {
   repositionBoundaryEvents,
   saveBoundaryEventData,
@@ -123,13 +135,13 @@ function resolveLayoutOptions(options?: ElkLayoutOptions): {
   // Apply compactness presets (overridden by explicit nodeSpacing/layerSpacing)
   let effectiveLayerSpacing: number | undefined;
   if (options?.compactness === 'compact') {
-    layoutOptions['elk.spacing.nodeNode'] = '40';
-    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '50';
-    effectiveLayerSpacing = 50;
+    layoutOptions['elk.spacing.nodeNode'] = String(ELK_COMPACT_NODE_SPACING);
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = String(ELK_COMPACT_LAYER_SPACING);
+    effectiveLayerSpacing = ELK_COMPACT_LAYER_SPACING;
   } else if (options?.compactness === 'spacious') {
-    layoutOptions['elk.spacing.nodeNode'] = '80';
-    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = '100';
-    effectiveLayerSpacing = 100;
+    layoutOptions['elk.spacing.nodeNode'] = String(ELK_SPACIOUS_NODE_SPACING);
+    layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'] = String(ELK_SPACIOUS_LAYER_SPACING);
+    effectiveLayerSpacing = ELK_SPACIOUS_LAYER_SPACING;
   }
 
   // Explicit spacing values override compactness presets
@@ -264,6 +276,11 @@ export async function elkLayout(
     offsetY = ORIGIN_OFFSET_Y;
   }
 
+  // Save lane → flow-node assignments before any moves — bpmn-js's
+  // modeling.moveElements mutates lane.businessObject.flowNodeRef when
+  // nodes cross lane boundaries during layout passes.
+  const laneSnapshots = saveLaneNodeAssignments(elementRegistry);
+
   // Save boundary event data before any moves — headless mode can
   // corrupt boundary event types during modeling.moveElements.
   const boundarySnapshots = saveBoundaryEventData(elementRegistry);
@@ -356,6 +373,12 @@ export async function elkLayout(
   // not be vertically centred.  This pass shifts elements to be centred
   // within each pool's usable area.
   centreElementsInPools(elementRegistry, modeling);
+
+  // Step 5.75: Reposition lanes inside participant pools.
+  // Lanes are excluded from ELK layout — they are structural containers.
+  // After flow nodes are positioned, resize each lane to encompass its
+  // assigned flow nodes (from bpmn:Lane.flowNodeRef).
+  repositionLanes(elementRegistry, modeling, laneSnapshots);
 
   // Step 5.8: Ensure collapsed pools are below expanded pools.
   // ELK may place collapsed participants above expanded ones; this pass
@@ -530,8 +553,8 @@ export async function elkLayoutSubset(
   // Build ELK children nodes
   const children: ElkNode[] = shapes.map((s: any) => ({
     id: s.id,
-    width: s.width || 100,
-    height: s.height || 80,
+    width: s.width || BPMN_TASK_WIDTH,
+    height: s.height || BPMN_TASK_HEIGHT,
   }));
 
   // Add linked artifacts as pinned ELK nodes (fixed position) so the
@@ -542,8 +565,8 @@ export async function elkLayoutSubset(
     if (!art) continue;
     children.push({
       id: art.id,
-      width: art.width || 100,
-      height: art.height || 30,
+      width: art.width || BPMN_TASK_WIDTH,
+      height: art.height || BPMN_DUMMY_HEIGHT,
       layoutOptions: {
         'elk.position': `(${art.x}, ${art.y})`,
         'org.eclipse.elk.noLayout': 'true',
@@ -595,8 +618,8 @@ export async function elkLayoutSubset(
   let minY = Infinity;
   if (sharedContainer) {
     // Offset inside the container with padding
-    minX = sharedContainer.x + 20;
-    minY = sharedContainer.y + 50;
+    minX = sharedContainer.x + START_OFFSET_X;
+    minY = sharedContainer.y + START_OFFSET_Y;
   } else {
     for (const s of shapes) {
       if (s.x < minX) minX = s.x;

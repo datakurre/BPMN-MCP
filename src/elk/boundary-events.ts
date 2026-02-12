@@ -12,6 +12,19 @@
  * layout operations.
  */
 
+import {
+  BPMN_TASK_WIDTH,
+  BPMN_TASK_HEIGHT,
+  BPMN_EVENT_SIZE,
+  GATEWAY_UPPER_SPLIT_FACTOR,
+  CENTER_FACTOR,
+  BOUNDARY_TARGET_ROW_BUFFER,
+  BOUNDARY_MIN_MOVE_DELTA,
+} from './constants';
+
+/** BPMN type string for boundary events. */
+const BPMN_BOUNDARY_EVENT_TYPE = 'bpmn:BoundaryEvent';
+
 /** Snapshot of a boundary event's identity before layout. */
 export interface BoundaryEventSnapshot {
   elementId: string;
@@ -26,7 +39,7 @@ export interface BoundaryEventSnapshot {
  */
 export function saveBoundaryEventData(elementRegistry: any): BoundaryEventSnapshot[] {
   return elementRegistry
-    .filter((el: any) => el.type === 'bpmn:BoundaryEvent' && el.host)
+    .filter((el: any) => el.type === BPMN_BOUNDARY_EVENT_TYPE && el.host)
     .map((be: any) => ({
       elementId: be.id,
       hostId: be.host.id,
@@ -53,8 +66,8 @@ export function restoreBoundaryEventData(
     if (!host) continue;
 
     // Restore shape type
-    if (el.type !== 'bpmn:BoundaryEvent') {
-      el.type = 'bpmn:BoundaryEvent';
+    if (el.type !== BPMN_BOUNDARY_EVENT_TYPE) {
+      el.type = BPMN_BOUNDARY_EVENT_TYPE;
     }
 
     // Restore business object type.
@@ -105,11 +118,11 @@ function chooseBoundaryBorder(be: any, host: any): 'top' | 'bottom' | 'left' | '
     const target = flow.target;
     if (!target || target.x == null || target.y == null) continue;
 
-    const hostCx = host.x + (host.width || 100) / 2;
-    const hostCy = host.y + (host.height || 80) / 2;
-    const hostH = host.height || 80;
-    const targetCx = target.x + (target.width || 36) / 2;
-    const targetCy = target.y + (target.height || 36) / 2;
+    const hostCx = host.x + (host.width || BPMN_TASK_WIDTH) / 2;
+    const hostCy = host.y + (host.height || BPMN_TASK_HEIGHT) / 2;
+    const hostH = host.height || BPMN_TASK_HEIGHT;
+    const targetCx = target.x + (target.width || BPMN_EVENT_SIZE) / 2;
+    const targetCy = target.y + (target.height || BPMN_EVENT_SIZE) / 2;
 
     const dx = targetCx - hostCx;
     const dy = targetCy - hostCy;
@@ -144,18 +157,18 @@ function computeBoundaryPosition(
   host: any,
   border: 'top' | 'bottom' | 'left' | 'right'
 ): { cx: number; cy: number } {
-  const hostW = host.width || 100;
-  const hostH = host.height || 80;
+  const hostW = host.width || BPMN_TASK_WIDTH;
+  const hostH = host.height || BPMN_TASK_HEIGHT;
 
   switch (border) {
     case 'top':
-      return { cx: host.x + hostW * 0.67, cy: host.y };
+      return { cx: host.x + hostW * GATEWAY_UPPER_SPLIT_FACTOR, cy: host.y };
     case 'bottom':
-      return { cx: host.x + hostW * 0.5, cy: host.y + hostH };
+      return { cx: host.x + hostW * CENTER_FACTOR, cy: host.y + hostH };
     case 'left':
-      return { cx: host.x, cy: host.y + hostH * 0.67 };
+      return { cx: host.x, cy: host.y + hostH * GATEWAY_UPPER_SPLIT_FACTOR };
     case 'right':
-      return { cx: host.x + hostW, cy: host.y + hostH * 0.67 };
+      return { cx: host.x + hostW, cy: host.y + hostH * GATEWAY_UPPER_SPLIT_FACTOR };
   }
 }
 
@@ -189,7 +202,7 @@ export function repositionBoundaryEvents(
 
   // Find boundary events: prefer type-based filter, but also check
   // snapshots for elements whose type was corrupted.
-  const byType = elementRegistry.filter((el: any) => el.type === 'bpmn:BoundaryEvent');
+  const byType = elementRegistry.filter((el: any) => el.type === BPMN_BOUNDARY_EVENT_TYPE);
   const foundIds = new Set(byType.map((el: any) => el.id));
   const boundaryEvents: any[] = [...byType];
 
@@ -209,14 +222,14 @@ export function repositionBoundaryEvents(
   // Ensure boundary events retain their correct type (headless mode can
   // accidentally change types during bulk moves)
   for (const be of boundaryEvents) {
-    if (be.type !== 'bpmn:BoundaryEvent') {
-      be.type = 'bpmn:BoundaryEvent';
+    if (be.type !== BPMN_BOUNDARY_EVENT_TYPE) {
+      be.type = BPMN_BOUNDARY_EVENT_TYPE;
     }
     const bo = be.businessObject;
-    if (bo && bo.$type !== 'bpmn:BoundaryEvent') {
+    if (bo && bo.$type !== BPMN_BOUNDARY_EVENT_TYPE) {
       try {
         Object.defineProperty(bo, '$type', {
-          value: 'bpmn:BoundaryEvent',
+          value: BPMN_BOUNDARY_EVENT_TYPE,
           writable: true,
           enumerable: false,
           configurable: true,
@@ -231,8 +244,8 @@ export function repositionBoundaryEvents(
     const host = be.host;
     if (!host) continue;
 
-    const beW = be.width || 36;
-    const beH = be.height || 36;
+    const beW = be.width || BPMN_EVENT_SIZE;
+    const beH = be.height || BPMN_EVENT_SIZE;
     const beCx = be.x + beW / 2;
     const beCy = be.y + beH / 2;
 
@@ -241,8 +254,8 @@ export function repositionBoundaryEvents(
     let needsReposition = forceReposition;
 
     if (!needsReposition) {
-      const hostRight = host.x + (host.width || 100);
-      const hostBottom = host.y + (host.height || 80);
+      const hostRight = host.x + (host.width || BPMN_TASK_WIDTH);
+      const hostBottom = host.y + (host.height || BPMN_TASK_HEIGHT);
       const tolerance = 60;
 
       needsReposition = !(
@@ -315,7 +328,7 @@ export function identifyBoundaryLeafTargets(allElements: any[], container: any):
 
   const boundaryEventIds = new Set(
     allElements
-      .filter((el: any) => el.parent === container && el.type === 'bpmn:BoundaryEvent')
+      .filter((el: any) => el.parent === container && el.type === BPMN_BOUNDARY_EVENT_TYPE)
       .map((el: any) => el.id)
   );
 
@@ -377,7 +390,7 @@ export function repositionBoundaryEventTargets(
   if (excludedIds.size === 0) return;
 
   const boundaryEvents = elementRegistry.filter(
-    (el: any) => el.type === 'bpmn:BoundaryEvent' && el.host
+    (el: any) => el.type === BPMN_BOUNDARY_EVENT_TYPE && el.host
   );
 
   for (const be of boundaryEvents) {
@@ -388,10 +401,10 @@ export function repositionBoundaryEventTargets(
       const target = flow.target;
       if (!target || !excludedIds.has(target.id)) continue;
 
-      const hostBottom = host.y + (host.height || 80);
-      const beCx = be.x + (be.width || 36) / 2;
-      const targetW = target.width || 36;
-      const targetH = target.height || 36;
+      const hostBottom = host.y + (host.height || BPMN_TASK_HEIGHT);
+      const beCx = be.x + (be.width || BPMN_EVENT_SIZE) / 2;
+      const targetW = target.width || BPMN_EVENT_SIZE;
+      const targetH = target.height || BPMN_EVENT_SIZE;
 
       // Target centre: below host bottom + offset, to the right of boundary
       const desiredCx = beCx + BOUNDARY_TARGET_X_OFFSET;
@@ -471,10 +484,13 @@ export function alignOffPathEndEventsToSecondRow(
     if (happyPathNodeIds.has(el.id)) continue;
     if (excludedIds.has(el.id)) continue;
 
-    const cy = el.y + (el.height || 36) / 2;
+    const cy = el.y + (el.height || BPMN_EVENT_SIZE) / 2;
 
     // Must be below the happy path but above the boundary target row
-    if (cy > happyMedianCy + 10 && cy < belowRowCy - 10) {
+    if (
+      cy > happyMedianCy + BOUNDARY_TARGET_ROW_BUFFER &&
+      cy < belowRowCy - BOUNDARY_TARGET_ROW_BUFFER
+    ) {
       const dy = Math.round(belowRowCy - cy);
       if (Math.abs(dy) > 2) {
         modeling.moveElements([el], { x: 0, y: dy });
@@ -488,15 +504,15 @@ export function alignOffPathEndEventsToSecondRow(
  * Returns 'top', 'bottom', 'left', or 'right' based on proximity.
  */
 function detectCurrentBorder(be: any, host: any): 'top' | 'bottom' | 'left' | 'right' {
-  const beW = be.width || 36;
-  const beH = be.height || 36;
+  const beW = be.width || BPMN_EVENT_SIZE;
+  const beH = be.height || BPMN_EVENT_SIZE;
   const beCy = be.y + beH / 2;
   const beCx = be.x + beW / 2;
 
   const hostTop = host.y;
-  const hostBottom = host.y + (host.height || 80);
+  const hostBottom = host.y + (host.height || BPMN_TASK_HEIGHT);
   const hostLeft = host.x;
-  const hostRight = host.x + (host.width || 100);
+  const hostRight = host.x + (host.width || BPMN_TASK_WIDTH);
 
   // Find which border is closest to the event centre
   const dTop = Math.abs(beCy - hostTop);
@@ -536,12 +552,12 @@ function spreadBoundaryEventsOnSameBorder(boundaryEvents: any[]): void {
 
     const border = key.split(':').pop() as 'top' | 'bottom' | 'left' | 'right';
     const host = group[0].host;
-    const hostW = host.width || 100;
-    const hostH = host.height || 80;
+    const hostW = host.width || BPMN_TASK_WIDTH;
+    const hostH = host.height || BPMN_TASK_HEIGHT;
 
     if (border === 'top' || border === 'bottom') {
       // Spread along X axis — use the middle 80% of the host width
-      const margin = hostW * 0.1;
+      const margin = hostW * BOUNDARY_MIN_MOVE_DELTA;
       const availableWidth = hostW - 2 * margin;
       const step = group.length > 1 ? availableWidth / (group.length - 1) : 0;
 
@@ -550,7 +566,7 @@ function spreadBoundaryEventsOnSameBorder(boundaryEvents: any[]): void {
 
       for (let i = 0; i < group.length; i++) {
         const be = group[i];
-        const beW = be.width || 36;
+        const beW = be.width || BPMN_EVENT_SIZE;
         const targetCx = host.x + margin + (group.length > 1 ? i * step : availableWidth / 2);
         const dx = targetCx - (be.x + beW / 2);
 
@@ -563,7 +579,7 @@ function spreadBoundaryEventsOnSameBorder(boundaryEvents: any[]): void {
       }
     } else {
       // Spread along Y axis — use the middle 80% of the host height
-      const margin = hostH * 0.1;
+      const margin = hostH * BOUNDARY_MIN_MOVE_DELTA;
       const availableHeight = hostH - 2 * margin;
       const step = group.length > 1 ? availableHeight / (group.length - 1) : 0;
 

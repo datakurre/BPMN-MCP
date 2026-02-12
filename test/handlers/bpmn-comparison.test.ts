@@ -78,6 +78,9 @@ const DIAGRAMS: DiagramConfig[] = [
 
   // 09-complex-workflow: Conference Registration — boundary events + gateway branches
   { name: '09-complex-workflow', tolerance: 50, minMatchRate: 0.85 },
+
+  // 10-pool-with-lanes: Pool with lanes and cross-lane flow
+  { name: '10-pool-with-lanes', tolerance: 50, minMatchRate: 1.0 },
 ];
 
 // ── Tests ──────────────────────────────────────────────────────────────────

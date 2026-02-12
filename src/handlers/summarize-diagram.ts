@@ -7,7 +7,14 @@
  */
 
 import { type ToolResult } from '../types';
-import { requireDiagram, jsonResult, getVisibleElements, validateArgs } from './helpers';
+import {
+  requireDiagram,
+  jsonResult,
+  getVisibleElements,
+  validateArgs,
+  isInfrastructureElement,
+  isConnectionElement,
+} from './helpers';
 
 export interface SummarizeDiagramArgs {
   diagramId: string;
@@ -28,21 +35,6 @@ function isDisconnected(el: any): boolean {
     return false;
   }
   return !hasIncoming && !hasOutgoing;
-}
-
-const CONNECTION_TYPES = new Set([
-  'bpmn:SequenceFlow',
-  'bpmn:MessageFlow',
-  'bpmn:Association',
-  'bpmn:DataInputAssociation',
-  'bpmn:DataOutputAssociation',
-]);
-
-const CONTAINER_TYPES = new Set(['bpmn:Participant', 'bpmn:Lane']);
-
-/** Check if an element is a connection or container (not a flow element). */
-function isConnectionOrContainer(type: string): boolean {
-  return CONNECTION_TYPES.has(type) || CONTAINER_TYPES.has(type);
 }
 
 export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promise<ToolResult> {
@@ -79,10 +71,10 @@ export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promis
   }));
 
   // Connections
-  const flows = allElements.filter((el: any) => CONNECTION_TYPES.has(el.type));
+  const flows = allElements.filter((el: any) => isConnectionElement(el.type));
 
   // Flow elements (tasks, events, gateways — excluding connections, pools, lanes)
-  const flowElements = allElements.filter((el: any) => !isConnectionOrContainer(el.type));
+  const flowElements = allElements.filter((el: any) => !isInfrastructureElement(el.type));
 
   // Disconnected elements (no incoming or outgoing)
   const disconnected = flowElements.filter(isDisconnected);

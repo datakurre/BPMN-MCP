@@ -8,6 +8,10 @@
 import { getVisibleElements, requireElement } from './helpers';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
+/** BPMN type string constants for filtering and type checking. */
+const BPMN_PARTICIPANT_TYPE = 'bpmn:Participant';
+const BPMN_LANE_TYPE = 'bpmn:Lane';
+
 /**
  * Shift all non-flow elements at or to the right of `fromX` by `shiftAmount`,
  * excluding `excludeId`.  This prevents overlap when inserting a new element.
@@ -24,8 +28,8 @@ export function shiftDownstreamElements(
       !el.type.includes('SequenceFlow') &&
       !el.type.includes('MessageFlow') &&
       !el.type.includes('Association') &&
-      el.type !== 'bpmn:Participant' &&
-      el.type !== 'bpmn:Lane' &&
+      el.type !== BPMN_PARTICIPANT_TYPE &&
+      el.type !== BPMN_LANE_TYPE &&
       el.id !== excludeId
   );
   const toShift = allElements.filter((el: any) => el.x >= fromX);
@@ -41,12 +45,12 @@ export function shiftDownstreamElements(
  * were shifted right.
  */
 export function resizeParentContainers(elementRegistry: any, modeling: any): void {
-  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  const participants = elementRegistry.filter((el: any) => el.type === BPMN_PARTICIPANT_TYPE);
   for (const pool of participants) {
     const children = elementRegistry.filter(
       (el: any) =>
         el.parent === pool &&
-        el.type !== 'bpmn:Lane' &&
+        el.type !== BPMN_LANE_TYPE &&
         !el.type.includes('SequenceFlow') &&
         !el.type.includes('MessageFlow') &&
         !el.type.includes('Association')
@@ -72,10 +76,10 @@ export function resizeParentContainers(elementRegistry: any, modeling: any): voi
     }
   }
 
-  const lanes = elementRegistry.filter((el: any) => el.type === 'bpmn:Lane');
+  const lanes = elementRegistry.filter((el: any) => el.type === BPMN_LANE_TYPE);
   for (const lane of lanes) {
     const parent = lane.parent;
-    if (parent && parent.type === 'bpmn:Participant') {
+    if (parent && parent.type === BPMN_PARTICIPANT_TYPE) {
       const poolWidth = parent.width || 600;
       if (lane.width !== poolWidth - 30) {
         modeling.resizeShape(lane, {
@@ -93,7 +97,7 @@ export function resizeParentContainers(elementRegistry: any, modeling: any): voi
  * Find the lane that contains a given (x, y) coordinate.
  */
 function findContainingLane(elementRegistry: any, x: number, y: number): any {
-  const lanes = elementRegistry.filter((el: any) => el.type === 'bpmn:Lane');
+  const lanes = elementRegistry.filter((el: any) => el.type === BPMN_LANE_TYPE);
   for (const lane of lanes) {
     const lx = lane.x ?? 0;
     const ly = lane.y ?? 0;
@@ -146,6 +150,7 @@ export function createAndPlaceElement(opts: {
   y: number;
   hostElementId?: string;
   participantId?: string;
+  isExpanded?: boolean;
 }): { createdElement: any; hostInfo?: HostInfo } {
   const {
     diagram,
@@ -156,16 +161,26 @@ export function createAndPlaceElement(opts: {
     y,
     hostElementId,
     participantId,
+    isExpanded,
   } = opts;
   const modeling = diagram.modeler.get('modeling');
   const elementFactory = diagram.modeler.get('elementFactory');
   const elementRegistry = diagram.modeler.get('elementRegistry');
 
-  const shape = elementFactory.createShape({
+  // For SubProcess elements, pass isExpanded to createShape so that
+  // bpmn-js's SubProcessPlaneBehavior correctly handles planes:
+  //   - isExpanded: true  → large inline shape (350×200), no separate plane
+  //   - isExpanded: false → collapsed shape (100×80), separate BPMNPlane for drilldown
+  const shapeAttrs: Record<string, any> = {
     type: elementType,
     id: descriptiveId,
     businessObject,
-  });
+  };
+  if (elementType === 'bpmn:SubProcess' && isExpanded !== undefined) {
+    shapeAttrs.isExpanded = isExpanded;
+  }
+
+  const shape = elementFactory.createShape(shapeAttrs);
 
   if (elementType === 'bpmn:BoundaryEvent' && hostElementId) {
     const host = requireElement(elementRegistry, hostElementId);
@@ -187,7 +202,7 @@ export function createAndPlaceElement(opts: {
     );
   }
 
-  if (elementType === 'bpmn:Participant') {
+  if (elementType === BPMN_PARTICIPANT_TYPE) {
     const canvas = diagram.modeler.get('canvas');
     return { createdElement: modeling.createShape(shape, { x, y }, canvas.getRootElement()) };
   }
@@ -201,7 +216,7 @@ export function createAndPlaceElement(opts: {
     }
   } else {
     parent = elementRegistry.filter(
-      (el: any) => el.type === 'bpmn:Process' || el.type === 'bpmn:Participant'
+      (el: any) => el.type === 'bpmn:Process' || el.type === BPMN_PARTICIPANT_TYPE
     )[0];
   }
   if (!parent) throw new McpError(ErrorCode.InternalError, 'No bpmn:Process found in diagram');

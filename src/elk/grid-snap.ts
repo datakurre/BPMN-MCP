@@ -7,7 +7,7 @@
  */
 
 import { ELK_LAYER_SPACING, ELK_NODE_SPACING } from '../constants';
-import { isConnection, isInfrastructure, isArtifact, isLane, isLayoutableShape } from './helpers';
+import { isConnection, isInfrastructure, isArtifact, isLayoutableShape } from './helpers';
 import {
   EVENT_TASK_GAP_EXTRA,
   GATEWAY_EVENT_GAP_REDUCE,

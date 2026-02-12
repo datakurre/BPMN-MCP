@@ -30,6 +30,8 @@ export interface AddElementArgs {
   hostElementId?: string;
   afterElementId?: string;
   participantId?: string;
+  /** For SubProcess: true = expanded (large, inline children), false = collapsed (small, separate drilldown plane). Default: true. */
+  isExpanded?: boolean;
   /** Boundary event shorthand: set event definition type in one call. */
   eventDefinitionType?: string;
   /** Boundary event shorthand: event definition properties (timer, condition, etc.). */
@@ -46,7 +48,7 @@ export interface AddElementArgs {
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
-// eslint-disable-next-line complexity, max-lines-per-function
+// eslint-disable-next-line complexity, max-lines-per-function, sonarjs/cognitive-complexity
 export async function handleAddElement(args: AddElementArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementType']);
 
@@ -69,6 +71,9 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     afterElementId,
     participantId,
   } = args;
+  // SubProcess defaults to expanded (true) unless explicitly set to false
+  const isExpanded =
+    elementType === 'bpmn:SubProcess' ? (args as any).isExpanded !== false : undefined;
   let { x = 100, y = 100 } = args;
   const diagram = requireDiagram(diagramId);
 
@@ -117,6 +122,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     y,
     hostElementId,
     participantId,
+    isExpanded,
   });
 
   if (elementName) {
@@ -198,7 +204,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
 export const TOOL_DEFINITION = {
   name: 'add_bpmn_element',
   description:
-    'Add an element (task, gateway, event, etc.) to a BPMN diagram. Supports boundary events via hostElementId and auto-positioning via afterElementId. When afterElementId is used, downstream elements are automatically shifted right to prevent overlap. Generates descriptive element IDs when a name is provided (e.g. UserTask_EnterName, Gateway_HasSurname). Naming best practices: tasks → verb-object ("Process Order", "Send Invoice"), events → object-participle or noun-state ("Order Received", "Payment Completed"), gateways → yes/no question ending with "?" ("Order valid?", "Payment successful?"). **⚠ Boundary events:** To attach a boundary event to a task or subprocess, use elementType=bpmn:BoundaryEvent together with hostElementId. Do NOT use bpmn:IntermediateCatchEvent for error/timer/signal boundary events — that creates a standalone event that is not attached to any host and will fail validation. After adding the boundary event, use set_bpmn_event_definition to set its type (error, timer, message, signal). **Modeling guidance:** For simple integrations with external systems (fire-and-forget or request-response), prefer bpmn:ServiceTask (with camunda:type="external" and camunda:topic). Use message throw/catch events when modeling explicit message exchanges with collapsed partner pools in a collaboration diagram — in Camunda 7, only one pool is executable, the others are collapsed documentation of message endpoints. For **event subprocesses** (interrupt or non-interrupt handlers that can trigger at any point during the parent process, e.g. timeout handling, cancellation), create a bpmn:SubProcess and then use set_bpmn_element_properties to set triggeredByEvent to true and isExpanded to true. The event subprocess needs its own start event with an event definition (timer, message, error, signal). Prefer event subprocesses over boundary events when the exception handling spans multiple activities or applies to the whole process scope.',
+    'Add an element (task, gateway, event, etc.) to a BPMN diagram. Supports boundary events via hostElementId and auto-positioning via afterElementId. When afterElementId is used, downstream elements are automatically shifted right to prevent overlap. Generates descriptive element IDs when a name is provided (e.g. UserTask_EnterName, Gateway_HasSurname). Naming best practices: tasks → verb-object ("Process Order", "Send Invoice"), events → object-participle or noun-state ("Order Received", "Payment Completed"), gateways → yes/no question ending with "?" ("Order valid?", "Payment successful?"). **⚠ Boundary events:** To attach a boundary event to a task or subprocess, use elementType=bpmn:BoundaryEvent together with hostElementId. Do NOT use bpmn:IntermediateCatchEvent for error/timer/signal boundary events — that creates a standalone event that is not attached to any host and will fail validation. After adding the boundary event, use set_bpmn_event_definition to set its type (error, timer, message, signal). **Subprocesses:** By default, bpmn:SubProcess is created **expanded** (large 350×200 shape with inline children). Set isExpanded=false for a collapsed subprocess (small shape with a separate drilldown plane). **Modeling guidance:** For simple integrations with external systems (fire-and-forget or request-response), prefer bpmn:ServiceTask (with camunda:type="external" and camunda:topic). Use message throw/catch events when modeling explicit message exchanges with collapsed partner pools in a collaboration diagram — in Camunda 7, only one pool is executable, the others are collapsed documentation of message endpoints. For **event subprocesses** (interrupt or non-interrupt handlers that can trigger at any point during the parent process, e.g. timeout handling, cancellation), create a bpmn:SubProcess and then use set_bpmn_element_properties to set triggeredByEvent to true. The event subprocess needs its own start event with an event definition (timer, message, error, signal). Prefer event subprocesses over boundary events when the exception handling spans multiple activities or applies to the whole process scope.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -248,6 +254,12 @@ export const TOOL_DEFINITION = {
       y: {
         type: 'number',
         description: 'Y coordinate for the element (default: 100)',
+      },
+      isExpanded: {
+        type: 'boolean',
+        description:
+          'For bpmn:SubProcess only: true = expanded subprocess (large, inline children on same plane, 350×200), ' +
+          'false = collapsed subprocess (small, separate drilldown plane, 100×80). Default: true.',
       },
       hostElementId: {
         type: 'string',

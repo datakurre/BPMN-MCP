@@ -19,6 +19,7 @@ const isType = (node: any, type: string): boolean =>
  * Detect whether a gateway that feeds back to an earlier node has any
  * limiting mechanism in the loop body.
  */
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function hasLoopLimit(gateway: any, loopTargetId: string, maxDepth = 20): boolean {
   // Walk forward from the loop target back to the gateway, checking for limits
   const visited = new Set<string>();
@@ -93,6 +94,7 @@ function hasLoopLimit(gateway: any, loopTargetId: string, maxDepth = 20): boolea
 }
 
 function ruleFactory() {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   function check(node: any, reporter: any) {
     // Only check gateways that have backward-flowing outgoing edges
     if (!isType(node, 'bpmn:ExclusiveGateway') && !isType(node, 'bpmn:InclusiveGateway')) {

@@ -29,20 +29,46 @@ export const INITIAL_XML = `<?xml version="1.0" encoding="UTF-8"?>
 
 const diagrams = new Map<string, DiagramState>();
 
+/** Reverse index: modeler instance → diagram ID. Avoids O(n) lookups in linter. */
+const modelerToDiagramId = new WeakMap<object, string>();
+
 export function getDiagram(id: string): DiagramState | undefined {
   return diagrams.get(id);
 }
 
 export function storeDiagram(id: string, state: DiagramState): void {
   diagrams.set(id, state);
+  if (state.modeler) {
+    modelerToDiagramId.set(state.modeler, id);
+  }
 }
 
 export function deleteDiagram(id: string): boolean {
+  const state = diagrams.get(id);
+  if (state?.modeler) {
+    modelerToDiagramId.delete(state.modeler);
+  }
   return diagrams.delete(id);
 }
 
 export function getAllDiagrams(): Map<string, DiagramState> {
   return diagrams;
+}
+
+/**
+ * O(1) reverse lookup: find the diagram ID for a DiagramState.
+ * Falls back to O(n) scan if the WeakMap entry is missing.
+ */
+export function getDiagramId(diagram: DiagramState): string | undefined {
+  if (diagram.modeler) {
+    const id = modelerToDiagramId.get(diagram.modeler);
+    if (id !== undefined) return id;
+  }
+  // Fallback: linear scan (should not happen in normal operation)
+  for (const [id, state] of diagrams) {
+    if (state === diagram) return id;
+  }
+  return undefined;
 }
 
 export function generateDiagramId(): string {

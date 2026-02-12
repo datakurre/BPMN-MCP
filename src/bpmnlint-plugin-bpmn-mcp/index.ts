@@ -10,6 +10,44 @@
  *   { rules: { 'bpmn-mcp/gateway-missing-default': 'error' } }
  */
 
+import camundaTopicWithoutExternalType from './rules/camunda-topic-without-external-type';
+import gatewayMissingDefault from './rules/gateway-missing-default';
+import namingConvention from './rules/naming-convention';
+import gatewayPairMismatch from './rules/gateway-pair-mismatch';
+import backwardSequenceFlow from './rules/backward-sequence-flow';
+import implicitSplit from './rules/implicit-split';
+import laneUsage from './rules/lane-usage';
+import exclusiveGatewayMarker from './rules/exclusive-gateway-marker';
+import compensationMissingAssociation from './rules/compensation-missing-association';
+import boundaryEventScope from './rules/boundary-event-scope';
+import loopWithoutLimit from './rules/loop-without-limit';
+import multipleExpandedPools from './rules/multiple-expanded-pools';
+import exclusiveGatewayConditions from './rules/exclusive-gateway-conditions';
+import parallelGatewayMergeExclusive from './rules/parallel-gateway-merge-exclusive';
+
+/**
+ * All custom lint rules keyed by rule name (without plugin prefix).
+ * McpPluginResolver in src/linter.ts uses this map for auto-discovery,
+ * so adding a new rule only requires: (1) create the rule file,
+ * (2) import and add it here, (3) add to configs.recommended.
+ */
+export const rules: Record<string, any> = {
+  'camunda-topic-without-external-type': camundaTopicWithoutExternalType,
+  'gateway-missing-default': gatewayMissingDefault,
+  'naming-convention': namingConvention,
+  'gateway-pair-mismatch': gatewayPairMismatch,
+  'backward-sequence-flow': backwardSequenceFlow,
+  'implicit-split': implicitSplit,
+  'lane-usage': laneUsage,
+  'exclusive-gateway-marker': exclusiveGatewayMarker,
+  'compensation-missing-association': compensationMissingAssociation,
+  'boundary-event-scope': boundaryEventScope,
+  'loop-without-limit': loopWithoutLimit,
+  'multiple-expanded-pools': multipleExpandedPools,
+  'exclusive-gateway-conditions': exclusiveGatewayConditions,
+  'parallel-gateway-merge-exclusive': parallelGatewayMergeExclusive,
+};
+
 export const configs = {
   recommended: {
     rules: {

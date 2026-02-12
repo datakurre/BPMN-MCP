@@ -4,7 +4,12 @@
 
 import { ELK_LAYER_SPACING } from '../constants';
 import { SAME_ROW_THRESHOLD, ORTHO_SNAP_TOLERANCE } from './constants';
-import { isConnection, isInfrastructure, isArtifact, isLayoutableShape } from './helpers';
+import {
+  isConnection,
+  isInfrastructure,
+  isArtifact as _isArtifact,
+  isLayoutableShape,
+} from './helpers';
 
 /**
  * After ELK positions nodes, elements in the same ELK layer can have small

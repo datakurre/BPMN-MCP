@@ -62,6 +62,41 @@ function handleConditionExpression(standardProps: Record<string, any>, moddle: a
   standardProps['conditionExpression'] = moddle.create('bpmn:FormalExpression', { body: ceValue });
 }
 
+/**
+ * Handle `isExpanded` on SubProcess via bpmnReplace — this properly
+ * creates/removes BPMNPlane elements and adjusts the shape size.
+ * Setting isExpanded via updateProperties would incorrectly place it
+ * on the business object instead of the DI shape.
+ * Returns the (possibly replaced) element.  Mutates `props` in-place.
+ */
+function handleIsExpandedOnSubProcess(element: any, props: Record<string, any>, diagram: any): any {
+  if (!('isExpanded' in props)) return element;
+
+  const elType = element.type || element.businessObject?.$type || '';
+  if (!elType.includes('SubProcess')) return element;
+
+  const wantExpanded = !!props['isExpanded'];
+  const currentlyExpanded = element.di?.isExpanded === true;
+  delete props['isExpanded'];
+
+  if (wantExpanded === currentlyExpanded) return element;
+
+  try {
+    const bpmnReplace = diagram.modeler.get('bpmnReplace');
+    const newElement = bpmnReplace.replaceElement(element, {
+      type: elType,
+      isExpanded: wantExpanded,
+    });
+    return newElement || element;
+  } catch {
+    // Fallback: directly set on DI if bpmnReplace fails
+    if (element.di) {
+      element.di.isExpanded = wantExpanded;
+    }
+    return element;
+  }
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 export async function handleSetProperties(args: SetPropertiesArgs): Promise<ToolResult> {
@@ -72,7 +107,9 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
   const modeling = diagram.modeler.get('modeling');
   const elementRegistry = diagram.modeler.get('elementRegistry');
 
-  const element = requireElement(elementRegistry, elementId);
+  let element = requireElement(elementRegistry, elementId);
+
+  element = handleIsExpandedOnSubProcess(element, props, diagram);
 
   const standardProps: Record<string, any> = {};
   const camundaProps: Record<string, any> = {};
@@ -123,9 +160,12 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
 
   const result = jsonResult({
     success: true,
-    elementId,
-    updatedProperties: Object.keys(props),
-    message: `Updated properties on ${elementId}`,
+    elementId: element.id,
+    updatedProperties: Object.keys(args.properties),
+    message: `Updated properties on ${element.id}`,
+    ...(element.id !== elementId
+      ? { note: `Element ID changed from ${elementId} to ${element.id}` }
+      : {}),
   });
   return appendLintFeedback(result, diagram);
 }
@@ -133,7 +173,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
 export const TOOL_DEFINITION = {
   name: 'set_bpmn_element_properties',
   description:
-    "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable) and Camunda extensions (e.g. camunda:assignee, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:asyncBefore, camunda:topic, camunda:type). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). For loop characteristics, use the dedicated set_loop_characteristics tool.",
+    "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable) and Camunda extensions (e.g. camunda:assignee, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:asyncBefore, camunda:topic, camunda:type). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). Supports `isExpanded` on SubProcess elements — properly toggles between expanded (inline children) and collapsed (drilldown plane) via element replacement. For loop characteristics, use the dedicated set_loop_characteristics tool.",
   inputSchema: {
     type: 'object',
     properties: {

@@ -204,6 +204,10 @@ function applyGlobalPolyfills(win: any): void {
         m.f = this.c * other.e + this.d * other.f + this.f;
         return m;
       },
+      // WARNING: translate() and scale() mutate in-place, which diverges
+      // from the browser SVG spec (should return a new matrix). bpmn-js /
+      // diagram-js rely on this mutation behaviour in their transform
+      // consolidation code paths, so do NOT change to return new instances.
       translate(x: number, y: number) {
         this.e += x;
         this.f += y;

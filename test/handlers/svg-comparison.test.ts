@@ -84,6 +84,9 @@ const DIAGRAMS: DiagramConfig[] = [
 
   // Category 5: Conference Registration — complex with boundary events, dual parallel branches
   { name: '09-complex-workflow', tolerance: 50, minMatchRate: 0.85 },
+
+  // Category 6: Pool with lanes — cross-lane flow, 100% match rate achieved
+  { name: '10-pool-with-lanes', tolerance: 50, minMatchRate: 1.0 },
 ];
 
 // ── Tests ──────────────────────────────────────────────────────────────────

@@ -9,6 +9,14 @@ import {
   PARTICIPANT_PADDING,
   DIVERSE_Y_THRESHOLD,
   ELK_HIGH_PRIORITY,
+  BPMN_TASK_WIDTH,
+  BPMN_TASK_HEIGHT,
+  BPMN_EVENT_SIZE as _BPMN_EVENT_SIZE,
+  GATEWAY_UPPER_SPLIT_FACTOR as _GATEWAY_UPPER_SPLIT_FACTOR,
+  GATEWAY_MID_FACTOR as _GATEWAY_MID_FACTOR,
+  CENTER_FACTOR,
+  CONTAINER_DEFAULT_WIDTH,
+  CONTAINER_DEFAULT_HEIGHT,
 } from './constants';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 
@@ -83,8 +91,8 @@ export function buildContainerGraph(
       const nested = buildContainerGraph(allElements, shape, excludeIds);
       children.push({
         id: shape.id,
-        width: shape.width || 300,
-        height: shape.height || 200,
+        width: shape.width || CONTAINER_DEFAULT_WIDTH,
+        height: shape.height || CONTAINER_DEFAULT_HEIGHT,
         children: nested.children,
         edges: nested.edges,
         layoutOptions: {
@@ -95,8 +103,8 @@ export function buildContainerGraph(
     } else {
       children.push({
         id: shape.id,
-        width: shape.width || 100,
-        height: shape.height || 80,
+        width: shape.width || BPMN_TASK_WIDTH,
+        height: shape.height || BPMN_TASK_HEIGHT,
       });
     }
   }
@@ -123,8 +131,8 @@ export function buildContainerGraph(
   // so the sort is a no-op — original behaviour preserved.
   internalConns.sort((a: any, b: any) => {
     if (a.source.id !== b.source.id) return 0;
-    const aTargetY = a.target.y + (a.target.height || 0) / 2;
-    const bTargetY = b.target.y + (b.target.height || 0) / 2;
+    const aTargetY = a.target.y + (a.target.height || 0) * CENTER_FACTOR;
+    const bTargetY = b.target.y + (b.target.height || 0) * CENTER_FACTOR;
     return aTargetY - bTargetY;
   });
 
@@ -252,6 +260,7 @@ function detectShortBranches(
   internalConns: any[],
   outgoingAdj: Map<string, any[]>
 ): Set<string> {
+  const BPMN_END_EVENT = 'bpmn:EndEvent';
   const shortBranchEdgeIds = new Set<string>();
   for (const [gwId, defaultFlowId] of gatewayDefaults) {
     if (!decisionGatewayIds.has(gwId)) continue;
@@ -259,13 +268,13 @@ function detectShortBranches(
     if (!defaultConn) continue;
     let current = defaultConn.target;
     let hops = 1;
-    let reachesEnd = current?.type === 'bpmn:EndEvent';
+    let reachesEnd = current?.type === BPMN_END_EVENT;
     while (!reachesEnd && hops < 2 && current) {
       const nextConns = outgoingAdj.get(current.id);
       if (!nextConns || nextConns.length !== 1) break;
       current = nextConns[0].target;
       hops++;
-      reachesEnd = current?.type === 'bpmn:EndEvent';
+      reachesEnd = current?.type === BPMN_END_EVENT;
     }
     if (reachesEnd) {
       shortBranchEdgeIds.add(defaultFlowId);

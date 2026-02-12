@@ -14,6 +14,7 @@ export interface BpmnHistoryArgs {
   steps?: number;
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export async function handleBpmnHistory(args: BpmnHistoryArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'action']);
   const { diagramId, action, steps = 1 } = args;

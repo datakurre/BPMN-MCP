@@ -23,6 +23,12 @@ import {
 } from './helpers';
 import { appendLintFeedback } from '../linter';
 
+/** BPMN connection type constants. */
+const BPMN_SEQUENCE_FLOW_TYPE = 'bpmn:SequenceFlow';
+const BPMN_MESSAGE_FLOW_TYPE = 'bpmn:MessageFlow';
+const BPMN_ASSOCIATION_TYPE = 'bpmn:Association';
+const BPMN_FORMAL_EXPRESSION_TYPE = 'bpmn:FormalExpression';
+
 export interface ConnectArgs {
   diagramId: string;
   sourceElementId: string;
@@ -66,9 +72,9 @@ function resolveCrossPool(
   const crossPool =
     sourceParticipant && targetParticipant && sourceParticipant.id !== targetParticipant.id;
 
-  if (crossPool && (!requestedType || requestedType === 'bpmn:SequenceFlow')) {
+  if (crossPool && (!requestedType || requestedType === BPMN_SEQUENCE_FLOW_TYPE)) {
     return {
-      connectionType: 'bpmn:MessageFlow',
+      connectionType: BPMN_MESSAGE_FLOW_TYPE,
       autoHint:
         `Connection type auto-corrected to bpmn:MessageFlow ` +
         `(source and target are in different participants: ` +
@@ -77,7 +83,7 @@ function resolveCrossPool(
     };
   }
 
-  if (requestedType === 'bpmn:MessageFlow' && !crossPool) {
+  if (requestedType === BPMN_MESSAGE_FLOW_TYPE && !crossPool) {
     throw new McpError(
       ErrorCode.InvalidRequest,
       `bpmn:MessageFlow requires source and target to be in different participants (pools). ` +
@@ -110,10 +116,10 @@ function resolveConnectionType(
   }
 
   // TextAnnotation / Group → auto-correct to Association
-  if (!requestedType || requestedType === 'bpmn:SequenceFlow') {
+  if (!requestedType || requestedType === BPMN_SEQUENCE_FLOW_TYPE) {
     if (ANNOTATION_TYPES.has(sourceType) || ANNOTATION_TYPES.has(targetType)) {
       return {
-        connectionType: 'bpmn:Association',
+        connectionType: BPMN_ASSOCIATION_TYPE,
         autoHint:
           `Connection type auto-corrected to bpmn:Association ` +
           `(${ANNOTATION_TYPES.has(sourceType) ? sourceType : targetType} ` +
@@ -128,7 +134,7 @@ function resolveConnectionType(
     if (crossPoolResult) return crossPoolResult;
   }
 
-  return { connectionType: requestedType || 'bpmn:SequenceFlow' };
+  return { connectionType: requestedType || BPMN_SEQUENCE_FLOW_TYPE };
 }
 
 /**
@@ -150,13 +156,13 @@ function applyConnectionProperties(
     modeling.updateProperties(connection, { name: label });
   }
 
-  if (conditionExpression && connectionType === 'bpmn:SequenceFlow') {
+  if (conditionExpression && connectionType === BPMN_SEQUENCE_FLOW_TYPE) {
     const moddle = getService(diagram.modeler, 'moddle');
-    const condExpr = moddle.create('bpmn:FormalExpression', { body: conditionExpression });
+    const condExpr = moddle.create(BPMN_FORMAL_EXPRESSION_TYPE, { body: conditionExpression });
     modeling.updateProperties(connection, { conditionExpression: condExpr });
   }
 
-  if (isDefault && connectionType === 'bpmn:SequenceFlow') {
+  if (isDefault && connectionType === BPMN_SEQUENCE_FLOW_TYPE) {
     if (sourceType.includes('ExclusiveGateway') || sourceType.includes('InclusiveGateway')) {
       modeling.updateModdleProperties(source, source.businessObject, {
         default: connection.businessObject,
@@ -375,7 +381,7 @@ export const TOOL_DEFINITION = {
       },
       connectionType: {
         type: 'string',
-        enum: ['bpmn:SequenceFlow', 'bpmn:MessageFlow', 'bpmn:Association'],
+        enum: [BPMN_SEQUENCE_FLOW_TYPE, BPMN_MESSAGE_FLOW_TYPE, BPMN_ASSOCIATION_TYPE],
         description:
           'Type of connection (default: auto-detected). Usually not needed — the tool auto-detects the correct type.',
       },

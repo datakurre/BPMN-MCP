@@ -113,6 +113,7 @@ export function applyElkEdgeRoutes(
   offsetX: number,
   offsetY: number
 ): void {
+  const BPMN_BOUNDARY_EVENT = 'bpmn:BoundaryEvent';
   const edgeLookup = collectElkEdges(elkResult, offsetX, offsetY);
 
   const allConnections = elementRegistry.filter(
@@ -201,12 +202,12 @@ export function applyElkEdgeRoutes(
       const src = conn.source;
       const tgt = conn.target;
 
-      if (src.type === 'bpmn:BoundaryEvent' || conn.type === 'bpmn:MessageFlow') {
+      if (src.type === BPMN_BOUNDARY_EVENT || conn.type === 'bpmn:MessageFlow') {
         // For boundary events, build a clean route from the boundary event
         // to the target: go down (or up) from the boundary event border,
         // then horizontally to the target.  bpmn-js ManhattanLayout can
         // produce backward routes in headless mode.
-        if (src.type === 'bpmn:BoundaryEvent' && tgt) {
+        if (src.type === BPMN_BOUNDARY_EVENT && tgt) {
           const srcCx = src.x + (src.width || 36) / 2;
           const srcBottom = src.y + (src.height || 36);
           const tgtW = tgt.width || 36;
@@ -300,14 +301,16 @@ export function applyElkEdgeRoutes(
  */
 export function rebuildOffRowGatewayRoutes(elementRegistry: any, modeling: any): void {
   const DIFFERENT_ROW_Y = 15; // minimum Y-centre diff to consider "different row"
+  const BPMN_SEQUENCE_FLOW = 'bpmn:SequenceFlow';
+  const BPMN_BOUNDARY_EVENT = 'bpmn:BoundaryEvent';
 
   const connections = elementRegistry.filter(
     (el: any) =>
-      el.type === 'bpmn:SequenceFlow' &&
+      el.type === BPMN_SEQUENCE_FLOW &&
       el.source &&
       el.target &&
       el.waypoints?.length >= 2 &&
-      el.source.type !== 'bpmn:BoundaryEvent'
+      el.source.type !== BPMN_BOUNDARY_EVENT
   );
 
   for (const conn of connections) {
@@ -399,9 +402,10 @@ export function rebuildOffRowGatewayRoutes(elementRegistry: any, modeling: any):
  * which handles them better to avoid crossing flows.
  */
 export function simplifyGatewayBranchRoutes(elementRegistry: any, modeling: any): void {
+  const BPMN_SEQUENCE_FLOW = 'bpmn:SequenceFlow';
   // Build a count of outgoing/incoming flows per gateway
   const allConns = elementRegistry.filter(
-    (el: any) => el.type === 'bpmn:SequenceFlow' && el.source && el.target
+    (el: any) => el.type === BPMN_SEQUENCE_FLOW && el.source && el.target
   );
   const gwOutCount = new Map<string, number>();
   const gwInCount = new Map<string, number>();
@@ -416,7 +420,7 @@ export function simplifyGatewayBranchRoutes(elementRegistry: any, modeling: any)
 
   const connections = elementRegistry.filter(
     (el: any) =>
-      el.type === 'bpmn:SequenceFlow' &&
+      el.type === BPMN_SEQUENCE_FLOW &&
       el.source &&
       el.target &&
       el.waypoints &&
@@ -461,7 +465,7 @@ export function simplifyGatewayBranchRoutes(elementRegistry: any, modeling: any)
   // but only for binary joins (2 incoming branch flows)
   const joinConnections = elementRegistry.filter(
     (el: any) =>
-      el.type === 'bpmn:SequenceFlow' &&
+      el.type === BPMN_SEQUENCE_FLOW &&
       el.source &&
       el.target &&
       el.waypoints &&
@@ -751,13 +755,15 @@ const CENTRE_SNAP_TOLERANCE = 15;
  * Should run after fixDisconnectedEdges and before snapAllConnectionsOrthogonal.
  */
 export function snapEndpointsToElementCentres(elementRegistry: any, modeling: any): void {
+  const BPMN_SEQUENCE_FLOW = 'bpmn:SequenceFlow';
+  const BPMN_BOUNDARY_EVENT = 'bpmn:BoundaryEvent';
   const connections = elementRegistry.filter(
     (el: any) =>
-      el.type === 'bpmn:SequenceFlow' &&
+      el.type === BPMN_SEQUENCE_FLOW &&
       el.source &&
       el.target &&
       el.waypoints?.length >= 2 &&
-      el.source.type !== 'bpmn:BoundaryEvent'
+      el.source.type !== BPMN_BOUNDARY_EVENT
   );
 
   for (const conn of connections) {

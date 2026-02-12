@@ -8,22 +8,11 @@
 
 import { type DiagramState, type ToolResult } from './types';
 import type { LintConfig, LintResults, FlatLintIssue } from './bpmnlint-types';
-import { configs as localPluginConfigs } from './bpmnlint-plugin-bpmn-mcp';
-import camundaTopicWithoutExternalType from './bpmnlint-plugin-bpmn-mcp/rules/camunda-topic-without-external-type';
-import gatewayMissingDefault from './bpmnlint-plugin-bpmn-mcp/rules/gateway-missing-default';
-import namingConvention from './bpmnlint-plugin-bpmn-mcp/rules/naming-convention';
-import gatewayPairMismatch from './bpmnlint-plugin-bpmn-mcp/rules/gateway-pair-mismatch';
-import backwardSequenceFlow from './bpmnlint-plugin-bpmn-mcp/rules/backward-sequence-flow';
-import implicitSplit from './bpmnlint-plugin-bpmn-mcp/rules/implicit-split';
-import laneUsage from './bpmnlint-plugin-bpmn-mcp/rules/lane-usage';
-import exclusiveGatewayMarker from './bpmnlint-plugin-bpmn-mcp/rules/exclusive-gateway-marker';
-import compensationMissingAssociation from './bpmnlint-plugin-bpmn-mcp/rules/compensation-missing-association';
-import boundaryEventScope from './bpmnlint-plugin-bpmn-mcp/rules/boundary-event-scope';
-import loopWithoutLimit from './bpmnlint-plugin-bpmn-mcp/rules/loop-without-limit';
-import multipleExpandedPools from './bpmnlint-plugin-bpmn-mcp/rules/multiple-expanded-pools';
-import exclusiveGatewayConditions from './bpmnlint-plugin-bpmn-mcp/rules/exclusive-gateway-conditions';
-import parallelGatewayMergeExclusive from './bpmnlint-plugin-bpmn-mcp/rules/parallel-gateway-merge-exclusive';
-import { getAllDiagrams } from './diagram-manager';
+import {
+  configs as localPluginConfigs,
+  rules as localRuleFactories,
+} from './bpmnlint-plugin-bpmn-mcp';
+import { getDiagramId } from './diagram-manager';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
@@ -92,23 +81,7 @@ export function resetUserConfig(): void {
 // (bpmnlint-plugin-bpmn-mcp) so that its rules and configs can be
 // referenced in bpmnlint config without being an npm package.
 
-const localPlugin = { configs: localPluginConfigs };
-const localRuleFactories: Record<string, any> = {
-  'camunda-topic-without-external-type': camundaTopicWithoutExternalType,
-  'gateway-missing-default': gatewayMissingDefault,
-  'naming-convention': namingConvention,
-  'gateway-pair-mismatch': gatewayPairMismatch,
-  'backward-sequence-flow': backwardSequenceFlow,
-  'implicit-split': implicitSplit,
-  'lane-usage': laneUsage,
-  'exclusive-gateway-marker': exclusiveGatewayMarker,
-  'compensation-missing-association': compensationMissingAssociation,
-  'boundary-event-scope': boundaryEventScope,
-  'loop-without-limit': loopWithoutLimit,
-  'multiple-expanded-pools': multipleExpandedPools,
-  'exclusive-gateway-conditions': exclusiveGatewayConditions,
-  'parallel-gateway-merge-exclusive': parallelGatewayMergeExclusive,
-};
+const localPlugin = { configs: localPluginConfigs, rules: localRuleFactories };
 
 /**
  * Custom bpmnlint resolver that wraps NodeResolver and adds resolution
@@ -237,14 +210,6 @@ export function clearLintCache(): void {
   lintCache.clear();
 }
 
-/** Reverse-lookup the diagram ID for a DiagramState from the store. */
-function getDiagramIdForState(diagram: DiagramState): string | undefined {
-  for (const [id, state] of getAllDiagrams()) {
-    if (state === diagram) return id;
-  }
-  return undefined;
-}
-
 // ── Core linting functions ─────────────────────────────────────────────────
 
 /**
@@ -259,7 +224,7 @@ export async function lintDiagram(
   const definitions = getDefinitionsFromModeler(diagram.modeler);
 
   // Check cache
-  const diagramId = getDiagramIdForState(diagram);
+  const diagramId = getDiagramId(diagram);
   if (diagramId) {
     const hash = computeDiagramHash(definitions);
     const ck = configCacheKey(effectiveConfig);
@@ -358,7 +323,7 @@ export async function appendLintFeedback(
   if (diagram.draftMode) return result;
 
   // Invalidate cache since a mutation just occurred
-  const diagramId = getDiagramIdForState(diagram);
+  const diagramId = getDiagramId(diagram);
   if (diagramId) invalidateLintCache(diagramId);
 
   try {
@@ -403,6 +368,7 @@ export async function appendLintFeedback(
  *
  * Returns an array of warning strings. Empty array means no issues predicted.
  */
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function predictLintViolations(
   diagram: DiagramState,
   operation: 'connect' | 'add' | 'set-properties',
