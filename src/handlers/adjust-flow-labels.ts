@@ -95,6 +95,17 @@ function getNonOwnSegments(index: ConnectionSegmentIndex, excludeFlowId: string)
   return result;
 }
 
+/** Get a specific flow's own segments. */
+function getOwnSegments(index: ConnectionSegmentIndex, flowId: string): [Point, Point][] {
+  const result: [Point, Point][] = [];
+  for (let i = 0; i < index.segments.length; i++) {
+    if (index.flowIds[i] === flowId) {
+      result.push(index.segments[i]);
+    }
+  }
+  return result;
+}
+
 /** Score a nudge candidate for a flow label. Lower is better (0 = no overlap). */
 function scoreNudgedRect(
   nudgedRect: Rect,
@@ -113,6 +124,42 @@ function scoreNudgedRect(
     if (segmentIntersectsRect(s1, s2, nudgedRect)) score += 1;
   }
   return score;
+}
+
+/**
+ * Find a small nudge to move a flow label off its own flow line.
+ * Uses a minimal perpendicular displacement (10–15px) so the label
+ * remains adjacent to but no longer overlapping the flow path.
+ */
+function findSelfFlowNudge(
+  labelRect: Rect,
+  perpX: number,
+  perpY: number,
+  ownSegments: [Point, Point][]
+): { x: number; y: number } | null {
+  // Small distances — just enough to clear the flow line
+  const nudgeDistances = [10, 15];
+  let bestNudge: { x: number; y: number } | null = null;
+
+  for (const amount of nudgeDistances) {
+    for (const sign of [1, -1]) {
+      const nudge = { x: perpX * amount * sign, y: perpY * amount * sign };
+      const nudgedRect: Rect = {
+        x: labelRect.x + nudge.x,
+        y: labelRect.y + nudge.y,
+        width: labelRect.width,
+        height: labelRect.height,
+      };
+      const cleared = !ownSegments.some(([p1, p2]) => segmentIntersectsRect(p1, p2, nudgedRect));
+      if (cleared) {
+        bestNudge = nudge;
+        break;
+      }
+    }
+    if (bestNudge) break;
+  }
+
+  return bestNudge;
 }
 
 /** Find the best nudge direction/distance for a flow label. */
@@ -150,6 +197,43 @@ function findBestNudge(
   return bestNudge;
 }
 
+/** Overlap flags for a flow label. */
+interface FlowLabelOverlaps {
+  overlapsShape: boolean;
+  tooCloseToShape: boolean;
+  overlapsLabel: boolean;
+  crossesConnection: boolean;
+  crossesOwnFlow: boolean;
+}
+
+/** Detect all overlap conditions for a flow label. */
+function detectFlowLabelOverlaps(
+  labelRect: Rect,
+  shapes: Rect[],
+  otherFlowLabels: Rect[],
+  otherSegments: [Point, Point][],
+  ownSegments: [Point, Point][]
+): FlowLabelOverlaps {
+  return {
+    overlapsShape: shapes.some((sr) => rectsOverlap(labelRect, sr)),
+    tooCloseToShape: shapes.some((sr) => rectsNearby(labelRect, sr, LABEL_SHAPE_PROXIMITY_MARGIN)),
+    overlapsLabel: otherFlowLabels.some((lr) => rectsOverlap(labelRect, lr)),
+    crossesConnection: otherSegments.some(([p1, p2]) => segmentIntersectsRect(p1, p2, labelRect)),
+    crossesOwnFlow: ownSegments.some(([p1, p2]) => segmentIntersectsRect(p1, p2, labelRect)),
+  };
+}
+
+/** Check if any overlap condition is true. */
+function hasAnyOverlap(o: FlowLabelOverlaps): boolean {
+  return (
+    o.overlapsShape ||
+    o.tooCloseToShape ||
+    o.overlapsLabel ||
+    o.crossesConnection ||
+    o.crossesOwnFlow
+  );
+}
+
 /**
  * Adjust labels on connections (sequence flows) to avoid overlapping shapes,
  * other flow labels, and crossing connection segments.
@@ -183,24 +267,22 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     const labelRect = getLabelRect(label);
 
     const shapes = getNonEndpointShapes(shapeIndex, flow.source?.id, flow.target?.id);
-
-    // Exclude the flow's own segments — a label naturally sits near its
-    // own connection line and should not be nudged away from it.
     const otherSegments = getNonOwnSegments(segmentIndex, flow.id);
+    const ownSegments = getOwnSegments(segmentIndex, flow.id);
 
-    const overlapsShape = shapes.some((sr) => rectsOverlap(labelRect, sr));
-    const tooCloseToShape = shapes.some((sr) =>
-      rectsNearby(labelRect, sr, LABEL_SHAPE_PROXIMITY_MARGIN)
-    );
     const otherFlowLabels = Array.from(flowLabelRects.entries())
       .filter(([id]) => id !== flow.id)
       .map(([, r]) => r);
-    const overlapsLabel = otherFlowLabels.some((lr) => rectsOverlap(labelRect, lr));
-    const crossesConnection = otherSegments.some(([p1, p2]) =>
-      segmentIntersectsRect(p1, p2, labelRect)
+
+    const overlaps = detectFlowLabelOverlaps(
+      labelRect,
+      shapes,
+      otherFlowLabels,
+      otherSegments,
+      ownSegments
     );
 
-    if (!overlapsShape && !tooCloseToShape && !overlapsLabel && !crossesConnection) continue;
+    if (!hasAnyOverlap(overlaps)) continue;
 
     const waypoints = flow.waypoints;
     if (!waypoints || waypoints.length < 2) continue;
@@ -212,14 +294,19 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
     const dy = p2.y - p1.y;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
 
-    const bestNudge = findBestNudge(
-      labelRect,
-      -dy / len,
-      dx / len,
-      shapes,
-      otherFlowLabels,
-      otherSegments
-    );
+    // When the only issue is crossing the flow's own segments, use a small
+    // nudge (just enough to clear the flow line) rather than the larger
+    // distances used for cross-flow/shape conflicts.
+    const onlySelfCrossing =
+      overlaps.crossesOwnFlow &&
+      !overlaps.overlapsShape &&
+      !overlaps.tooCloseToShape &&
+      !overlaps.overlapsLabel &&
+      !overlaps.crossesConnection;
+
+    const bestNudge = onlySelfCrossing
+      ? findSelfFlowNudge(labelRect, -dy / len, dx / len, ownSegments)
+      : findBestNudge(labelRect, -dy / len, dx / len, shapes, otherFlowLabels, otherSegments);
 
     if (bestNudge) {
       modeling.moveShape(label, bestNudge);
