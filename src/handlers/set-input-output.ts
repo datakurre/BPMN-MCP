@@ -18,11 +18,67 @@ import {
 } from './helpers';
 import { appendLintFeedback } from '../linter';
 
+export interface IoParameterValue {
+  name: string;
+  value?: string;
+  list?: string[];
+  map?: Record<string, string>;
+  script?: { scriptFormat: string; value: string; resource?: string };
+}
+
 export interface SetInputOutputArgs {
   diagramId: string;
   elementId: string;
-  inputParameters?: Array<{ name: string; value?: string }>;
-  outputParameters?: Array<{ name: string; value?: string }>;
+  inputParameters?: IoParameterValue[];
+  outputParameters?: IoParameterValue[];
+}
+
+/** Build a camunda:InputParameter or camunda:OutputParameter with optional complex value. */
+function buildParameter(
+  moddle: any,
+  type: 'camunda:InputParameter' | 'camunda:OutputParameter',
+  p: IoParameterValue
+): any {
+  const attrs: Record<string, any> = { name: p.name };
+  if (p.value !== undefined) attrs.value = p.value;
+  const param = moddle.create(type, attrs);
+
+  // camunda:List value
+  if (p.list) {
+    const items = p.list.map((v) => moddle.create('camunda:Value', { value: v }));
+    const listEl = moddle.create('camunda:List', { items });
+    items.forEach((item: any) => (item.$parent = listEl));
+    listEl.$parent = param;
+    param.definition = listEl;
+  }
+
+  // camunda:Map value
+  if (p.map) {
+    const entries = Object.entries(p.map).map(([key, value]) =>
+      moddle.create('camunda:Entry', { key, value })
+    );
+    const mapEl = moddle.create('camunda:Map', { entries });
+    entries.forEach((entry: any) => (entry.$parent = mapEl));
+    mapEl.$parent = param;
+    param.definition = mapEl;
+  }
+
+  // camunda:Script value
+  if (p.script) {
+    const scriptAttrs: Record<string, any> = {
+      scriptFormat: p.script.scriptFormat,
+    };
+    if (p.script.resource) {
+      scriptAttrs.resource = p.script.resource;
+    } else {
+      scriptAttrs.value = p.script.value;
+    }
+    const scriptEl = moddle.create('camunda:Script', scriptAttrs);
+    scriptEl.$parent = param;
+    param.definition = scriptEl;
+  }
+
+  return param;
 }
 
 export async function handleSetInputOutput(args: SetInputOutputArgs): Promise<ToolResult> {
@@ -38,18 +94,14 @@ export async function handleSetInputOutput(args: SetInputOutputArgs): Promise<To
   const bo = element.businessObject;
 
   // Build camunda:InputParameter elements
-  const inputParams = inputParameters.map((p) => {
-    const attrs: Record<string, any> = { name: p.name };
-    if (p.value !== undefined) attrs.value = p.value;
-    return moddle.create('camunda:InputParameter', attrs);
-  });
+  const inputParams = inputParameters.map((p) =>
+    buildParameter(moddle, 'camunda:InputParameter', p)
+  );
 
   // Build camunda:OutputParameter elements
-  const outputParams = outputParameters.map((p) => {
-    const attrs: Record<string, any> = { name: p.name };
-    if (p.value !== undefined) attrs.value = p.value;
-    return moddle.create('camunda:OutputParameter', attrs);
-  });
+  const outputParams = outputParameters.map((p) =>
+    buildParameter(moddle, 'camunda:OutputParameter', p)
+  );
 
   // Build camunda:InputOutput element
   const ioAttrs: Record<string, any> = {};
@@ -74,7 +126,7 @@ export async function handleSetInputOutput(args: SetInputOutputArgs): Promise<To
 export const TOOL_DEFINITION = {
   name: 'set_bpmn_input_output_mapping',
   description:
-    "Set Camunda input/output parameter mappings on an element. Creates camunda:InputOutput extension elements with camunda:InputParameter and camunda:OutputParameter children. The 'value' field accepts both static values (e.g. '123') and expressions (e.g. '${myVar}', '${execution.getVariable('name')}').",
+    "Set Camunda input/output parameter mappings on an element. Creates camunda:InputOutput extension elements with camunda:InputParameter and camunda:OutputParameter children. The 'value' field accepts both static values (e.g. '123') and expressions (e.g. '${myVar}', '${execution.getVariable('name')}'). Supports complex value types: 'list' (string array), 'map' (key-value object), and 'script' (inline or external script).",
   inputSchema: {
     type: 'object',
     properties: {
@@ -94,6 +146,35 @@ export const TOOL_DEFINITION = {
               description:
                 "Static value or expression. Examples: '123', '${myVar}', '${execution.getVariable('orderId')}'.",
             },
+            list: {
+              type: 'array',
+              items: { type: 'string' },
+              description:
+                'List of values (creates camunda:List). Mutually exclusive with value/map/script.',
+            },
+            map: {
+              type: 'object',
+              additionalProperties: { type: 'string' },
+              description:
+                'Key-value map (creates camunda:Map). Mutually exclusive with value/list/script.',
+            },
+            script: {
+              type: 'object',
+              properties: {
+                scriptFormat: {
+                  type: 'string',
+                  description: "Script language (e.g. 'groovy', 'javascript')",
+                },
+                value: { type: 'string', description: 'Inline script body' },
+                resource: {
+                  type: 'string',
+                  description: 'External script resource path (alternative to inline value)',
+                },
+              },
+              required: ['scriptFormat'],
+              description:
+                'Script value (creates camunda:Script). Mutually exclusive with value/list/map.',
+            },
           },
           required: ['name'],
         },
@@ -108,6 +189,35 @@ export const TOOL_DEFINITION = {
             value: {
               type: 'string',
               description: "Static value or expression. Examples: 'ok', '${result}'.",
+            },
+            list: {
+              type: 'array',
+              items: { type: 'string' },
+              description:
+                'List of values (creates camunda:List). Mutually exclusive with value/map/script.',
+            },
+            map: {
+              type: 'object',
+              additionalProperties: { type: 'string' },
+              description:
+                'Key-value map (creates camunda:Map). Mutually exclusive with value/list/script.',
+            },
+            script: {
+              type: 'object',
+              properties: {
+                scriptFormat: {
+                  type: 'string',
+                  description: "Script language (e.g. 'groovy', 'javascript')",
+                },
+                value: { type: 'string', description: 'Inline script body' },
+                resource: {
+                  type: 'string',
+                  description: 'External script resource path (alternative to inline value)',
+                },
+              },
+              required: ['scriptFormat'],
+              description:
+                'Script value (creates camunda:Script). Mutually exclusive with value/list/map.',
             },
           },
           required: ['name'],

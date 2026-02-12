@@ -14,6 +14,7 @@ import {
   rules as localRuleFactories,
 } from './bpmnlint-plugin-bpmn-mcp';
 import { getDiagramId } from './diagram-manager';
+import { buildConnectivityWarnings } from './handlers/helpers';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -372,6 +373,28 @@ export async function appendLintFeedback(
       type: 'text',
       text: `\n💡 Hint: ${mutations} changes since last layout — consider calling layout_bpmn_diagram to arrange elements.`,
     });
+  }
+
+  // Surface connectivity warnings post-mutation (when diagram has >3 elements)
+  try {
+    const elementRegistry = diagram.modeler.get('elementRegistry');
+    const flowElements = elementRegistry.filter(
+      (el: any) =>
+        el.type &&
+        (el.type.includes('Event') ||
+          el.type.includes('Task') ||
+          el.type.includes('Gateway') ||
+          el.type.includes('SubProcess') ||
+          el.type.includes('CallActivity'))
+    );
+    if (flowElements.length > 3) {
+      const connectivityWarnings = buildConnectivityWarnings(elementRegistry);
+      if (connectivityWarnings.length > 0) {
+        result.content.push({ type: 'text', text: '\n' + connectivityWarnings.join('\n') });
+      }
+    }
+  } catch {
+    // Non-fatal — connectivity check should never break the primary operation
   }
 
   return result;

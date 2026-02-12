@@ -29,6 +29,7 @@ export interface SetCamundaListenersArgs {
     delegateExpression?: string;
     expression?: string;
     script?: { scriptFormat: string; value: string };
+    fields?: Array<{ name: string; stringValue?: string; string?: string; expression?: string }>;
   }>;
   taskListeners?: Array<{
     event: string;
@@ -36,6 +37,7 @@ export interface SetCamundaListenersArgs {
     delegateExpression?: string;
     expression?: string;
     script?: { scriptFormat: string; value: string };
+    fields?: Array<{ name: string; stringValue?: string; string?: string; expression?: string }>;
   }>;
   errorDefinitions?: Array<{
     id: string;
@@ -53,6 +55,7 @@ function createListenerElement(
     delegateExpression?: string;
     expression?: string;
     script?: { scriptFormat: string; value: string };
+    fields?: Array<{ name: string; stringValue?: string; string?: string; expression?: string }>;
   }
 ): any {
   const attrs: Record<string, any> = { event: listener.event };
@@ -75,6 +78,19 @@ function createListenerElement(
     });
     scriptEl.$parent = el;
     el.script = scriptEl;
+  }
+
+  // Field injection support
+  if (listener.fields && listener.fields.length > 0) {
+    el.fields = listener.fields.map((f) => {
+      const attrs: Record<string, any> = { name: f.name };
+      if (f.stringValue != null) attrs.stringValue = f.stringValue;
+      if (f.string != null) attrs.string = f.string;
+      if (f.expression != null) attrs.expression = f.expression;
+      const fieldEl = moddle.create('camunda:Field', attrs);
+      fieldEl.$parent = el;
+      return fieldEl;
+    });
   }
 
   return el;
@@ -245,6 +261,30 @@ export const TOOL_DEFINITION = {
               },
               required: ['scriptFormat', 'value'],
             },
+            fields: {
+              type: 'array',
+              description:
+                'Field injection on the listener (e.g. for configuring delegate classes)',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Field name' },
+                  stringValue: {
+                    type: 'string',
+                    description: 'Static string value (attribute form)',
+                  },
+                  string: {
+                    type: 'string',
+                    description: 'Static string value (child element form)',
+                  },
+                  expression: {
+                    type: 'string',
+                    description: 'Expression value (e.g. ${myBean.value})',
+                  },
+                },
+                required: ['name'],
+              },
+            },
           },
           required: ['event'],
         },
@@ -282,6 +322,30 @@ export const TOOL_DEFINITION = {
                 value: { type: 'string', description: 'The script body' },
               },
               required: ['scriptFormat', 'value'],
+            },
+            fields: {
+              type: 'array',
+              description:
+                'Field injection on the listener (e.g. for configuring delegate classes)',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Field name' },
+                  stringValue: {
+                    type: 'string',
+                    description: 'Static string value (attribute form)',
+                  },
+                  string: {
+                    type: 'string',
+                    description: 'Static string value (child element form)',
+                  },
+                  expression: {
+                    type: 'string',
+                    description: 'Expression value (e.g. ${myBean.value})',
+                  },
+                },
+                required: ['name'],
+              },
             },
           },
           required: ['event'],

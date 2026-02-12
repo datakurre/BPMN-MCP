@@ -66,19 +66,35 @@ function serializeCamundaAttrs(bo: any): Record<string, any> | undefined {
 
 // ── Sub-function: InputOutput extension serialisation ──────────────────────
 
+function serializeParameter(p: any): Record<string, any> {
+  const result: Record<string, any> = { name: p.name };
+  if (p.value !== undefined) result.value = p.value;
+  if (p.definition) {
+    const def = p.definition;
+    if (def.$type === 'camunda:List' && def.items) {
+      result.list = def.items.map((item: any) => item.value ?? item);
+    } else if (def.$type === 'camunda:Map' && def.entries) {
+      result.map = def.entries.reduce((acc: Record<string, string>, entry: any) => {
+        acc[entry.key] = entry.value;
+        return acc;
+      }, {});
+    } else if (def.$type === 'camunda:Script') {
+      result.script = {
+        scriptFormat: def.scriptFormat,
+        ...(def.resource ? { resource: def.resource } : { value: def.value }),
+      };
+    }
+  }
+  return result;
+}
+
 function serializeInputOutput(ext: any): Record<string, any> {
   const io: any = { type: 'camunda:InputOutput' };
   if (ext.inputParameters) {
-    io.inputParameters = ext.inputParameters.map((p: any) => ({
-      name: p.name,
-      value: p.value,
-    }));
+    io.inputParameters = ext.inputParameters.map(serializeParameter);
   }
   if (ext.outputParameters) {
-    io.outputParameters = ext.outputParameters.map((p: any) => ({
-      name: p.name,
-      value: p.value,
-    }));
+    io.outputParameters = ext.outputParameters.map(serializeParameter);
   }
   return io;
 }
@@ -134,6 +150,15 @@ function serializeListener(ext: any): Record<string, any> {
       scriptFormat: ext.script.scriptFormat,
       value: ext.script.value,
     };
+  }
+  if (ext.fields?.length) {
+    listener.fields = ext.fields.map((f: any) => {
+      const field: Record<string, any> = { name: f.name };
+      if (f.stringValue != null) field.stringValue = f.stringValue;
+      if (f.string != null) field.string = f.string;
+      if (f.expression != null) field.expression = f.expression;
+      return field;
+    });
   }
   return listener;
 }

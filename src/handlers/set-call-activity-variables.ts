@@ -30,6 +30,7 @@ export interface SetCallActivityVariablesArgs {
     target?: string;
     variables?: 'all';
     local?: boolean;
+    businessKey?: string;
   }>;
   outMappings?: Array<{
     source?: string;
@@ -46,6 +47,7 @@ interface MappingSpec {
   target?: string;
   variables?: 'all';
   local?: boolean;
+  businessKey?: string;
 }
 
 /** Create a camunda:In or camunda:Out moddle element from a mapping spec. */
@@ -56,7 +58,9 @@ function createMappingElement(
   parent: any
 ): any {
   const attrs: Record<string, any> = {};
-  if (mapping.variables === 'all') {
+  if (mapping.businessKey != null) {
+    attrs.businessKey = mapping.businessKey;
+  } else if (mapping.variables === 'all') {
     attrs.variables = 'all';
   } else {
     if (mapping.source) attrs.source = mapping.source;
@@ -174,6 +178,11 @@ export const TOOL_DEFINITION = {
             local: {
               type: 'boolean',
               description: 'Whether to use local scope (default: false)',
+            },
+            businessKey: {
+              type: 'string',
+              description:
+                "Expression for the business key to propagate to the called process (e.g. '${execution.processBusinessKey}')",
             },
           },
         },
