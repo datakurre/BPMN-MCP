@@ -337,13 +337,13 @@
       <bpmndi:BPMNShape id="Event_2Hours_di" bpmnElement="Event_2Hours">
         <dc:Bounds x="1440" y="162" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1440" y="192" width="37" height="14" />
+          <dc:Bounds x="1399" y="192" width="37" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_PaymentError_di" bpmnElement="Event_PaymentError">
         <dc:Bounds x="1610" y="162" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1593" y="192" width="71" height="14" />
+          <dc:Bounds x="1533" y="192" width="71" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0dg5vts_di" bpmnElement="Flow_RegistrationStarted_to_FillRegistrationForm">

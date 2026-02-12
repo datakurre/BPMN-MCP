@@ -67,7 +67,7 @@
       <bpmndi:BPMNShape id="Event_1pufg4s_di" bpmnElement="Event_1w9t4mj">
         <dc:Bounds x="320" y="167" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="318" y="198" width="40" height="14" />
+          <dc:Bounds x="278" y="198" width="40" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0wrdu82_di" bpmnElement="Flow_0wrdu82">
