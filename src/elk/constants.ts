@@ -95,6 +95,16 @@ export const ELK_HIGH_PRIORITY = '10';
 export const EVENT_TASK_GAP_EXTRA = 0;
 
 /**
+ * Extra gap (px) added after a layer containing a boundary-event host.
+ *
+ * Tasks with attached boundary events need extra horizontal space to
+ * accommodate the boundary event targets placed below.  Reference
+ * layouts (Camunda Modeler) use 80–87px edge-to-edge after such tasks
+ * vs the normal 60–65px.  This constant closes the gap.
+ */
+export const BOUNDARY_HOST_GAP_EXTRA = 10;
+
+/**
  * Extra gap (px) added between gateway↔task layers.
  * Gateways (50px) are narrower than tasks (100px).  With equal edge-to-edge
  * gaps the visual spacing looks tighter; the reference layouts use ~5px more

@@ -19,6 +19,7 @@ import {
   GATEWAY_TASK_GAP_EXTRA,
   GATEWAY_EVENT_GAP_REDUCE,
   GATEWAY_GATEWAY_GAP_EXTRA,
+  BOUNDARY_HOST_GAP_EXTRA,
 } from './constants';
 import type { GridLayer } from './types';
 import {
@@ -268,6 +269,27 @@ function hasBoundarySubFlowTarget(elements: BpmnElement[], allConnections: BpmnE
 }
 
 /**
+ * Detect whether a layer contains a task/subprocess that has attached
+ * boundary events.
+ *
+ * When a task hosts boundary events, the post-ELK layout needs extra
+ * horizontal space after it — the boundary event target sub-flow is
+ * placed below, and reference layouts consistently use wider gaps
+ * (80–87px vs 60–65px) after such host tasks.
+ */
+function hasBoundaryEventHost(elements: BpmnElement[], elementRegistry: ElementRegistry): boolean {
+  // Check all boundary events in the registry for hosts in this layer
+  const layerIds = new Set(elements.map((el) => el.id));
+  const allElements: BpmnElement[] = elementRegistry.getAll();
+  for (const el of allElements) {
+    if (el.type === 'bpmn:BoundaryEvent' && el.host && layerIds.has(el.host.id)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Post-ELK grid snap pass.
  *
  * Steps:
@@ -309,7 +331,15 @@ export function gridSnapPass(
 
     if (i > 0) {
       // Element-type-aware gap between adjacent layers
-      const gap = computeInterLayerGap(layers[i - 1], layer, baseLayerSpacing);
+      let gap = computeInterLayerGap(layers[i - 1], layer, baseLayerSpacing);
+
+      // Add extra spacing after layers containing boundary-event hosts.
+      // Tasks with attached boundary events need room for the boundary
+      // target sub-flow placed below; reference layouts use ~20px more.
+      if (hasBoundaryEventHost(layers[i - 1].elements, elementRegistry)) {
+        gap += BOUNDARY_HOST_GAP_EXTRA;
+      }
+
       columnX = layers[i - 1].maxRight + gap;
     }
 
