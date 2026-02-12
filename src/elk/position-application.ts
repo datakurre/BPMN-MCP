@@ -11,7 +11,7 @@ import {
   isLane as _isLane,
   isLayoutableShape,
 } from './helpers';
-import { COLLAPSED_POOL_GAP } from './constants';
+import { COLLAPSED_POOL_GAP, INTER_POOL_GAP_EXTRA } from './constants';
 
 /**
  * Recursively apply ELK layout results to bpmn-js elements.
@@ -142,6 +142,47 @@ export function centreElementsInPools(elementRegistry: ElementRegistry, modeling
     // Only shift if the offset is significant (>5px)
     if (Math.abs(dy) > 5) {
       modeling.moveElements(children, { x: 0, y: dy });
+    }
+  }
+}
+
+/**
+ * Enforce minimum vertical gap between expanded participant pools.
+ *
+ * ELK's internal layout for compound nodes can leave expanded pools
+ * with very tight vertical gaps.  This pass ensures a minimum gap
+ * between stacked pools by pushing lower pools downward when necessary.
+ */
+export function enforceExpandedPoolGap(elementRegistry: ElementRegistry, modeling: Modeling): void {
+  const participants = elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+  if (participants.length < 2) return;
+
+  // Only consider expanded pools (those with flow-element children)
+  const expanded = participants.filter(
+    (pool) => elementRegistry.filter((el) => el.parent === pool && isLayoutableShape(el)).length > 0
+  );
+
+  if (expanded.length < 2) return;
+
+  // Sort by Y position
+  expanded.sort((a, b) => a.y - b.y);
+
+  const minGap = INTER_POOL_GAP_EXTRA;
+
+  for (let i = 1; i < expanded.length; i++) {
+    const prevPool = elementRegistry.get(expanded[i - 1].id)!;
+    const currPool = elementRegistry.get(expanded[i].id)!;
+    const prevBottom = prevPool.y + (prevPool.height || 0);
+    const currentGap = currPool.y - prevBottom;
+
+    if (currentGap < minGap) {
+      const dy = Math.round(minGap - currentGap);
+      // Move this pool and all subsequent pools down
+      const toMove = expanded
+        .slice(i)
+        .map((p) => elementRegistry.get(p.id)!)
+        .filter(Boolean);
+      modeling.moveElements(toMove, { x: 0, y: dy });
     }
   }
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.44.0">
   <bpmn:collaboration id="Collaboration_0123k21">
     <bpmn:participant id="Participant_1kju1v4" name="Customer" processRef="Process_Conference_Registration_Process" />
     <bpmn:participant id="Participant_0yixlru" name="System" />
@@ -15,7 +15,7 @@
       <bpmn:incoming>Flow_0b8esdu</bpmn:incoming>
       <bpmn:outgoing>Flow_1horjnb</bpmn:outgoing>
     </bpmn:sendTask>
-    <bpmn:endEvent id="Event_0fdolr2" name="Order sent">
+    <bpmn:endEvent id="Event_0fdolr2" name="Order Sent">
       <bpmn:incoming>Flow_1horjnb</bpmn:incoming>
     </bpmn:endEvent>
   </bpmn:process>
@@ -49,11 +49,11 @@
         <di:waypoint x="518" y="292" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Participant_0yaxd11_di" bpmnElement="Participant_0yixlru" isHorizontal="true">
-        <dc:Bounds x="192" y="462" width="382" height="60" />
+        <dc:Bounds x="192" y="472" width="382" height="60" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0pay6fu_di" bpmnElement="Flow_0pay6fu">
         <di:waypoint x="398" y="332" />
-        <di:waypoint x="398" y="462" />
+        <di:waypoint x="398" y="472" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="315" y="417" width="29" height="14" />
         </bpmndi:BPMNLabel>

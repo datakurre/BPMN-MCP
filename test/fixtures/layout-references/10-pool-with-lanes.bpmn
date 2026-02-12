@@ -10,8 +10,8 @@
         <bpmn:flowNodeRef>Activity_0umkpno</bpmn:flowNodeRef>
       </bpmn:lane>
       <bpmn:lane id="Lane_17acin1" name="System">
-        <bpmn:flowNodeRef>Activity_1mlpqg7</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Event_0qsv9hq</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Activity_1mlpqg7</bpmn:flowNodeRef>
       </bpmn:lane>
     </bpmn:laneSet>
     <bpmn:startEvent id="Event_0rkf2lz" name="Place Order">
@@ -22,15 +22,15 @@
       <bpmn:outgoing>Flow_1pda693</bpmn:outgoing>
     </bpmn:sendTask>
     <bpmn:sequenceFlow id="Flow_0b8esdu" sourceRef="Event_0rkf2lz" targetRef="Activity_0umkpno" />
-    <bpmn:task id="Activity_1mlpqg7" name="Process Order">
-      <bpmn:incoming>Flow_1pda693</bpmn:incoming>
-      <bpmn:outgoing>Flow_1g120lj</bpmn:outgoing>
-    </bpmn:task>
-    <bpmn:endEvent id="Event_0qsv9hq">
+    <bpmn:endEvent id="Event_0qsv9hq" name="Order Completd">
       <bpmn:incoming>Flow_1g120lj</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_1g120lj" sourceRef="Activity_1mlpqg7" targetRef="Event_0qsv9hq" />
     <bpmn:sequenceFlow id="Flow_1pda693" sourceRef="Activity_0umkpno" targetRef="Activity_1mlpqg7" />
+    <bpmn:serviceTask id="Activity_1mlpqg7" name="Process Order">
+      <bpmn:incoming>Flow_1pda693</bpmn:incoming>
+      <bpmn:outgoing>Flow_1g120lj</bpmn:outgoing>
+    </bpmn:serviceTask>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_0123k21">
@@ -38,12 +38,12 @@
         <dc:Bounds x="160" y="80" width="550" height="500" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_0wqxbtj_di" bpmnElement="Lane_0wqxbtj" isHorizontal="true">
-        <dc:Bounds x="190" y="80" width="520" height="250" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Lane_17acin1_di" bpmnElement="Lane_17acin1" isHorizontal="true">
         <dc:Bounds x="190" y="330" width="520" height="250" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_0wqxbtj_di" bpmnElement="Lane_0wqxbtj" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="520" height="250" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0rkf2lz_di" bpmnElement="Event_0rkf2lz">
@@ -55,12 +55,14 @@
       <bpmndi:BPMNShape id="Activity_0oa8qrz_di" bpmnElement="Activity_0umkpno">
         <dc:Bounds x="320" y="160" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_1mlpqg7_di" bpmnElement="Activity_1mlpqg7">
-        <dc:Bounds x="480" y="410" width="100" height="80" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0qsv9hq_di" bpmnElement="Event_0qsv9hq">
         <dc:Bounds x="632" y="432" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="611" y="475" width="79" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0n7jjtv_di" bpmnElement="Activity_1mlpqg7">
+        <dc:Bounds x="480" y="410" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0b8esdu_di" bpmnElement="Flow_0b8esdu">
         <di:waypoint x="268" y="200" />

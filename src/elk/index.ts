@@ -53,6 +53,7 @@ import {
   applyElkPositions,
   resizeCompoundNodes,
   centreElementsInPools,
+  enforceExpandedPoolGap,
   reorderCollapsedPoolsBelow,
 } from './position-application';
 import { repositionLanes, saveLaneNodeAssignments } from './lane-layout';
@@ -271,6 +272,7 @@ function alignHappyPathAndOffPathEvents(ctx: LayoutContext): void {
  */
 function finalisePoolsAndLanes(ctx: LayoutContext): void {
   centreElementsInPools(ctx.elementRegistry, ctx.modeling);
+  enforceExpandedPoolGap(ctx.elementRegistry, ctx.modeling);
   repositionLanes(ctx.elementRegistry, ctx.modeling, ctx.laneSnapshots);
   reorderCollapsedPoolsBelow(ctx.elementRegistry, ctx.modeling);
 }

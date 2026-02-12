@@ -99,9 +99,17 @@ export const GATEWAY_EVENT_GAP_REDUCE = 5;
 
 /**
  * Gap (px) between the bottom of the last expanded pool and the first
- * collapsed pool.  Matches STANDARD_BPMN_GAP.
+ * collapsed pool.
  */
-export const COLLAPSED_POOL_GAP = 50;
+export const COLLAPSED_POOL_GAP = 60;
+
+/**
+ * Extra vertical spacing (px) added between participant pools in
+ * collaboration diagrams.  ELK's default nodeNode spacing is too tight
+ * for pools — the reference uses ≈120 px edge-to-edge between pools
+ * vs the default ~50 px.
+ */
+export const INTER_POOL_GAP_EXTRA = 70;
 
 // ── Edge routing ────────────────────────────────────────────────────────
 
