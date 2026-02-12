@@ -94,8 +94,24 @@ export const ELK_HIGH_PRIORITY = '10';
 /** Extra gap (px) added between event↔task layers for breathing room. */
 export const EVENT_TASK_GAP_EXTRA = 0;
 
+/**
+ * Extra gap (px) added between gateway↔task layers.
+ * Gateways (50px) are narrower than tasks (100px).  With equal edge-to-edge
+ * gaps the visual spacing looks tighter; the reference layouts use ~5px more
+ * breathing room for gateway↔task transitions.
+ */
+export const GATEWAY_TASK_GAP_EXTRA = 5;
+
 /** Gap reduction (px) between gateway↔event layers (both compact shapes). */
 export const GATEWAY_EVENT_GAP_REDUCE = 5;
+
+/**
+ * Extra gap (px) between consecutive gateway layers.
+ * Gateway-to-gateway transitions (e.g. exclusive merge → parallel split)
+ * need more breathing room because both shapes are compact (50px).
+ * Reference layouts consistently use ~70px for these transitions.
+ */
+export const GATEWAY_GATEWAY_GAP_EXTRA = 10;
 
 /**
  * Gap (px) between the bottom of the last expanded pool and the first

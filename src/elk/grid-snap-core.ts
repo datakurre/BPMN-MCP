@@ -6,10 +6,20 @@
  * regularity.
  */
 
-import { ELK_LAYER_SPACING, ELK_NODE_SPACING } from '../constants';
+import {
+  ELK_LAYER_SPACING,
+  ELK_NODE_SPACING,
+  ELK_BRANCH_NODE_SPACING,
+  ELK_BOUNDARY_NODE_SPACING,
+} from '../constants';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import { isConnection, isLayoutableShape } from './helpers';
-import { EVENT_TASK_GAP_EXTRA, GATEWAY_EVENT_GAP_REDUCE } from './constants';
+import {
+  EVENT_TASK_GAP_EXTRA,
+  GATEWAY_TASK_GAP_EXTRA,
+  GATEWAY_EVENT_GAP_REDUCE,
+  GATEWAY_GATEWAY_GAP_EXTRA,
+} from './constants';
 import type { GridLayer } from './types';
 import {
   centreGatewaysOnBranches,
@@ -125,8 +135,9 @@ function dominantCategory(layer: GridLayer): 'event' | 'gateway' | 'task' {
  * - **Event → Task / Task → Event**: slightly larger gap because events
  *   are small (36px wide) and need visual breathing room next to larger
  *   task shapes.
- * - **Gateway → Task / Task → Gateway**: standard gap — gateways (50px)
- *   are mid-sized and pair naturally with tasks at the default spacing.
+ * - **Gateway → Task / Task → Gateway**: slightly larger gap — gateways
+ *   (50px) are narrower than tasks (100px) and need a small gap boost
+ *   to produce balanced visual spacing.
  * - **Gateway → Event / Event → Gateway**: slightly tighter gap — both
  *   are compact shapes that look balanced with less whitespace.
  * - **Task → Task**: standard baseline gap.
@@ -149,6 +160,19 @@ function computeInterLayerGap(
     return base + EVENT_TASK_GAP_EXTRA;
   }
 
+  // Gateway ↔ Task: add breathing room (gateways are narrower than tasks)
+  if (
+    (prevCat === 'gateway' && nextCat === 'task') ||
+    (prevCat === 'task' && nextCat === 'gateway')
+  ) {
+    return base + GATEWAY_TASK_GAP_EXTRA;
+  }
+
+  // Gateway ↔ Gateway: add extra room (both compact shapes need more spacing)
+  if (prevCat === 'gateway' && nextCat === 'gateway') {
+    return base + GATEWAY_GATEWAY_GAP_EXTRA;
+  }
+
   // Gateway ↔ Event: tighten (both compact shapes)
   if (
     (prevCat === 'gateway' && nextCat === 'event') ||
@@ -157,8 +181,90 @@ function computeInterLayerGap(
     return base - GATEWAY_EVENT_GAP_REDUCE;
   }
 
-  // All other pairs (task→task, task↔gateway, event→event): baseline
+  // All other pairs (task→task, event→event): baseline
   return base;
+}
+
+/**
+ * Detect whether all elements in a layer are branches of the same
+ * gateway (fork or join pattern).
+ *
+ * Returns true when every element either:
+ * - shares a common source gateway (fork pattern: GW → A, GW → B, GW → C), or
+ * - shares a common target gateway (join pattern: A → GW, B → GW, C → GW).
+ *
+ * When true, the layer should use tighter vertical spacing
+ * (ELK_BRANCH_NODE_SPACING) because parallel branches look best with
+ * compact gaps matching the bpmn-auto-layout / Camunda Modeler reference.
+ */
+function isGatewayBranchLayer(elements: BpmnElement[], allConnections: BpmnElement[]): boolean {
+  if (elements.length < 2) return false;
+
+  // Build sets of source and target gateway IDs for each element
+  const commonSourceGateways = new Map<string, number>();
+  const commonTargetGateways = new Map<string, number>();
+
+  for (const el of elements) {
+    const sourceGwIds = new Set<string>();
+    const targetGwIds = new Set<string>();
+
+    for (const conn of allConnections) {
+      // Incoming connection from a gateway → this element is a fork branch
+      if (conn.target?.id === el.id && conn.source?.type?.includes('Gateway')) {
+        sourceGwIds.add(conn.source.id);
+      }
+      // Outgoing connection to a gateway → this element is a join branch
+      if (conn.source?.id === el.id && conn.target?.type?.includes('Gateway')) {
+        targetGwIds.add(conn.target.id);
+      }
+    }
+
+    for (const gwId of sourceGwIds) {
+      commonSourceGateways.set(gwId, (commonSourceGateways.get(gwId) || 0) + 1);
+    }
+    for (const gwId of targetGwIds) {
+      commonTargetGateways.set(gwId, (commonTargetGateways.get(gwId) || 0) + 1);
+    }
+  }
+
+  const n = elements.length;
+
+  // All elements share the same source gateway (fork)
+  for (const count of commonSourceGateways.values()) {
+    if (count === n) return true;
+  }
+
+  // All elements share the same target gateway (join)
+  for (const count of commonTargetGateways.values()) {
+    if (count === n) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Detect whether a layer contains a boundary sub-flow target alongside
+ * a happy-path element.
+ *
+ * When a task receives incoming flow from a boundary event, the vertical
+ * spacing between it and the happy-path element in the same layer should
+ * be tighter (ELK_BRANCH_NODE_SPACING) to match the reference layouts
+ * where boundary exception paths are placed compactly below the main flow.
+ */
+function hasBoundarySubFlowTarget(elements: BpmnElement[], allConnections: BpmnElement[]): boolean {
+  if (elements.length < 2) return false;
+
+  for (const el of elements) {
+    for (const conn of allConnections) {
+      if (conn.target?.id !== el.id) continue;
+      // Check if incoming flow source is a boundary event
+      if (conn.source?.type === 'bpmn:BoundaryEvent') return true;
+      // Also check if the incoming source itself receives from a boundary event
+      // (indirect boundary target, e.g. BE → intermediate → this task)
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -230,10 +336,24 @@ export function gridSnapPass(
   }
 
   // ── Step 2: Uniform vertical spacing within layers ──
-  const nodeSpacing = ELK_NODE_SPACING;
+  const defaultNodeSpacing = ELK_NODE_SPACING;
+
+  // Pre-compute all connections once for gateway branch detection
+  const allConnections = elementRegistry
+    .getAll()
+    .filter((el: BpmnElement) => isConnection(el.type));
 
   for (const layer of layers) {
     if (layer.elements.length < 2) continue;
+
+    // Use tighter spacing for gateway branches (parallel fork-join pattern)
+    // or boundary sub-flow targets (exception path below main flow).
+    let nodeSpacing = defaultNodeSpacing;
+    if (isGatewayBranchLayer(layer.elements, allConnections)) {
+      nodeSpacing = ELK_BRANCH_NODE_SPACING;
+    } else if (hasBoundarySubFlowTarget(layer.elements, allConnections)) {
+      nodeSpacing = ELK_BOUNDARY_NODE_SPACING;
+    }
 
     // Sort by current Y
     const sorted = [...layer.elements].sort((a, b) => a.y - b.y);

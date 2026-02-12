@@ -19,6 +19,28 @@ export const STANDARD_BPMN_GAP = 50;
 export const ELK_LAYER_SPACING = 60;
 export const ELK_NODE_SPACING = 50;
 export const ELK_EDGE_NODE_SPACING = 15;
+
+/**
+ * Tighter edge-to-edge gap (px) between elements that are all branches
+ * of the same gateway (parallel fork-join pattern).
+ *
+ * Reference layouts use 110px centre-to-centre for 80px-tall tasks,
+ * i.e. 30px edge-to-edge.  The general ELK_NODE_SPACING (50px) is too
+ * wide for this pattern.  Only applied when every element in a layer
+ * shares the same source or target gateway.
+ */
+export const ELK_BRANCH_NODE_SPACING = 30;
+
+/**
+ * Edge-to-edge gap (px) between a happy-path element and a boundary
+ * sub-flow target in the same layer.
+ *
+ * Reference layouts place boundary exception paths ~40px edge-to-edge
+ * below the main flow (120px centre-to-centre for 80px-tall tasks).
+ * Tighter than general ELK_NODE_SPACING but looser than gateway branches.
+ */
+export const ELK_BOUNDARY_NODE_SPACING = 40;
+
 export const ELK_COMPACT_NODE_SPACING = 40;
 export const ELK_SPACIOUS_NODE_SPACING = 80;
 export const ELK_COMPACT_LAYER_SPACING = 50;
