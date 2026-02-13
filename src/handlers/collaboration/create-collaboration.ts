@@ -184,7 +184,17 @@ export async function handleCreateCollaboration(
 export const TOOL_DEFINITION = {
   name: 'create_bpmn_collaboration',
   description:
-    'Create a collaboration diagram with multiple participants (pools). **Camunda 7 / Operaton pattern:** Only one pool can be deployed and executed — additional pools must be **collapsed** (set collapsed: true) and serve only to document message flow endpoints. The executable pool contains the full process (start → tasks → end); collapsed pools are thin bars representing external systems or partners. Message flows connect elements in the expanded pool to collapsed pool shapes directly. For simple integrations where the external system is not a meaningful message partner, prefer bpmn:ServiceTask (camunda:type="external", camunda:topic) instead of a collaboration. Requires at least 2 participants.',
+    'Create a collaboration diagram with multiple participants (pools). ' +
+    '**⚠ Lanes vs Pools:** If you need role separation within a single organization/process ' +
+    '(e.g. Requester, Approver, Finance), use **lanes** inside one expanded pool — NOT multiple expanded pools. ' +
+    'Multiple expanded pools represent separate organizations/systems that communicate via message flows. ' +
+    '**Camunda 7 / Operaton pattern:** Only one pool can be deployed and executed — additional pools must be ' +
+    '**collapsed** (set collapsed: true) and serve only to document message flow endpoints. ' +
+    'The executable pool contains the full process (start → tasks → end); collapsed pools are thin bars ' +
+    'representing external systems or partners. Message flows connect elements in the expanded pool to ' +
+    'collapsed pool shapes directly. For simple integrations where the external system is not a meaningful ' +
+    'message partner, prefer bpmn:ServiceTask (camunda:type="external", camunda:topic) instead of a collaboration. ' +
+    'Requires at least 2 participants.',
   inputSchema: {
     type: 'object',
     properties: {
