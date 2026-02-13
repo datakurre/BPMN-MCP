@@ -66,6 +66,10 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Decompose the collaboration into smaller, independently deployable processes. Use Call Activities or message-based integration between separate BPMN deployments, or Link events to split complex flows within a single process',
   'bpmn-mcp/process-too-complex':
     'Decompose the process into smaller subprocesses using Call Activities (add_bpmn_element with elementType "bpmn:CallActivity"), or use Link events (bpmn:IntermediateThrowEvent + bpmn:IntermediateCatchEvent with LinkEventDefinition) to split the flow into readable sections within the same process',
+  'bpmn-mcp/empty-participant-with-lanes':
+    'Remove the empty participant{elementRef} with delete_bpmn_element, or add process elements to it. If it represents an external system, set it to collapsed',
+  'bpmn-mcp/lane-zigzag-flow':
+    'Consider moving the element{elementRef} to the same lane as its predecessor and successor using move_bpmn_element with laneId, or restructure the process to avoid unnecessary lane crossings',
 };
 
 /**

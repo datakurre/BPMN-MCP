@@ -112,6 +112,16 @@ const FIX_TOOL_CALLS: Record<string, FixTemplate> = {
     args: { newType: 'bpmn:ExclusiveGateway' },
     requiresElementId: true,
   },
+  'bpmn-mcp/empty-participant-with-lanes': {
+    tool: 'delete_bpmn_element',
+    args: {},
+    requiresElementId: true,
+  },
+  'bpmn-mcp/lane-zigzag-flow': {
+    tool: 'move_bpmn_element',
+    args: { laneId: '<target-lane-id>' },
+    requiresElementId: true,
+  },
 };
 
 /**

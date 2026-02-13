@@ -35,6 +35,8 @@ import duplicateEdgesSameWaypoints from './rules/duplicate-edges-same-waypoints'
 import noOverlappingShapes from './rules/no-overlapping-shapes';
 import unpairedLinkEvent from './rules/unpaired-link-event';
 import lanesExpectedButMissing from './rules/lanes-expected-but-missing';
+import emptyParticipantWithLanes from './rules/empty-participant-with-lanes';
+import laneZigzagFlow from './rules/lane-zigzag-flow';
 import processTooComplex from './rules/process-too-complex';
 import collaborationTooComplex from './rules/collaboration-too-complex';
 
@@ -71,6 +73,8 @@ export const rules: Record<string, any> = {
   'no-overlapping-shapes': noOverlappingShapes,
   'unpaired-link-event': unpairedLinkEvent,
   'lanes-expected-but-missing': lanesExpectedButMissing,
+  'empty-participant-with-lanes': emptyParticipantWithLanes,
+  'lane-zigzag-flow': laneZigzagFlow,
   'process-too-complex': processTooComplex,
   'collaboration-too-complex': collaborationTooComplex,
 };
@@ -103,6 +107,8 @@ export const configs = {
       'bpmn-mcp/no-overlapping-shapes': 'warn',
       'bpmn-mcp/unpaired-link-event': 'warn',
       'bpmn-mcp/lanes-expected-but-missing': 'info',
+      'bpmn-mcp/empty-participant-with-lanes': 'error',
+      'bpmn-mcp/lane-zigzag-flow': 'warn',
       'bpmn-mcp/process-too-complex': 'warn',
       'bpmn-mcp/collaboration-too-complex': 'warn',
     },

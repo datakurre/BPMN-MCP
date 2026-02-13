@@ -23,6 +23,33 @@
 - **Model system interaction deliberately**
   - Use **data stores** for systems that are primarily persistence.
   - Use (collapsed) **pools** for systems that have their own meaningful process behavior.
+
+## When to use pools vs lanes
+
+**Pools** (participants) represent independent process boundaries — separate organizations, departments, or systems that communicate via **message flows**.
+
+- In Camunda 7 / Operaton, **only one pool is executable** — additional pools should be **collapsed** (thin bars) to document external message endpoints.
+- Use pools when participants have their own process lifecycle and communicate asynchronously.
+- Sequence flows **cannot cross pool boundaries** — use message flows between pools.
+
+**Lanes** subdivide a single pool into horizontal bands representing **roles or responsibilities** within the same process.
+
+- Use lanes when showing who does what within a single organization/department.
+- Sequence flows can cross lane boundaries freely (they share the same process).
+- Keep lane structures simple: 2–3 lanes is usually sufficient. More than 4 lanes typically indicates the process should be decomposed.
+- **Avoid zigzag flows** (A → B → A lane crossings) — they reduce readability. If a task zigzags back, consider moving it to the same lane as its neighbors.
+- **Name lanes by role** (e.g., "Requester", "Approver", "Finance") rather than by task type.
+
+**Decision guide:**
+
+| Situation                          | Use                            |
+| ---------------------------------- | ------------------------------ |
+| Different organizations / systems  | Pools (collapsed for external) |
+| Roles within one organization      | Lanes                          |
+| Technical vs human task separation | Lanes (or skip lanes entirely) |
+| External API / partner integration | Collapsed pool + message flows |
+| Simple process, single team        | No pools or lanes needed       |
+
 - **Use data objects sparingly**: show only the most important data aspects to avoid visual noise.
 - **Avoid changing symbol size and excessive color**
   - Use annotations for extra detail.
