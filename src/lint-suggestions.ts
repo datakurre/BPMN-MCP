@@ -62,6 +62,10 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Reposition element{elementRef} using move_bpmn_element, or run layout_bpmn_diagram to re-arrange all elements',
   'bpmn-mcp/unpaired-link-event':
     'Add a matching link throw/catch event pair. Link events must have matching names set via set_bpmn_event_definition with properties: { name: "LinkName" }',
+  'bpmn-mcp/collaboration-too-complex':
+    'Decompose the collaboration into smaller, independently deployable processes. Use Call Activities or message-based integration between separate BPMN deployments',
+  'bpmn-mcp/process-too-complex':
+    'Decompose the process into smaller subprocesses using Call Activities (add_bpmn_element with elementType "bpmn:CallActivity") to keep processes maintainable',
 };
 
 /**

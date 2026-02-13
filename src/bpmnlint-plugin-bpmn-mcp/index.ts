@@ -36,6 +36,7 @@ import noOverlappingShapes from './rules/no-overlapping-shapes';
 import unpairedLinkEvent from './rules/unpaired-link-event';
 import lanesExpectedButMissing from './rules/lanes-expected-but-missing';
 import processTooComplex from './rules/process-too-complex';
+import collaborationTooComplex from './rules/collaboration-too-complex';
 
 /**
  * All custom lint rules keyed by rule name (without plugin prefix).
@@ -71,6 +72,7 @@ export const rules: Record<string, any> = {
   'unpaired-link-event': unpairedLinkEvent,
   'lanes-expected-but-missing': lanesExpectedButMissing,
   'process-too-complex': processTooComplex,
+  'collaboration-too-complex': collaborationTooComplex,
 };
 
 export const configs = {
@@ -102,6 +104,7 @@ export const configs = {
       'bpmn-mcp/unpaired-link-event': 'warn',
       'bpmn-mcp/lanes-expected-but-missing': 'info',
       'bpmn-mcp/process-too-complex': 'warn',
+      'bpmn-mcp/collaboration-too-complex': 'warn',
     },
   },
 };
