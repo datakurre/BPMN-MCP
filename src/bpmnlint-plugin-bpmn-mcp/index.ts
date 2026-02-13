@@ -47,6 +47,10 @@ import subprocessExpansionIssue from './rules/subprocess-expansion-issue';
 import laneOvercrowding from './rules/lane-overcrowding';
 import preferLanesOverPools from './rules/prefer-lanes-over-pools';
 import roleMismatchWithLane from './rules/role-mismatch-with-lane';
+import laneCandidateDetection from './rules/lane-candidate-detection';
+import laneWithoutAssignments from './rules/lane-without-assignments';
+import longMessageFlowPath from './rules/long-message-flow-path';
+import collaborationPatternMismatch from './rules/collaboration-pattern-mismatch';
 
 /**
  * All custom lint rules keyed by rule name (without plugin prefix).
@@ -93,6 +97,10 @@ export const rules: Record<string, any> = {
   'lane-overcrowding': laneOvercrowding,
   'prefer-lanes-over-pools': preferLanesOverPools,
   'role-mismatch-with-lane': roleMismatchWithLane,
+  'lane-candidate-detection': laneCandidateDetection,
+  'lane-without-assignments': laneWithoutAssignments,
+  'long-message-flow-path': longMessageFlowPath,
+  'collaboration-pattern-mismatch': collaborationPatternMismatch,
 };
 
 export const configs = {
@@ -135,6 +143,10 @@ export const configs = {
       'bpmn-mcp/lane-overcrowding': 'warn',
       'bpmn-mcp/prefer-lanes-over-pools': 'info',
       'bpmn-mcp/role-mismatch-with-lane': 'warn',
+      'bpmn-mcp/lane-candidate-detection': 'info',
+      'bpmn-mcp/lane-without-assignments': 'warn',
+      'bpmn-mcp/long-message-flow-path': 'info',
+      'bpmn-mcp/collaboration-pattern-mismatch': 'warn',
     },
   },
 };
