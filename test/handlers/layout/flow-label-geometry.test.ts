@@ -82,13 +82,14 @@ describe('findPreferredLabelSegmentIndex', () => {
 });
 
 describe('computeFlowMidpoint', () => {
-  test('returns geometric center for 2-waypoint flow', () => {
+  test('returns geometric center adjusted for arrow head on 2-waypoint flow', () => {
     const waypoints = [
       { x: 100, y: 200 },
       { x: 300, y: 200 },
     ];
     const mid = computeFlowMidpoint(waypoints);
-    expect(mid.x).toBe(200);
+    // Arrow head is 5px; effective end = 295, midpoint = (100 + 295) / 2 = 197.5
+    expect(mid.x).toBeCloseTo(197.5, 1);
     expect(mid.y).toBe(200);
   });
 
@@ -141,10 +142,11 @@ describe('computeFlowMidpoint', () => {
       { x: 200, y: 200 },
     ];
     const mid = computeFlowMidpoint(waypoints);
-    // Total path = 400, midpoint at 200 along the path
+    // Total path = 400, arrow-adjusted half = (400 - 5) / 2 = 197.5
     // After first segment (100): walked=100
-    // After second segment (100): walked=200 — exactly at endpoint
+    // Into second segment: need 97.5 more out of 100 → t=0.975
+    // → y = 0 + 100 * 0.975 = 97.5
     expect(mid.x).toBe(100);
-    expect(mid.y).toBe(100);
+    expect(mid.y).toBeCloseTo(97.5, 1);
   });
 });

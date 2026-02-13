@@ -130,6 +130,17 @@ export const OWN_FLOW_CROSSING_PENALTY = 4;
 export const FLOW_LABEL_INDENT = 15;
 
 /**
+ * Rendered length (px) of the sequence flow arrow head marker.
+ *
+ * bpmn-js defines the arrow as a `<marker>` with `viewBox="0 0 20 20"`,
+ * `markerWidth="10"`, `markerHeight="10"` and a path `M 1 5 L 11 10 L 1 15 Z`.
+ * At half-scale the rendered arrow spans ~5 px.  Subtracting this from the
+ * effective flow length before computing the label midpoint makes labels
+ * appear visually centred on the *visible* part of the connection line.
+ */
+export const ARROW_HEAD_LENGTH = 5;
+
+/**
  * Proximity margin (px) for label-to-shape distance scoring.
  * Labels within this distance of a shape receive a proximity penalty
  * even when they don't overlap, improving readability.

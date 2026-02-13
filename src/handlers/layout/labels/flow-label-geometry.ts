@@ -8,6 +8,7 @@
  */
 
 import { type Point } from './label-utils';
+import { ARROW_HEAD_LENGTH } from '../../../constants';
 
 /** Tolerance (px) for treating two coordinates as collinear. */
 const COLLINEAR_TOLERANCE = 2;
@@ -85,9 +86,16 @@ export function findPreferredLabelSegmentIndex(waypoints: Array<{ x: number; y: 
  */
 export function computeFlowMidpoint(waypoints: Array<{ x: number; y: number }>): Point {
   if (waypoints.length === 2) {
+    // Subtract the arrow head from the target end so the midpoint
+    // sits at the visual centre of the visible connection line.
+    const dx = waypoints[1].x - waypoints[0].x;
+    const dy = waypoints[1].y - waypoints[0].y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const effectiveEndX = waypoints[1].x - (ARROW_HEAD_LENGTH * dx) / len;
+    const effectiveEndY = waypoints[1].y - (ARROW_HEAD_LENGTH * dy) / len;
     return {
-      x: (waypoints[0].x + waypoints[1].x) / 2,
-      y: (waypoints[0].y + waypoints[1].y) / 2,
+      x: (waypoints[0].x + effectiveEndX) / 2,
+      y: (waypoints[0].y + effectiveEndY) / 2,
     };
   }
 
@@ -102,7 +110,8 @@ export function computeFlowMidpoint(waypoints: Array<{ x: number; y: number }>):
     };
   }
 
-  // General case: walk to 50% of total path length
+  // General case: walk to 50% of total path length.
+  // Subtract the arrow head so labels centre on the visible portion.
   let totalLength = 0;
   for (let i = 1; i < waypoints.length; i++) {
     const dx = waypoints[i].x - waypoints[i - 1].x;
@@ -110,7 +119,7 @@ export function computeFlowMidpoint(waypoints: Array<{ x: number; y: number }>):
     totalLength += Math.sqrt(dx * dx + dy * dy);
   }
 
-  const halfLength = totalLength / 2;
+  const halfLength = Math.max(0, totalLength - ARROW_HEAD_LENGTH) / 2;
   let walked = 0;
   for (let i = 1; i < waypoints.length; i++) {
     const dx = waypoints[i].x - waypoints[i - 1].x;
