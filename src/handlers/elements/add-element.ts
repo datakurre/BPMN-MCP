@@ -315,6 +315,25 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     );
   }
 
+  // Warn when adding a flow element to a process with lanes but no laneId specified
+  if (
+    !assignToLaneId &&
+    !hostElementId &&
+    needsConnection &&
+    elementType !== 'bpmn:BoundaryEvent'
+  ) {
+    const lanes = getVisibleElements(elementRegistry).filter((el: any) => el.type === 'bpmn:Lane');
+    if (lanes.length > 0) {
+      const laneNames = lanes
+        .map((l: any) => `${l.id} ("${l.businessObject?.name || 'unnamed'}")`)
+        .join(', ');
+      warnings.push(
+        `This process has lanes but no laneId was specified. The element may be outside all lanes. ` +
+          `Consider specifying laneId to place the element in a lane. Available lanes: ${laneNames}`
+      );
+    }
+  }
+
   // Duplicate detection: warn if another element with same type+name exists
   if (elementName) {
     const duplicates = getVisibleElements(elementRegistry).filter(

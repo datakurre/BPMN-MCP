@@ -41,6 +41,21 @@ export interface CrossingFlowsResult {
 }
 
 /**
+ * Lane-crossing metrics: statistics about how many sequence flows
+ * cross lane boundaries within participant pools.
+ */
+export interface LaneCrossingMetrics {
+  /** Total number of sequence flows between lane-assigned elements. */
+  totalLaneFlows: number;
+  /** Number of those flows that cross lane boundaries. */
+  crossingLaneFlows: number;
+  /** IDs of the crossing flows (omitted if none). */
+  crossingFlowIds?: string[];
+  /** Percentage of flows staying within the same lane (0–100). Higher is better. */
+  laneCoherenceScore: number;
+}
+
+/**
  * Detected layer: a group of elements sharing approximately the same
  * x-centre, representing one ELK column.
  */

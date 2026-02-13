@@ -180,6 +180,83 @@ Handle errors that can occur anywhere in the process scope.
 
 ---
 
+## 11. Organize a process into swimlanes by role
+
+Create a pool with lanes and assign tasks to the appropriate lane.
+
+```
+1. create_bpmn_diagram           → { name: "Approval Process" }
+2. add_bpmn_element              → { elementType: "bpmn:StartEvent", name: "Request Submitted" }
+3. add_bpmn_element              → { elementType: "bpmn:UserTask", name: "Review Request",
+                                      afterElementId: "<startId>" }
+4. add_bpmn_element              → { elementType: "bpmn:UserTask", name: "Approve Request",
+                                      afterElementId: "<reviewId>" }
+5. add_bpmn_element              → { elementType: "bpmn:EndEvent", name: "Completed",
+                                      afterElementId: "<approveId>" }
+6. wrap_bpmn_process_in_collaboration → { participants: [{ name: "Approval Process" }] }
+7. create_bpmn_lanes             → { participantId: "<poolId>",
+                                      lanes: [{ name: "Requester" }, { name: "Approver" }] }
+8. assign_bpmn_elements_to_lane  → { laneId: "<requesterId>",
+                                      elementIds: ["<startId>", "<reviewId>"] }
+9. assign_bpmn_elements_to_lane  → { laneId: "<approverId>",
+                                      elementIds: ["<approveId>", "<endId>"] }
+10. layout_bpmn_diagram          → { }
+```
+
+The layout response includes `laneCrossingMetrics` showing how many
+flows cross lane boundaries and a `laneCoherenceScore` (0–100%).
+
+---
+
+## 12. Refactor a flat process into a multi-lane structure
+
+Migrate an existing flat process into lanes without duplicating elements.
+
+```
+1. list_bpmn_elements            → identify element IDs and their roles
+2. wrap_bpmn_process_in_collaboration → { participants: [{ name: "My Process" }] }
+3. create_bpmn_lanes             → { participantId: "<poolId>",
+                                      lanes: [
+                                        { name: "Customer" },
+                                        { name: "Support" },
+                                        { name: "System" }
+                                      ] }
+4. assign_bpmn_elements_to_lane  → { laneId: "<customerId>",
+                                      elementIds: ["<startId>", "<submitTaskId>"] }
+5. assign_bpmn_elements_to_lane  → { laneId: "<supportId>",
+                                      elementIds: ["<reviewTaskId>", "<approveTaskId>"] }
+6. assign_bpmn_elements_to_lane  → { laneId: "<systemId>",
+                                      elementIds: ["<notifyTaskId>", "<endId>"] }
+7. layout_bpmn_diagram           → { }
+```
+
+**Key points:**
+
+- `wrap_bpmn_process_in_collaboration` preserves existing elements — no duplication.
+- Assign elements to lanes by **role** (Requester, Approver, Finance),
+  not by task type (UserTask, ServiceTask).
+- Keep 2–3 lanes for readability. More than 4 usually means the process
+  should be decomposed.
+- Avoid zigzag flows (A → B → A lane crossings) — they reduce readability.
+
+---
+
+## 13. Create a cross-lane handoff
+
+Use `handoff_bpmn_to_lane` when one role passes work to another.
+
+```
+1. handoff_bpmn_to_lane          → { fromElementId: "<customerTaskId>",
+                                      toLaneId: "<supportLaneId>",
+                                      mode: "sequence",
+                                      name: "Handle Request" }
+```
+
+This creates a new task in the target lane and connects it to the
+source element with a sequence flow — a clean cross-lane handoff.
+
+---
+
 ## Tips
 
 - **Use `layout_bpmn_diagram` after structural changes** (adding
@@ -195,3 +272,8 @@ Handle errors that can occur anywhere in the process scope.
   preview issues before export.
 - **Batch operations** with `batch_bpmn_operations` to reduce
   round-trips when building complex diagrams.
+- **Use `laneId` when adding elements** to a process that already has
+  lanes. This avoids the separate `assign_bpmn_elements_to_lane` step.
+- **Check `laneCrossingMetrics`** in layout results to assess lane
+  organization quality. A `laneCoherenceScore` above 70% indicates
+  well-organized lanes.

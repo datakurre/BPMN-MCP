@@ -9,4 +9,10 @@
  */
 
 export { elkLayout, elkLayoutSubset } from './index';
-export type { ElkLayoutOptions, CrossingFlowsResult, GridLayer } from './types';
+export { computeLaneCrossingMetrics } from './crossing-detection';
+export type {
+  ElkLayoutOptions,
+  CrossingFlowsResult,
+  LaneCrossingMetrics,
+  GridLayer,
+} from './types';

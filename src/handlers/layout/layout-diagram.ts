@@ -14,7 +14,7 @@ import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, syncXml, getVisibleElements } from '../helpers';
 import { appendLintFeedback, resetMutationCounter } from '../../linter';
 import { adjustDiagramLabels, adjustFlowLabels, centerFlowLabels } from './labels/adjust-labels';
-import { elkLayout, elkLayoutSubset } from '../../elk/api';
+import { elkLayout, elkLayoutSubset, computeLaneCrossingMetrics } from '../../elk/api';
 import {
   generateDiagramId,
   storeDiagram,
@@ -202,6 +202,63 @@ async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolResult> 
   }
 }
 
+/** Build the structured layout result JSON with crossing metrics and lane metrics. */
+function buildLayoutResult(params: {
+  diagramId: string;
+  scopeElementId?: string;
+  elementIds?: string[];
+  elementCount: number;
+  labelsMoved: number;
+  layoutResult: { crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> };
+  elementRegistry: any;
+}): ToolResult {
+  const {
+    diagramId,
+    scopeElementId,
+    elementIds,
+    elementCount,
+    labelsMoved,
+    layoutResult,
+    elementRegistry,
+  } = params;
+  const crossingCount = layoutResult.crossingFlows ?? 0;
+  const crossingPairs = layoutResult.crossingFlowPairs ?? [];
+  const laneCrossingMetrics = computeLaneCrossingMetrics(elementRegistry);
+
+  return jsonResult({
+    success: true,
+    elementCount,
+    labelsMoved,
+    ...(crossingCount > 0
+      ? {
+          crossingFlows: crossingCount,
+          crossingFlowPairs: crossingPairs,
+          warning: `${crossingCount} crossing sequence flow(s) detected — consider restructuring the process`,
+        }
+      : {}),
+    ...(laneCrossingMetrics
+      ? {
+          laneCrossingMetrics: {
+            totalLaneFlows: laneCrossingMetrics.totalLaneFlows,
+            crossingLaneFlows: laneCrossingMetrics.crossingLaneFlows,
+            laneCoherenceScore: laneCrossingMetrics.laneCoherenceScore,
+            ...(laneCrossingMetrics.crossingFlowIds
+              ? { crossingFlowIds: laneCrossingMetrics.crossingFlowIds }
+              : {}),
+          },
+        }
+      : {}),
+    message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''} — ${elementCount} elements arranged`,
+    nextSteps: [
+      {
+        tool: 'export_bpmn',
+        description:
+          'Diagram layout is complete. Use export_bpmn with format and filePath to save the diagram.',
+      },
+    ],
+  });
+}
+
 export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<ToolResult> {
   // Dry run: preview layout changes without applying them
   if (args.dryRun) {
@@ -277,28 +334,14 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
   // 3. Nudge flow labels to resolve remaining overlaps
   const flowLabelsMoved = await adjustFlowLabels(diagram);
 
-  const crossingCount = layoutResult.crossingFlows ?? 0;
-  const crossingPairs = layoutResult.crossingFlowPairs ?? [];
-
-  const result = jsonResult({
-    success: true,
+  const result = buildLayoutResult({
+    diagramId,
+    scopeElementId,
+    elementIds,
     elementCount: elementIds ? elementIds.length : elements.length,
     labelsMoved: labelsMoved + flowLabelsMoved,
-    ...(crossingCount > 0
-      ? {
-          crossingFlows: crossingCount,
-          crossingFlowPairs: crossingPairs,
-          warning: `${crossingCount} crossing sequence flow(s) detected — consider restructuring the process`,
-        }
-      : {}),
-    message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''} — ${elementIds ? elementIds.length : elements.length} elements arranged`,
-    nextSteps: [
-      {
-        tool: 'export_bpmn',
-        description:
-          'Diagram layout is complete. Use export_bpmn with format and filePath to save the diagram.',
-      },
-    ],
+    layoutResult,
+    elementRegistry,
   });
   return appendLintFeedback(result, diagram);
 }
