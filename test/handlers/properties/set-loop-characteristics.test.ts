@@ -109,6 +109,6 @@ describe('set_bpmn_loop_characteristics', () => {
         elementId: eventId,
         loopType: 'parallel',
       })
-    ).rejects.toThrow(/tasks, subprocesses, or call activities/);
+    ).rejects.toThrow(/operation requires/);
   });
 });

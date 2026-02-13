@@ -356,6 +356,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
   const result = jsonResult({
     success: true,
     elementId: element.id,
+    updated: [{ id: element.id, changed: Object.keys(args.properties) }],
     updatedProperties: Object.keys(args.properties),
     message: `Updated properties on ${element.id}`,
     ...(element.id !== elementId

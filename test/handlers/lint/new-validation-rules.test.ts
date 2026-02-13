@@ -53,7 +53,7 @@ describe('add_bpmn_element argument validation', () => {
         elementType: 'bpmn:UserTask',
         eventDefinitionType: 'bpmn:TimerEventDefinition',
       })
-    ).rejects.toThrow(/eventDefinitionType/);
+    ).rejects.toThrow(/operation requires/);
   });
 
   test('allows valid BoundaryEvent with hostElementId', async () => {

@@ -62,7 +62,7 @@ describe('set_bpmn_script', () => {
         scriptFormat: 'groovy',
         script: 'println "test"',
       })
-    ).rejects.toThrow(/not a ScriptTask/);
+    ).rejects.toThrow(/operation requires.*bpmn:ScriptTask/);
   });
 
   test('includes script in exported XML', async () => {

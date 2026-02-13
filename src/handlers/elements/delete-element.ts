@@ -7,7 +7,7 @@
 
 import { type ToolResult } from '../../types';
 import type { BpmnElement } from '../../bpmn-types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { elementNotFoundError, missingRequiredError } from '../../errors';
 import {
   requireDiagram,
   requireElement,
@@ -47,10 +47,7 @@ export async function handleDeleteElement(args: DeleteElementArgs): Promise<Tool
     }
 
     if (elements.length === 0) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        `None of the specified elements were found: ${elementIds.join(', ')}`
-      );
+      throw elementNotFoundError(elementIds.join(', '));
     }
 
     modeling.removeElements(elements);
@@ -71,7 +68,7 @@ export async function handleDeleteElement(args: DeleteElementArgs): Promise<Tool
 
   // Single element deletion (backward compatible)
   if (!elementId) {
-    throw new McpError(ErrorCode.InvalidParams, 'Either elementId or elementIds must be provided');
+    throw missingRequiredError(['elementId']);
   }
 
   const element = requireElement(elementRegistry, elementId);

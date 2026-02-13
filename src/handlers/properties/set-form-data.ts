@@ -7,7 +7,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { typeMismatchError } from '../../errors';
 import {
   requireDiagram,
   requireElement,
@@ -48,10 +48,7 @@ export async function handleSetFormData(args: SetFormDataArgs): Promise<ToolResu
 
   // Verify element is a UserTask or StartEvent
   if (bo.$type !== 'bpmn:UserTask' && bo.$type !== 'bpmn:StartEvent') {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `set_form_data is only supported on bpmn:UserTask and bpmn:StartEvent (got: ${bo.$type})`
-    );
+    throw typeMismatchError(elementId, bo.$type, ['bpmn:UserTask', 'bpmn:StartEvent']);
   }
 
   // Build camunda:FormField elements

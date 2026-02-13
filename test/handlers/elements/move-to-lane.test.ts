@@ -13,7 +13,7 @@ describe('move_bpmn_element — lane assignment', () => {
     const task2 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 2' });
 
     await expect(handleMoveToLane({ diagramId, elementId: task1, laneId: task2 })).rejects.toThrow(
-      /not a Lane/
+      /operation requires.*bpmn:Lane/
     );
   });
 
@@ -27,7 +27,7 @@ describe('move_bpmn_element — lane assignment', () => {
     const lane = await addElement(diagramId, 'bpmn:Lane', { name: 'Lane 1' });
 
     await expect(handleMoveToLane({ diagramId, elementId: part, laneId: lane })).rejects.toThrow(
-      /Cannot move/
+      /operation requires/
     );
   });
 

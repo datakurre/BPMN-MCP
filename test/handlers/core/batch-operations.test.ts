@@ -108,6 +108,6 @@ describe('batch_bpmn_operations', () => {
   });
 
   test('rejects empty operations array', async () => {
-    await expect(handleBatchOperations({ operations: [] })).rejects.toThrow(/non-empty/);
+    await expect(handleBatchOperations({ operations: [] })).rejects.toThrow(/Missing required/);
   });
 });

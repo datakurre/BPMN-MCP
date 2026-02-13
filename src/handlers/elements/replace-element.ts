@@ -7,7 +7,13 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import {
+  semanticViolationError,
+  invalidEnumError,
+  createMcpError,
+  ERR_INTERNAL,
+} from '../../errors';
+import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { getTypeSpecificHints, getNamingHint } from '../type-hints';
@@ -62,25 +68,20 @@ export async function handleReplaceElement(args: ReplaceElementArgs): Promise<To
 
   // Block replacement to/from BoundaryEvent — requires host attachment
   if (newType === 'bpmn:BoundaryEvent') {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
+    throw semanticViolationError(
       'Cannot replace an element to bpmn:BoundaryEvent. Boundary events must be attached to a host element. ' +
         'Use add_bpmn_element with hostElementId to create a boundary event on a task or subprocess.'
     );
   }
   if (oldType === 'bpmn:BoundaryEvent') {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
+    throw semanticViolationError(
       'Cannot replace a BoundaryEvent to another type. Delete the boundary event and create the desired ' +
         'element type separately using add_bpmn_element.'
     );
   }
 
   if (!REPLACEABLE_TYPES.has(newType)) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Cannot replace to type ${newType}. Supported types: ${[...REPLACEABLE_TYPES].join(', ')}`
-    );
+    throw invalidEnumError('newType', newType, [...REPLACEABLE_TYPES]);
   }
 
   // Use bpmn-js bpmnReplace service for safe type replacement
@@ -88,18 +89,20 @@ export async function handleReplaceElement(args: ReplaceElementArgs): Promise<To
   try {
     bpmnReplace = diagram.modeler.get('bpmnReplace');
   } catch {
-    throw new McpError(
+    throw createMcpError(
       ErrorCode.InternalError,
-      'bpmnReplace service not available — cannot replace element type'
+      'bpmnReplace service not available — cannot replace element type',
+      ERR_INTERNAL
     );
   }
 
   const newElement = bpmnReplace.replaceElement(element, { type: newType });
 
   if (!newElement) {
-    throw new McpError(
+    throw createMcpError(
       ErrorCode.InternalError,
-      `Failed to replace ${elementId} from ${oldType} to ${newType}`
+      `Failed to replace ${elementId} from ${oldType} to ${newType}`,
+      ERR_INTERNAL
     );
   }
 

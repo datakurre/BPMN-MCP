@@ -51,6 +51,6 @@ describe('manage_bpmn_root_elements', () => {
   test('requires at least one definition', async () => {
     const diagramId = await createDiagram();
 
-    await expect(handleManageRootElements({ diagramId })).rejects.toThrow(/at least one/i);
+    await expect(handleManageRootElements({ diagramId })).rejects.toThrow(/Missing required/i);
   });
 });

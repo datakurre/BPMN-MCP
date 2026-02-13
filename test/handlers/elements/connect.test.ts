@@ -62,7 +62,7 @@ describe('connect_bpmn_elements', () => {
         sourceElementId: 'no',
         targetElementId: bId,
       })
-    ).rejects.toThrow(/Source element not found/);
+    ).rejects.toThrow(/Element not found/);
   });
 
   test('throws when target missing', async () => {
@@ -77,7 +77,7 @@ describe('connect_bpmn_elements', () => {
         sourceElementId: aId,
         targetElementId: 'no',
       })
-    ).rejects.toThrow(/Target element not found/);
+    ).rejects.toThrow(/Element not found/);
   });
 });
 

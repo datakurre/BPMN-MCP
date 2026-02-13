@@ -6,7 +6,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { missingRequiredError, semanticViolationError } from '../../errors';
 import { validateArgs, jsonResult, syncXml } from '../helpers';
 import { dispatchToolCall } from '../index';
 import { setBatchMode, appendLintFeedback } from '../../linter';
@@ -74,12 +74,12 @@ export async function handleBatchOperations(args: BatchOperationsArgs): Promise<
   const { operations, stopOnError = true } = args;
 
   if (!Array.isArray(operations) || operations.length === 0) {
-    throw new McpError(ErrorCode.InvalidParams, 'operations must be a non-empty array');
+    throw missingRequiredError(['operations']);
   }
 
   for (const op of operations) {
     if (op.tool === 'batch_bpmn_operations') {
-      throw new McpError(ErrorCode.InvalidParams, 'Nested batch operations are not allowed');
+      throw semanticViolationError('Nested batch operations are not allowed');
     }
   }
 

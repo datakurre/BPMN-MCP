@@ -127,7 +127,7 @@ describe('set_bpmn_form_data', () => {
         elementId: taskId,
         fields: [{ id: 'f1', label: 'F1', type: 'string' }],
       })
-    ).rejects.toThrow(/only supported on/);
+    ).rejects.toThrow(/operation requires/);
   });
 
   test('is visible via get_element_properties', async () => {

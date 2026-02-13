@@ -71,7 +71,7 @@ describe('set_bpmn_event_definition', () => {
         elementId: taskId,
         eventDefinitionType: 'bpmn:ErrorEventDefinition',
       })
-    ).rejects.toThrow(/not an event/);
+    ).rejects.toThrow(/operation requires/);
   });
 
   test('sets camunda:async on SignalEventDefinition', async () => {
@@ -168,6 +168,6 @@ describe('set_bpmn_event_definition', () => {
         properties: { timeDuration: 'PT1H' },
         inMappings: [{ source: 'foo', target: 'bar' }],
       })
-    ).rejects.toThrow(/only supported on bpmn:SignalEventDefinition/);
+    ).rejects.toThrow(/operation requires.*bpmn:SignalEventDefinition/);
   });
 });

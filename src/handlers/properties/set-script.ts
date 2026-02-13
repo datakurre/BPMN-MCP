@@ -6,7 +6,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { illegalCombinationError, missingRequiredError, typeMismatchError } from '../../errors';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
@@ -24,15 +24,12 @@ export async function handleSetScript(args: SetScriptArgs): Promise<ToolResult> 
   const { diagramId, elementId, scriptFormat, script, resultVariable, resource } = args;
 
   if (!script && !resource) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'Either script (inline body) or resource (external file path) must be provided'
-    );
+    throw missingRequiredError(['script']);
   }
   if (script && resource) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'Cannot set both script (inline) and resource (external file). Provide only one.'
+    throw illegalCombinationError(
+      'Cannot set both script (inline) and resource (external file). Provide only one.',
+      ['script', 'resource']
     );
   }
 
@@ -45,10 +42,7 @@ export async function handleSetScript(args: SetScriptArgs): Promise<ToolResult> 
   const bo = element.businessObject;
 
   if (!bo.$type.includes('ScriptTask')) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Element ${elementId} is not a ScriptTask (type: ${bo.$type})`
-    );
+    throw typeMismatchError(elementId, bo.$type, ['bpmn:ScriptTask']);
   }
 
   // Set the script properties directly on the business object

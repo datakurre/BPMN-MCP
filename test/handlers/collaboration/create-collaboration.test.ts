@@ -47,7 +47,7 @@ describe('create_bpmn_collaboration', () => {
         diagramId,
         participants: [{ name: 'Solo' }],
       })
-    ).rejects.toThrow(/At least 2/);
+    ).rejects.toThrow(/Missing required/);
   });
 
   test('generates descriptive IDs for participants', async () => {

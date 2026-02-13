@@ -159,6 +159,6 @@ describe('set_bpmn_camunda_listeners', () => {
         diagramId,
         elementId: taskId,
       })
-    ).rejects.toThrow(/at least one/i);
+    ).rejects.toThrow(/Missing required/i);
   });
 });

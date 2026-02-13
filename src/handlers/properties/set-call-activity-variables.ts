@@ -10,7 +10,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { missingRequiredError, typeMismatchError } from '../../errors';
 import {
   requireDiagram,
   requireElement,
@@ -80,10 +80,7 @@ export async function handleSetCallActivityVariables(
   const { diagramId, elementId, inMappings = [], outMappings = [] } = args;
 
   if (inMappings.length === 0 && outMappings.length === 0) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'At least one inMapping or outMapping must be provided'
-    );
+    throw missingRequiredError(['inMappings', 'outMappings']);
   }
 
   const diagram = requireDiagram(diagramId);
@@ -96,10 +93,7 @@ export async function handleSetCallActivityVariables(
   const elType = element.type || bo.$type || '';
 
   if (elType !== 'bpmn:CallActivity') {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `camunda:in / camunda:out mappings can only be set on bpmn:CallActivity elements, got ${elType}`
-    );
+    throw typeMismatchError(elementId, elType, ['bpmn:CallActivity']);
   }
 
   // Ensure extensionElements container exists

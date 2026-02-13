@@ -10,7 +10,7 @@
 
 import { type ToolResult, type DiagramState } from '../../types';
 import type { BpmnElement, Modeling, ElementRegistry } from '../../bpmn-types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { illegalCombinationError, typeMismatchError } from '../../errors';
 import {
   requireDiagram,
   requireElement,
@@ -83,10 +83,13 @@ export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResu
   const hasLane = laneId !== undefined;
 
   if (!hasMove && !hasResize && !hasLane) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'At least one of x/y, width/height, or laneId must be provided'
-    );
+    throw illegalCombinationError('At least one of x/y, width/height, or laneId must be provided', [
+      'x',
+      'y',
+      'width',
+      'height',
+      'laneId',
+    ]);
   }
 
   // Lane mode — handles its own flow
@@ -147,10 +150,7 @@ async function performMoveToLane(
   const lane = requireElement(elementRegistry, laneId);
 
   if (lane.type !== 'bpmn:Lane') {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Target element ${laneId} is not a Lane (got: ${lane.type})`
-    );
+    throw typeMismatchError(laneId, lane.type, ['bpmn:Lane']);
   }
 
   const laneCy = lane.y + (lane.height || 0) / 2;
@@ -224,15 +224,19 @@ async function handleMoveToLane(
   const lane = requireElement(elementRegistry, laneId);
 
   if (lane.type !== 'bpmn:Lane') {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Target element ${laneId} is not a Lane (got: ${lane.type})`
-    );
+    throw typeMismatchError(laneId, lane.type, ['bpmn:Lane']);
   }
 
   const elType = element.type || '';
   if (NON_LANE_MOVABLE.has(elType)) {
-    throw new McpError(ErrorCode.InvalidRequest, `Cannot move ${elType} into a lane`);
+    throw typeMismatchError(elementId, elType, [
+      'bpmn:Task',
+      'bpmn:UserTask',
+      'bpmn:ServiceTask',
+      'bpmn:StartEvent',
+      'bpmn:EndEvent',
+      'bpmn:ExclusiveGateway',
+    ]);
   }
 
   const elCy = element.y + (element.height || 0) / 2;

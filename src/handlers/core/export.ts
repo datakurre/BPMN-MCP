@@ -11,7 +11,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { exportFailedError } from '../../errors';
 import {
   requireDiagram,
   buildConnectivityWarnings,
@@ -258,11 +258,10 @@ export async function handleExportBpmn(args: ExportBpmnArgs): Promise<ToolResult
  */
 function validateXmlOutput(xml: string): void {
   if (!xml || xml.length === 0) {
-    throw new McpError(ErrorCode.InternalError, 'Export produced empty XML output');
+    throw exportFailedError('Export produced empty XML output');
   }
   if (!xml.includes('</bpmn:definitions>') && !xml.includes('</definitions>')) {
-    throw new McpError(
-      ErrorCode.InternalError,
+    throw exportFailedError(
       'Export produced malformed XML: missing closing </bpmn:definitions> tag'
     );
   }

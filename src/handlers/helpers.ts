@@ -12,6 +12,32 @@
 // Re-export getService for convenient typed access from handlers
 export { getService } from '../bpmn-types';
 
+// ── Error codes ────────────────────────────────────────────────────────────
+export {
+  ERR_MISSING_REQUIRED,
+  ERR_INVALID_ENUM,
+  ERR_ILLEGAL_COMBINATION,
+  ERR_NOT_FOUND,
+  ERR_DIAGRAM_NOT_FOUND,
+  ERR_ELEMENT_NOT_FOUND,
+  ERR_TYPE_MISMATCH,
+  ERR_DUPLICATE,
+  ERR_EXPORT_FAILED,
+  ERR_LINT_BLOCKED,
+  ERR_SEMANTIC_VIOLATION,
+  ERR_INTERNAL,
+  createMcpError,
+  missingRequiredError,
+  diagramNotFoundError,
+  elementNotFoundError,
+  invalidEnumError,
+  illegalCombinationError,
+  typeMismatchError,
+  duplicateError,
+  semanticViolationError,
+  exportFailedError,
+} from '../errors';
+
 // ── Validation ─────────────────────────────────────────────────────────────
 export { validateArgs } from './validation';
 

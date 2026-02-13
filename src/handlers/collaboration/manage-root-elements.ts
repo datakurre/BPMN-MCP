@@ -6,7 +6,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { missingRequiredError } from '../../errors';
 import {
   requireDiagram,
   jsonResult,
@@ -28,10 +28,7 @@ export async function handleManageRootElements(args: ManageRootElementsArgs): Pr
   const { diagramId, messages = [], signals = [] } = args;
 
   if (messages.length === 0 && signals.length === 0) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'At least one message or signal definition must be provided'
-    );
+    throw missingRequiredError(['messages', 'signals']);
   }
 
   const diagram = requireDiagram(diagramId);

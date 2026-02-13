@@ -73,7 +73,7 @@ describe('duplicate_bpmn_element', () => {
     });
 
     await expect(handleDuplicateElement({ diagramId, elementId: partId })).rejects.toThrow(
-      /Cannot duplicate/
+      /operation requires/
     );
   });
 

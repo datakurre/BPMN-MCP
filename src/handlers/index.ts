@@ -15,6 +15,7 @@
 
 import { type ToolResult } from '../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { ERR_INTERNAL } from '../errors';
 
 // ── Core: diagram lifecycle, import/export, validation, batch ──────────────
 
@@ -208,7 +209,9 @@ export async function dispatchToolCall(name: string, args: any): Promise<ToolRes
     return await handler(args);
   } catch (error: any) {
     if (error instanceof McpError) throw error;
-    throw new McpError(ErrorCode.InternalError, `Error executing ${name}: ${error.message}`);
+    throw new McpError(ErrorCode.InternalError, `Error executing ${name}: ${error.message}`, {
+      code: ERR_INTERNAL,
+    });
   }
 }
 

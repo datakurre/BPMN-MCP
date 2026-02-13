@@ -6,7 +6,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { duplicateError, missingRequiredError } from '../../errors';
 import {
   requireDiagram,
   jsonResult,
@@ -69,9 +69,9 @@ function createParticipantShape(
   let id: string;
   if (p.participantId) {
     if (elementRegistry.get(p.participantId)) {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        `Participant ID "${p.participantId}" already exists in the diagram. Choose a unique ID.`
+      throw duplicateError(
+        `Participant ID "${p.participantId}" already exists in the diagram. Choose a unique ID.`,
+        [p.participantId]
       );
     }
     id = p.participantId;
@@ -115,10 +115,7 @@ export async function handleCreateCollaboration(
   const { diagramId, participants } = args;
 
   if (!participants || participants.length < 2) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'At least 2 participants are required to create a collaboration diagram'
-    );
+    throw missingRequiredError(['participants']);
   }
 
   const diagram = requireDiagram(diagramId);

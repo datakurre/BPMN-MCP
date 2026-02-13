@@ -11,7 +11,11 @@
 
 import { type ToolResult } from '../../types';
 import type { BpmnElement } from '../../bpmn-types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import {
+  elementNotFoundError,
+  illegalCombinationError,
+  semanticViolationError,
+} from '../../errors';
 import {
   requireDiagram,
   jsonResult,
@@ -87,8 +91,7 @@ function resolveCrossPool(
   }
 
   if (requestedType === BPMN_MESSAGE_FLOW_TYPE && !crossPool) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
+    throw semanticViolationError(
       `bpmn:MessageFlow requires source and target to be in different participants (pools). ` +
         `Both elements are in the same participant. Use bpmn:SequenceFlow for intra-pool connections.`
     );
@@ -245,9 +248,9 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
   // Determine mode: chain or pair
   if (elementIds && Array.isArray(elementIds)) {
     if (elementIds.length < 2) {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        'elementIds must contain at least 2 element IDs to connect in sequence'
+      throw illegalCombinationError(
+        'elementIds must contain at least 2 element IDs to connect in sequence',
+        ['elementIds']
       );
     }
     return handleChainConnect(diagramId, elementIds);
@@ -262,10 +265,10 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
   const source = elementRegistry.get(sourceElementId!);
   const target = elementRegistry.get(targetElementId!);
   if (!source) {
-    throw new McpError(ErrorCode.InvalidRequest, `Source element not found: ${sourceElementId}`);
+    throw elementNotFoundError(sourceElementId!);
   }
   if (!target) {
-    throw new McpError(ErrorCode.InvalidRequest, `Target element not found: ${targetElementId}`);
+    throw elementNotFoundError(targetElementId!);
   }
 
   const { connection, connectionType, autoHint } = connectPair(diagram, source, target, {
@@ -301,9 +304,9 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
  */
 async function handleChainConnect(diagramId: string, elementIds: string[]): Promise<ToolResult> {
   if (elementIds.length < 2) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'elementIds must contain at least 2 element IDs to connect in sequence'
+    throw illegalCombinationError(
+      'elementIds must contain at least 2 element IDs to connect in sequence',
+      ['elementIds']
     );
   }
 
@@ -320,10 +323,10 @@ async function handleChainConnect(diagramId: string, elementIds: string[]): Prom
     const target = elementRegistry.get(targetId);
 
     if (!source) {
-      throw new McpError(ErrorCode.InvalidRequest, `Element not found: ${sourceId}`);
+      throw elementNotFoundError(sourceId);
     }
     if (!target) {
-      throw new McpError(ErrorCode.InvalidRequest, `Element not found: ${targetId}`);
+      throw elementNotFoundError(targetId);
     }
 
     const { connection } = connectPair(diagram, source, target, {});

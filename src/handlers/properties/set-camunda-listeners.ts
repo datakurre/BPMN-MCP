@@ -9,7 +9,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { missingRequiredError, typeMismatchError } from '../../errors';
 import {
   requireDiagram,
   requireElement,
@@ -178,10 +178,7 @@ export async function handleSetCamundaListeners(
     taskListeners.length === 0 &&
     errorDefinitions.length === 0
   ) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'At least one executionListener, taskListener, or errorDefinition must be provided'
-    );
+    throw missingRequiredError(['executionListeners', 'taskListeners', 'errorDefinitions']);
   }
 
   const diagram = requireDiagram(diagramId);
@@ -194,17 +191,11 @@ export async function handleSetCamundaListeners(
   const elType = element.type || bo.$type || '';
 
   if (taskListeners.length > 0 && !elType.includes('UserTask')) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Task listeners can only be set on bpmn:UserTask elements, got ${elType}`
-    );
+    throw typeMismatchError(elementId, elType, ['bpmn:UserTask']);
   }
 
   if (errorDefinitions.length > 0 && bo.$type !== 'bpmn:ServiceTask') {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `camunda:ErrorEventDefinition is only supported on bpmn:ServiceTask (got ${bo.$type})`
-    );
+    throw typeMismatchError(elementId, bo.$type, ['bpmn:ServiceTask']);
   }
 
   // Ensure extensionElements container exists

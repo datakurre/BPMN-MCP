@@ -3,7 +3,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { illegalCombinationError, missingRequiredError, typeMismatchError } from '../../errors';
 import {
   requireDiagram,
   requireElement,
@@ -43,16 +43,13 @@ export interface SetEventDefinitionArgs {
 function buildTimerAttrs(moddle: any, defProps: Record<string, any>): Record<string, any> {
   const timerKeys = ['timeDuration', 'timeDate', 'timeCycle'].filter((k) => defProps[k]);
   if (timerKeys.length > 1) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      `Timer events accept only one of timeDuration, timeDate, or timeCycle — got: ${timerKeys.join(', ')}`
+    throw illegalCombinationError(
+      `Timer events accept only one of timeDuration, timeDate, or timeCycle — got: ${timerKeys.join(', ')}`,
+      timerKeys
     );
   }
   if (timerKeys.length === 0) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      'TimerEventDefinition requires one of: timeDuration (ISO 8601 duration, e.g. PT15M), timeDate (ISO 8601 date, e.g. 2025-12-31T23:59:00Z), or timeCycle (ISO 8601 repeating interval, e.g. R3/PT10M)'
-    );
+    throw missingRequiredError(['timeDuration']);
   }
   const attrs: Record<string, any> = {};
   for (const key of timerKeys) {
@@ -139,9 +136,9 @@ function validateRefArgs(eventDefinitionType: string, args: Record<string, any>)
       const expected = allowedRef
         ? `Only ${allowedRef} is valid for ${eventDefinitionType}.`
         : `${eventDefinitionType} does not accept any ref arguments.`;
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        `Invalid argument "${key}" for ${eventDefinitionType}. ${expected}`
+      throw illegalCombinationError(
+        `Invalid argument "${key}" for ${eventDefinitionType}. ${expected}`,
+        [key]
       );
     }
   }
@@ -165,10 +162,9 @@ function applySignalInMappings(
   inMappings: InMappingSpec[]
 ): void {
   if (eventDefinitionType !== 'bpmn:SignalEventDefinition') {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      `inMappings are only supported on bpmn:SignalEventDefinition, not ${eventDefinitionType}`
-    );
+    throw typeMismatchError('eventDefinitionType', eventDefinitionType, [
+      'bpmn:SignalEventDefinition',
+    ]);
   }
   const extElements = moddle.create('bpmn:ExtensionElements', { values: [] }) as any;
   extElements.$parent = eventDef;
@@ -237,10 +233,13 @@ export async function handleSetEventDefinition(args: SetEventDefinitionArgs): Pr
 
   // Verify element is an event type
   if (!bo.$type.includes('Event')) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Element ${elementId} is not an event (type: ${bo.$type})`
-    );
+    throw typeMismatchError(elementId, bo.$type, [
+      'bpmn:StartEvent',
+      'bpmn:EndEvent',
+      'bpmn:IntermediateCatchEvent',
+      'bpmn:IntermediateThrowEvent',
+      'bpmn:BoundaryEvent',
+    ]);
   }
 
   // Build event definition attributes based on type

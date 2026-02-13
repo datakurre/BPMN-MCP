@@ -49,6 +49,6 @@ describe('set_bpmn_camunda_listeners — error definitions', () => {
         elementId: taskId,
         errorDefinitions: [{ id: 'err1' }],
       })
-    ).rejects.toThrow(/only supported on/);
+    ).rejects.toThrow(/operation requires/);
   });
 });

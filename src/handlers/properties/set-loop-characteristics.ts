@@ -6,7 +6,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { typeMismatchError, invalidEnumError } from '../../errors';
 import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
@@ -115,10 +115,13 @@ export async function handleSetLoopCharacteristics(
     bo.$type !== 'bpmn:SubProcess' &&
     bo.$type !== 'bpmn:CallActivity'
   ) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Loop characteristics can only be set on tasks, subprocesses, or call activities (got ${bo.$type})`
-    );
+    throw typeMismatchError(elementId, bo.$type, [
+      'bpmn:Task',
+      'bpmn:UserTask',
+      'bpmn:ServiceTask',
+      'bpmn:SubProcess',
+      'bpmn:CallActivity',
+    ]);
   }
 
   let loopChar: any;
@@ -142,10 +145,7 @@ export async function handleSetLoopCharacteristics(
   } else if (loopType === 'parallel' || loopType === 'sequential') {
     loopChar = buildMultiInstanceLoop(moddle, loopType === 'sequential', options);
   } else {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Invalid loopType: ${loopType}. Must be 'none', 'standard', 'parallel', or 'sequential'.`
-    );
+    throw invalidEnumError('loopType', loopType, ['none', 'standard', 'parallel', 'sequential']);
   }
 
   modeling.updateProperties(element, { loopCharacteristics: loopChar });

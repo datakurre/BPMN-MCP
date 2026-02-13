@@ -65,7 +65,7 @@ describe('set_bpmn_call_activity_variables', () => {
         elementId: taskId,
         inMappings: [{ source: 'x', target: 'y' }],
       })
-    ).rejects.toThrow(/CallActivity/);
+    ).rejects.toThrow(/operation requires.*bpmn:CallActivity/i);
   });
 
   test('requires at least one mapping', async () => {
@@ -77,6 +77,6 @@ describe('set_bpmn_call_activity_variables', () => {
         diagramId,
         elementId: callId,
       })
-    ).rejects.toThrow(/at least one/i);
+    ).rejects.toThrow(/Missing required/i);
   });
 });

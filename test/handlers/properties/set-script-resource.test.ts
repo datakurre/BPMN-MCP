@@ -59,6 +59,6 @@ describe('set_bpmn_script resource support', () => {
         elementId: scriptTaskId,
         scriptFormat: 'groovy',
       })
-    ).rejects.toThrow(/Either script.*or resource/);
+    ).rejects.toThrow(/Missing required/);
   });
 });

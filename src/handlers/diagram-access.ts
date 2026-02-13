@@ -7,14 +7,14 @@
 
 import { type ToolResult } from '../types';
 import { getDiagram, getAllDiagrams } from '../diagram-manager';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { isPersistenceEnabled, persistDiagram } from '../persistence';
+import { diagramNotFoundError, elementNotFoundError } from '../errors';
 
 /** Look up a diagram by ID, throwing an MCP error if not found. */
 export function requireDiagram(diagramId: string) {
   const diagram = getDiagram(diagramId);
   if (!diagram) {
-    throw new McpError(ErrorCode.InvalidRequest, `Diagram not found: ${diagramId}`);
+    throw diagramNotFoundError(diagramId);
   }
   return diagram;
 }
@@ -23,10 +23,7 @@ export function requireDiagram(diagramId: string) {
 export function requireElement(elementRegistry: any, elementId: string) {
   const element = elementRegistry.get(elementId);
   if (!element) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Element not found: ${elementId}. Use list_bpmn_elements to see available element IDs.`
-    );
+    throw elementNotFoundError(elementId);
   }
   return element;
 }

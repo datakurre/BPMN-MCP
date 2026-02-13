@@ -29,7 +29,7 @@ import {
 } from './add-element-helpers';
 import { getTypeSpecificHints, getNamingHint } from '../type-hints';
 import { validateElementType, ALLOWED_ELEMENT_TYPES } from '../element-type-validation';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { illegalCombinationError, typeMismatchError, duplicateError } from '../../errors';
 
 export interface AddElementArgs {
   diagramId: string;
@@ -73,26 +73,26 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
 
   // ── Validate incompatible argument combinations ────────────────────────
   if (args.elementType === 'bpmn:BoundaryEvent' && !args.hostElementId) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
+    throw illegalCombinationError(
       'BoundaryEvent requires hostElementId to specify the element to attach to. ' +
-        'Use hostElementId to reference the task or subprocess this boundary event should be attached to.'
+        'Use hostElementId to reference the task or subprocess this boundary event should be attached to.',
+      ['elementType', 'hostElementId']
     );
   }
 
   if (args.elementType === 'bpmn:BoundaryEvent' && args.afterElementId) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
+    throw illegalCombinationError(
       'BoundaryEvent cannot use afterElementId — boundary events are positioned relative to their host element. ' +
-        'Use hostElementId instead.'
+        'Use hostElementId instead.',
+      ['elementType', 'afterElementId']
     );
   }
 
   if (args.flowId && args.afterElementId) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
+    throw illegalCombinationError(
       'Cannot use both flowId and afterElementId. flowId inserts into an existing sequence flow; ' +
-        'afterElementId positions the element after another element. Choose one.'
+        'afterElementId positions the element after another element. Choose one.',
+      ['flowId', 'afterElementId']
     );
   }
 
@@ -107,11 +107,13 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   }
 
   if (args.eventDefinitionType && !args.elementType.includes('Event')) {
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      `eventDefinitionType can only be used with event element types, but elementType is "${args.elementType}". ` +
-        'Use bpmn:StartEvent, bpmn:EndEvent, bpmn:IntermediateCatchEvent, bpmn:IntermediateThrowEvent, or bpmn:BoundaryEvent.'
-    );
+    throw typeMismatchError(args.elementType, args.elementType, [
+      'bpmn:StartEvent',
+      'bpmn:EndEvent',
+      'bpmn:IntermediateCatchEvent',
+      'bpmn:IntermediateThrowEvent',
+      'bpmn:BoundaryEvent',
+    ]);
   }
 
   // Delegate to insert-into-flow handler when flowId is provided
@@ -147,10 +149,10 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
       (el: any) => el.type === elementType && el.businessObject?.name === elementName
     );
     if (duplicates.length > 0) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
+      throw duplicateError(
         `ensureUnique: an element with type ${elementType} and name "${elementName}" already exists: ${duplicates.map((d: any) => d.id).join(', ')}. ` +
-          `Set ensureUnique to false to allow duplicates.`
+          `Set ensureUnique to false to allow duplicates.`,
+        duplicates.map((d: any) => d.id)
       );
     }
   }
@@ -189,10 +191,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   if (args.laneId) {
     const targetLane = requireElement(elementRegistry, args.laneId);
     if (targetLane.type !== 'bpmn:Lane') {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        `Target element ${args.laneId} is not a Lane (got: ${targetLane.type})`
-      );
+      throw typeMismatchError(args.laneId, targetLane.type, ['bpmn:Lane']);
     }
     // Center the element vertically in the lane
     const laneCy = targetLane.y + (targetLane.height || 0) / 2;

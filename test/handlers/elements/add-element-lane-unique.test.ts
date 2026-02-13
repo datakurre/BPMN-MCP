@@ -19,7 +19,7 @@ describe('add_bpmn_element — laneId parameter', () => {
         name: 'Task2',
         laneId: task,
       })
-    ).rejects.toThrow(/not a Lane/);
+    ).rejects.toThrow(/operation requires.*bpmn:Lane/);
   });
 
   test('rejects laneId that does not exist', async () => {

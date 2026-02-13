@@ -6,7 +6,7 @@
  * closest-match suggestions.
  */
 
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { invalidEnumError } from '../errors';
 
 /**
  * All valid element types accepted by add_bpmn_element.
@@ -121,10 +121,11 @@ export function validateElementType(
   if ((allowedTypes as readonly string[]).includes(elementType)) return;
 
   const suggestions = findClosestTypes(elementType, allowedTypes);
-  const suggestionText = suggestions.length > 0 ? ` Did you mean: ${suggestions.join(', ')}?` : '';
 
-  throw new McpError(
-    ErrorCode.InvalidParams,
-    `Invalid elementType "${elementType}".${suggestionText} Allowed values: ${allowedTypes.join(', ')}`
-  );
+  const error = invalidEnumError('elementType', elementType, [...allowedTypes]);
+  // Enhance the error message with did-you-mean suggestions
+  if (suggestions.length > 0) {
+    error.message = `Invalid elementType "${elementType}". Did you mean: ${suggestions.join(', ')}? Allowed values: ${allowedTypes.join(', ')}`;
+  }
+  throw error;
 }

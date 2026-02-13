@@ -5,7 +5,8 @@
  */
 
 import { type ToolResult } from '../../types';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { typeMismatchError, createMcpError, ERR_INTERNAL } from '../../errors';
+import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import {
   requireDiagram,
   requireElement,
@@ -56,10 +57,15 @@ export async function handleDuplicateElement(args: DuplicateElementArgs): Promis
   const originalName: string = original.businessObject?.name || '';
 
   if (NON_DUPLICATABLE.has(originalType)) {
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Cannot duplicate ${originalType} — use create_bpmn_collaboration for pools`
-    );
+    throw typeMismatchError(elementId, originalType, [
+      'bpmn:Task',
+      'bpmn:UserTask',
+      'bpmn:ServiceTask',
+      'bpmn:StartEvent',
+      'bpmn:EndEvent',
+      'bpmn:ExclusiveGateway',
+      'bpmn:SubProcess',
+    ]);
   }
 
   const copyName = originalName ? `${originalName} (copy)` : '';
@@ -71,7 +77,7 @@ export async function handleDuplicateElement(args: DuplicateElementArgs): Promis
 
   const parent = original.parent;
   if (!parent) {
-    throw new McpError(ErrorCode.InternalError, 'Original element has no parent');
+    throw createMcpError(ErrorCode.InternalError, 'Original element has no parent', ERR_INTERNAL);
   }
 
   const createdElement = modeling.createShape(shape, { x: newX, y: newY }, parent);

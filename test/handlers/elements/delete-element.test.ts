@@ -75,6 +75,6 @@ describe('delete_bpmn_element', () => {
         elementId: '',
         elementIds: ['nonexistent_1', 'nonexistent_2'],
       } as any)
-    ).rejects.toThrow(/None of the specified elements/);
+    ).rejects.toThrow(/Element not found/);
   });
 });
