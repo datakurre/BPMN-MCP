@@ -76,6 +76,10 @@ import {
   handleReplaceElement,
   TOOL_DEFINITION as REPLACE_ELEMENT_DEF,
 } from './elements/replace-element';
+import {
+  handleAddElementChain,
+  TOOL_DEFINITION as ADD_ELEMENT_CHAIN_DEF,
+} from './elements/add-element-chain';
 import { handleListElements, TOOL_DEFINITION as LIST_ELEMENTS_DEF } from './elements/list-elements';
 import {
   handleGetProperties,
@@ -155,6 +159,10 @@ import {
   handleSplitParticipantIntoLanes,
   TOOL_DEFINITION as SPLIT_PARTICIPANT_INTO_LANES_DEF,
 } from './collaboration/split-participant-into-lanes';
+import {
+  handleCreateParticipant,
+  TOOL_DEFINITION as CREATE_PARTICIPANT_DEF,
+} from './collaboration/create-participant';
 
 // ── Unified tool registry ──────────────────────────────────────────────────
 //
@@ -200,9 +208,11 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: ASSIGN_ELEMENTS_TO_LANE_DEF, handler: handleAssignElementsToLane },
   { definition: WRAP_PROCESS_IN_COLLABORATION_DEF, handler: handleWrapProcessInCollaboration },
   { definition: SPLIT_PARTICIPANT_INTO_LANES_DEF, handler: handleSplitParticipantIntoLanes },
+  { definition: CREATE_PARTICIPANT_DEF, handler: handleCreateParticipant },
   { definition: DUPLICATE_ELEMENT_DEF, handler: handleDuplicateElement },
   { definition: INSERT_ELEMENT_DEF, handler: handleInsertElement },
   { definition: REPLACE_ELEMENT_DEF, handler: handleReplaceElement },
+  { definition: ADD_ELEMENT_CHAIN_DEF, handler: handleAddElementChain },
   { definition: SUMMARIZE_DIAGRAM_DEF, handler: handleSummarizeDiagram },
   { definition: LIST_PROCESS_VARIABLES_DEF, handler: handleListProcessVariables },
 ];
@@ -279,6 +289,8 @@ export {
   handleDuplicateElement,
   handleInsertElement,
   handleReplaceElement,
+  handleAddElementChain,
+  handleCreateParticipant,
   handleSummarizeDiagram,
   handleListProcessVariables,
 };
