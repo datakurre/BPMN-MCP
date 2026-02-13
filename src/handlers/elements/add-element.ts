@@ -90,6 +90,11 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     // Documented in the tool description.
   }
 
+  if (args.afterElementId && (args.x !== undefined || args.y !== undefined)) {
+    // Not an error — afterElementId auto-positions relative to the reference element.
+    // x/y are ignored. We capture this to include a warning in the response.
+  }
+
   if (args.eventDefinitionType && !args.elementType.includes('Event')) {
     throw new McpError(
       ErrorCode.InvalidParams,
@@ -225,6 +230,14 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
       ? ' (not connected - use connect_bpmn_elements to create sequence flows)'
       : '';
 
+  // Collect warnings for ignored parameters
+  const warnings: string[] = [];
+  if (afterElementId && (args.x !== undefined || args.y !== undefined)) {
+    warnings.push(
+      'x/y coordinates were ignored because afterElementId was provided (element is auto-positioned relative to the reference element).'
+    );
+  }
+
   const result = jsonResult({
     success: true,
     elementId: createdElement.id,
@@ -233,6 +246,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     position: { x, y },
     ...(connectionId ? { connectionId, autoConnected: true } : {}),
     ...(eventDefinitionApplied ? { eventDefinitionType: eventDefinitionApplied } : {}),
+    ...(warnings.length > 0 ? { warnings } : {}),
     ...(hostInfo
       ? {
           attachedTo: hostInfo,

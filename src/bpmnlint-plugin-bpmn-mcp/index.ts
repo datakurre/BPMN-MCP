@@ -34,6 +34,7 @@ import elementsOutsideParticipantBounds from './rules/elements-outside-participa
 import duplicateEdgesSameWaypoints from './rules/duplicate-edges-same-waypoints';
 import noOverlappingShapes from './rules/no-overlapping-shapes';
 import unpairedLinkEvent from './rules/unpaired-link-event';
+import lanesExpectedButMissing from './rules/lanes-expected-but-missing';
 
 /**
  * All custom lint rules keyed by rule name (without plugin prefix).
@@ -67,6 +68,7 @@ export const rules: Record<string, any> = {
   'duplicate-edges-same-waypoints': duplicateEdgesSameWaypoints,
   'no-overlapping-shapes': noOverlappingShapes,
   'unpaired-link-event': unpairedLinkEvent,
+  'lanes-expected-but-missing': lanesExpectedButMissing,
 };
 
 export const configs = {
@@ -96,6 +98,7 @@ export const configs = {
       'bpmn-mcp/duplicate-edges-same-waypoints': 'warn',
       'bpmn-mcp/no-overlapping-shapes': 'warn',
       'bpmn-mcp/unpaired-link-event': 'warn',
+      'bpmn-mcp/lanes-expected-but-missing': 'info',
     },
   },
 };

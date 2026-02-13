@@ -111,6 +111,34 @@ function applyCamundaEventDefProps(
   }
 }
 
+// ── Ref-type validation ────────────────────────────────────────────────────
+
+/** Map each event definition type to its allowed ref key; all others are rejected. */
+const ALLOWED_REFS: Record<string, string | undefined> = {
+  'bpmn:ErrorEventDefinition': 'errorRef',
+  'bpmn:MessageEventDefinition': 'messageRef',
+  'bpmn:SignalEventDefinition': 'signalRef',
+  'bpmn:EscalationEventDefinition': 'escalationRef',
+};
+
+const REF_KEYS = ['errorRef', 'messageRef', 'signalRef', 'escalationRef'] as const;
+
+/** Throw if the caller supplies a ref arg that doesn't match the eventDefinitionType. */
+function validateRefArgs(eventDefinitionType: string, args: Record<string, any>): void {
+  const allowedRef = ALLOWED_REFS[eventDefinitionType];
+  for (const key of REF_KEYS) {
+    if (args[key] && key !== allowedRef) {
+      const expected = allowedRef
+        ? `Only ${allowedRef} is valid for ${eventDefinitionType}.`
+        : `${eventDefinitionType} does not accept any ref arguments.`;
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Invalid argument "${key}" for ${eventDefinitionType}. ${expected}`
+      );
+    }
+  }
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 export async function handleSetEventDefinition(args: SetEventDefinitionArgs): Promise<ToolResult> {
@@ -125,6 +153,10 @@ export async function handleSetEventDefinition(args: SetEventDefinitionArgs): Pr
     signalRef,
     escalationRef,
   } = args;
+
+  // Validate that ref args match the event definition type
+  validateRefArgs(eventDefinitionType, { errorRef, messageRef, signalRef, escalationRef });
+
   const diagram = requireDiagram(diagramId);
 
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
