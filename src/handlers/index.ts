@@ -151,6 +151,10 @@ import {
   handleWrapProcessInCollaboration,
   TOOL_DEFINITION as WRAP_PROCESS_IN_COLLABORATION_DEF,
 } from './collaboration/wrap-process-in-collaboration';
+import {
+  handleSplitParticipantIntoLanes,
+  TOOL_DEFINITION as SPLIT_PARTICIPANT_INTO_LANES_DEF,
+} from './collaboration/split-participant-into-lanes';
 
 // ── Unified tool registry ──────────────────────────────────────────────────
 //
@@ -195,6 +199,7 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: CREATE_LANES_DEF, handler: handleCreateLanes },
   { definition: ASSIGN_ELEMENTS_TO_LANE_DEF, handler: handleAssignElementsToLane },
   { definition: WRAP_PROCESS_IN_COLLABORATION_DEF, handler: handleWrapProcessInCollaboration },
+  { definition: SPLIT_PARTICIPANT_INTO_LANES_DEF, handler: handleSplitParticipantIntoLanes },
   { definition: DUPLICATE_ELEMENT_DEF, handler: handleDuplicateElement },
   { definition: INSERT_ELEMENT_DEF, handler: handleInsertElement },
   { definition: REPLACE_ELEMENT_DEF, handler: handleReplaceElement },
@@ -262,6 +267,7 @@ export {
   handleCreateLanes,
   handleAssignElementsToLane,
   handleWrapProcessInCollaboration,
+  handleSplitParticipantIntoLanes,
   handleBpmnHistory,
   handleUndoChange,
   handleRedoChange,
