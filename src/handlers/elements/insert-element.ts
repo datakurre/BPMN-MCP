@@ -20,6 +20,7 @@ import {
   getVisibleElements,
   createBusinessObject,
   fixConnectionId,
+  typeMismatchError,
 } from '../helpers';
 import { STANDARD_BPMN_GAP, getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
@@ -36,6 +37,8 @@ export interface InsertElementArgs {
   flowId: string;
   elementType: string;
   name?: string;
+  /** Override automatic Y positioning by centering the element in the specified lane. */
+  laneId?: string;
 }
 
 const NON_INSERTABLE_TYPES = new Set([
@@ -149,6 +152,87 @@ function computeInsertionMidpoint(
   };
 }
 
+/**
+ * Resolve Y position and optional lane assignment.
+ * If laneId is provided, centers the element vertically in that lane.
+ * Otherwise, uses the default midpoint Y.
+ */
+function resolveLanePlacement(
+  elementRegistry: any,
+  midY: number,
+  halfHeight: number,
+  laneId?: string
+): { insertY: number; assignedLaneId?: string } {
+  if (!laneId) return { insertY: midY + halfHeight };
+  const targetLane = requireElement(elementRegistry, laneId);
+  if (targetLane.type !== 'bpmn:Lane') {
+    throw typeMismatchError(laneId, targetLane.type, ['bpmn:Lane']);
+  }
+  return {
+    insertY: targetLane.y + (targetLane.height || 0) / 2,
+    assignedLaneId: laneId,
+  };
+}
+
+/** Register element in lane's flowNodeRef list. */
+function assignToLane(elementRegistry: any, laneId: string, createdElement: any): void {
+  const targetLane = elementRegistry.get(laneId);
+  if (!targetLane?.businessObject) return;
+  const refs: unknown[] = (targetLane.businessObject.flowNodeRef as unknown[] | undefined) || [];
+  if (!targetLane.businessObject.flowNodeRef) {
+    targetLane.businessObject.flowNodeRef = refs;
+  }
+  const elemBo = createdElement.businessObject;
+  if (elemBo && !refs.includes(elemBo)) {
+    refs.push(elemBo);
+  }
+}
+
+/** Create and place the new element shape at the computed insertion point. */
+function createInsertedShape(opts: {
+  diagram: any;
+  elementType: string;
+  elementName?: string;
+  midX: number;
+  midY: number;
+  newSize: { width: number; height: number };
+  parent: any;
+  laneId?: string;
+}): { createdElement: any; assignedLaneId?: string } {
+  const { diagram, elementType, elementName, midX, midY, newSize, parent, laneId } = opts;
+  const modeling = diagram.modeler.get('modeling');
+  const elementFactory = diagram.modeler.get('elementFactory');
+  const elementRegistry = diagram.modeler.get('elementRegistry');
+
+  const descriptiveId = generateDescriptiveId(elementRegistry, elementType, elementName);
+  const businessObject = createBusinessObject(diagram.modeler, elementType, descriptiveId);
+  const shape = elementFactory.createShape({
+    type: elementType,
+    id: descriptiveId,
+    businessObject,
+  });
+
+  const { insertY, assignedLaneId } = resolveLanePlacement(
+    elementRegistry,
+    midY,
+    newSize.height / 2,
+    laneId
+  );
+
+  const createdElement = modeling.createShape(
+    shape,
+    { x: midX + newSize.width / 2, y: insertY },
+    parent
+  );
+  if (elementName) modeling.updateProperties(createdElement, { name: elementName });
+
+  if (assignedLaneId) {
+    assignToLane(elementRegistry, assignedLaneId, createdElement);
+  }
+
+  return { createdElement, assignedLaneId };
+}
+
 export async function handleInsertElement(args: InsertElementArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'flowId', 'elementType']);
   validateElementType(args.elementType, INSERTABLE_ELEMENT_TYPES);
@@ -156,7 +240,6 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
   const diagram = requireDiagram(diagramId);
 
   const modeling = diagram.modeler.get('modeling');
-  const elementFactory = diagram.modeler.get('elementFactory');
   const elementRegistry = diagram.modeler.get('elementRegistry');
 
   const { flow, source, target } = validateInsertionArgs(elementRegistry, flowId, elementType);
@@ -187,23 +270,19 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
   const updatedTarget = elementRegistry.get(targetId);
   const { midX, midY } = computeInsertionMidpoint(updatedSource, updatedTarget, newSize);
 
-  const descriptiveId = generateDescriptiveId(elementRegistry, elementType, elementName);
-  const businessObject = createBusinessObject(diagram.modeler, elementType, descriptiveId);
-  const shape = elementFactory.createShape({
-    type: elementType,
-    id: descriptiveId,
-    businessObject,
-  });
-
   const parent = updatedSource.parent;
   if (!parent) throw new McpError(ErrorCode.InternalError, 'Could not determine parent container');
 
-  const createdElement = modeling.createShape(
-    shape,
-    { x: midX + newSize.width / 2, y: midY + newSize.height / 2 },
-    parent
-  );
-  if (elementName) modeling.updateProperties(createdElement, { name: elementName });
+  const { createdElement, assignedLaneId } = createInsertedShape({
+    diagram,
+    elementType,
+    elementName,
+    midX,
+    midY,
+    newSize,
+    parent,
+    laneId: args.laneId,
+  });
 
   // Step 4: Reconnect
   const { conn1, conn2 } = reconnectThroughElement(
@@ -239,6 +318,7 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
       overlaps,
       flowLabel,
       elementRegistry,
+      laneId: assignedLaneId,
     })
   );
   return appendLintFeedback(result, diagram);
@@ -287,6 +367,13 @@ export const TOOL_DEFINITION = {
       name: {
         type: 'string',
         description: 'The name/label for the inserted element',
+      },
+      laneId: {
+        type: 'string',
+        description:
+          'Override automatic Y positioning by centering the element in the specified lane. ' +
+          'When inserting into a cross-lane flow, the default midpoint may land in an unrelated lane. ' +
+          "Use laneId to place the element in the source element's lane or any other appropriate lane.",
       },
     },
     required: ['diagramId', 'flowId', 'elementType'],

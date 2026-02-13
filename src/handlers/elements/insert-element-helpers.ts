@@ -88,6 +88,7 @@ export function buildInsertResult(opts: {
   overlaps: any[];
   flowLabel?: string;
   elementRegistry: any;
+  laneId?: string;
 }): Record<string, any> {
   const data: Record<string, any> = {
     success: true,
@@ -95,6 +96,7 @@ export function buildInsertResult(opts: {
     elementType: opts.elementType,
     name: opts.elementName,
     position: { x: opts.midX, y: opts.midY },
+    ...(opts.laneId ? { laneId: opts.laneId } : {}),
     replacedFlowId: opts.flowId,
     newFlows: [
       { flowId: opts.conn1.id, source: opts.sourceId, target: opts.createdElement.id },

@@ -277,3 +277,43 @@ source element with a sequence flow — a clean cross-lane handoff.
 - **Check `laneCrossingMetrics`** in layout results to assess lane
   organization quality. A `laneCoherenceScore` above 70% indicates
   well-organized lanes.
+
+---
+
+## 14. Round-trip file editing (open → edit → save)
+
+Load an existing `.bpmn` file, make changes, and write it back.
+
+```
+1. import_bpmn_xml             → { filePath: "./process.bpmn" }
+2. (make changes using any MCP tools: add elements, set properties, etc.)
+3. export_bpmn                 → { format: "xml", filePath: "./process.bpmn" }
+```
+
+Both `import_bpmn_xml` and `export_bpmn` support `filePath` for
+direct file I/O. This replaces the error-prone manual pattern of
+exporting XML, then using `replace_string_in_file` to update the file.
+
+**Important:** Always use MCP tools for `.bpmn` file modifications.
+Never edit BPMN XML directly with text-editing tools — the MCP tools
+ensure valid BPMN 2.0 structure, proper DI coordinates, and semantic
+correctness.
+
+---
+
+## 15. Insert an element into a cross-lane flow
+
+When inserting into a flow that crosses lane boundaries, use `laneId`
+to control which lane the new element lands in.
+
+```
+1. list_bpmn_elements          → find the flow ID and lane IDs
+2. insert_bpmn_element         → { flowId: "<flowId>",
+                                    elementType: "bpmn:IntermediateCatchEvent",
+                                    name: "Wait for Approval",
+                                    laneId: "<approverLaneId>" }
+```
+
+Without `laneId`, the element is placed at the midpoint between the
+flow's source and target — which may land in an unrelated lane when
+the flow crosses lanes vertically.

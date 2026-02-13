@@ -170,13 +170,62 @@ function computeDiagramBounds(
   }
 }
 
+/**
+ * Remove duplicate BPMNShape and BPMNEdge elements from exported XML.
+ *
+ * Multiple operations (insert, layout, export) can occasionally create
+ * duplicate DI elements with the same `id` attribute. This function
+ * detects and removes the duplicates, keeping the last occurrence
+ * (which typically has the most up-to-date coordinates).
+ */
+function deduplicateDiElements(xml: string): string {
+  if (!xml) return xml;
+
+  // Match BPMNShape and BPMNEdge elements with their id attributes
+  const diElementPattern =
+    /(<bpmndi:BPMN(?:Shape|Edge)\s+id="([^"]+)"[^>]*>[\s\S]*?<\/bpmndi:BPMN(?:Shape|Edge)>)/g;
+
+  const seen = new Map<string, { index: number; match: string }>();
+  const duplicateIndices: Array<{ start: number; length: number }> = [];
+
+  let match: RegExpExecArray | null;
+  while ((match = diElementPattern.exec(xml)) !== null) {
+    const fullMatch = match[1];
+    const id = match[2];
+    const startIndex = match.index;
+
+    const existing = seen.get(id);
+    if (existing) {
+      // Mark the earlier occurrence for removal (keep the later one)
+      duplicateIndices.push({ start: existing.index, length: existing.match.length });
+    }
+    seen.set(id, { index: startIndex, match: fullMatch });
+  }
+
+  if (duplicateIndices.length === 0) return xml;
+
+  // Remove duplicates from end to start to preserve indices
+  duplicateIndices.sort((a, b) => b.start - a.start);
+  let result = xml;
+  for (const dup of duplicateIndices) {
+    // Also remove any trailing whitespace/newline after the duplicate
+    let endIndex = dup.start + dup.length;
+    while (endIndex < result.length && (result[endIndex] === '\n' || result[endIndex] === '\r')) {
+      endIndex++;
+    }
+    result = result.slice(0, dup.start) + result.slice(endIndex);
+  }
+
+  return result;
+}
+
 /** Perform the actual XML/SVG export from the modeler. */
 async function performExport(diagram: any, format: string): Promise<ToolResult['content']> {
   const content: ToolResult['content'] = [];
 
   if (format === 'both') {
     const { xml } = await diagram.modeler.saveXML({ format: true });
-    const xmlOutput = xml || '';
+    const xmlOutput = deduplicateDiElements(xml || '');
     validateXmlOutput(xmlOutput);
     const { svg } = await diagram.modeler.saveSVG();
     const adjustedSvg = adjustSvgViewBox(svg || '', diagram);
@@ -188,7 +237,7 @@ async function performExport(diagram: any, format: string): Promise<ToolResult['
     content.push({ type: 'text', text: adjustedSvg });
   } else {
     const { xml } = await diagram.modeler.saveXML({ format: true });
-    const xmlOutput = xml || '';
+    const xmlOutput = deduplicateDiElements(xml || '');
     validateXmlOutput(xmlOutput);
     content.push({ type: 'text', text: xmlOutput });
   }
