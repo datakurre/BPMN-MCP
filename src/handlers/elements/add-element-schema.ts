@@ -93,6 +93,18 @@ export const TOOL_DEFINITION = {
         description:
           'For collaboration diagrams: the ID of the participant (pool) to add the element into. If omitted, uses the first participant or process.',
       },
+      laneId: {
+        type: 'string',
+        description:
+          'Place the element into a specific lane (auto-centers vertically within the lane). ' +
+          "The element is registered in the lane's flowNodeRef list.",
+      },
+      ensureUnique: {
+        type: 'boolean',
+        description:
+          'When true, reject creation if another element with the same type and name already exists. ' +
+          'Default: false (duplicates produce a warning but are allowed).',
+      },
       eventDefinitionType: {
         type: 'string',
         enum: [

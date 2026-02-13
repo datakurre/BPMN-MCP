@@ -5,6 +5,7 @@
 import { type ToolResult } from '../../types';
 import {
   requireDiagram,
+  requireElement,
   jsonResult,
   syncXml,
   generateDescriptiveId,
@@ -45,6 +46,10 @@ export interface AddElementArgs {
   isExpanded?: boolean;
   /** When afterElementId is set, automatically create a sequence flow from the reference element. Default: true. */
   autoConnect?: boolean;
+  /** Place the element into a specific lane (auto-centers vertically within the lane). */
+  laneId?: string;
+  /** When true, reject creation if another element with the same type and name already exists. Default: false. */
+  ensureUnique?: boolean;
   /** Boundary event shorthand: set event definition type in one call. */
   eventDefinitionType?: string;
   /** Boundary event shorthand: event definition properties (timer, condition, etc.). */
@@ -136,6 +141,20 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   const modeling = getService(diagram.modeler, 'modeling');
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
 
+  // ensureUnique: reject creation if another element with same type+name exists
+  if (args.ensureUnique && elementName) {
+    const duplicates = getVisibleElements(elementRegistry).filter(
+      (el: any) => el.type === elementType && el.businessObject?.name === elementName
+    );
+    if (duplicates.length > 0) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        `ensureUnique: an element with type ${elementType} and name "${elementName}" already exists: ${duplicates.map((d: any) => d.id).join(', ')}. ` +
+          `Set ensureUnique to false to allow duplicates.`
+      );
+    }
+  }
+
   // Auto-position after another element if requested
   if (afterElementId) {
     const afterEl = elementRegistry.get(afterElementId);
@@ -165,6 +184,22 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   const laneSnap = snapToLane(elementRegistry, x, y, elementSize.height);
   y = laneSnap.y;
 
+  // Explicit laneId: override Y to center the element within the specified lane
+  let assignToLaneId: string | undefined;
+  if (args.laneId) {
+    const targetLane = requireElement(elementRegistry, args.laneId);
+    if (targetLane.type !== 'bpmn:Lane') {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Target element ${args.laneId} is not a Lane (got: ${targetLane.type})`
+      );
+    }
+    // Center the element vertically in the lane
+    const laneCy = targetLane.y + (targetLane.height || 0) / 2;
+    y = laneCy;
+    assignToLaneId = args.laneId;
+  }
+
   // Collision avoidance: shift right if position overlaps an existing element.
   // Only when using default placement (no explicit x/y, no afterElementId, no host).
   const usingDefaultPosition = args.x === undefined && args.y === undefined;
@@ -192,6 +227,22 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
 
   if (elementName) {
     modeling.updateProperties(createdElement, { name: elementName });
+  }
+
+  // Register element in lane's flowNodeRef list if laneId was specified
+  if (assignToLaneId) {
+    const targetLane = elementRegistry.get(assignToLaneId);
+    if (targetLane?.businessObject) {
+      const refs: unknown[] =
+        (targetLane.businessObject.flowNodeRef as unknown[] | undefined) || [];
+      if (!targetLane.businessObject.flowNodeRef) {
+        targetLane.businessObject.flowNodeRef = refs;
+      }
+      const elemBo = createdElement.businessObject;
+      if (elemBo && !refs.includes(elemBo)) {
+        refs.push(elemBo);
+      }
+    }
   }
 
   // Auto-connect to afterElement when requested (default: true for afterElementId)
@@ -275,6 +326,13 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     elementType,
     name: elementName,
     position: { x, y },
+    di: {
+      x: createdElement.x,
+      y: createdElement.y,
+      width: createdElement.width || elementSize.width,
+      height: createdElement.height || elementSize.height,
+    },
+    ...(assignToLaneId ? { laneId: assignToLaneId } : {}),
     ...(connectionId ? { connectionId, autoConnected: true } : {}),
     ...(eventDefinitionApplied ? { eventDefinitionType: eventDefinitionApplied } : {}),
     ...(warnings.length > 0 ? { warnings } : {}),
