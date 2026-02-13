@@ -7,25 +7,12 @@
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-
-interface PromptDefinition {
-  name: string;
-  title: string;
-  description: string;
-  arguments?: Array<{
-    name: string;
-    description: string;
-    required?: boolean;
-  }>;
-  getMessages: (
-    args: Record<string, string>
-  ) => Array<{ role: 'user' | 'assistant'; content: { type: 'text'; text: string } }>;
-}
+import { type PromptDefinition, ADDITIONAL_PROMPTS } from './prompt-definitions';
 
 const PROMPTS: PromptDefinition[] = [
   {
     name: 'create-executable-process',
-    title: 'Create executable Camunda 7 process',
+    title: 'Create executable (Operaton / Camunda 7 CE) process',
     description:
       'Step-by-step guide to create a complete executable BPMN process for Camunda 7 / Operaton: ' +
       'diagram creation, start event, user/service tasks with forms and external topics, ' +
@@ -261,6 +248,7 @@ const PROMPTS: PromptDefinition[] = [
       ];
     },
   },
+  ...ADDITIONAL_PROMPTS,
 ];
 
 /** List all available prompts. */

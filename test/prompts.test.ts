@@ -7,12 +7,14 @@ import { listPrompts, getPrompt } from '../src/prompts';
 describe('listPrompts', () => {
   test('returns all prompt definitions', () => {
     const prompts = listPrompts();
-    expect(prompts.length).toBeGreaterThanOrEqual(4);
+    expect(prompts.length).toBeGreaterThanOrEqual(6);
     const names = prompts.map((p) => p.name);
     expect(names).toContain('create-executable-process');
     expect(names).toContain('convert-to-collaboration');
     expect(names).toContain('add-sla-timer-pattern');
     expect(names).toContain('add-approval-pattern');
+    expect(names).toContain('add-error-handling-pattern');
+    expect(names).toContain('add-parallel-tasks-pattern');
   });
 
   test('each prompt has name, title, and description', () => {
@@ -65,6 +67,30 @@ describe('getPrompt', () => {
 
   test('throws on unknown prompt', () => {
     expect(() => getPrompt('nonexistent')).toThrow('Unknown prompt');
+  });
+
+  test('returns messages for add-error-handling-pattern', () => {
+    const result = getPrompt('add-error-handling-pattern', {
+      diagramId: 'd1',
+      targetElementId: 'ServiceTask_1',
+      errorCode: 'PAYMENT_FAILED',
+    });
+    expect(result.messages[0].content.text).toContain('PAYMENT_FAILED');
+    expect(result.messages[0].content.text).toContain('ServiceTask_1');
+    expect(result.messages[0].content.text).toContain('BoundaryEvent');
+    expect(result.messages[0].content.text).toContain('ErrorEventDefinition');
+  });
+
+  test('returns messages for add-parallel-tasks-pattern', () => {
+    const result = getPrompt('add-parallel-tasks-pattern', {
+      diagramId: 'd1',
+      afterElementId: 'Task_1',
+      branches: 'Check Stock, Process Payment, Send Email',
+    });
+    expect(result.messages[0].content.text).toContain('Check Stock');
+    expect(result.messages[0].content.text).toContain('Process Payment');
+    expect(result.messages[0].content.text).toContain('Send Email');
+    expect(result.messages[0].content.text).toContain('ParallelGateway');
   });
 
   test('uses defaults for missing arguments', () => {

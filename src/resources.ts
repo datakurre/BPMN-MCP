@@ -41,6 +41,13 @@ export const RESOURCE_TEMPLATES = [
       'All process variables referenced in the diagram with read/write access patterns and source elements.',
     mimeType: 'application/json',
   },
+  {
+    uriTemplate: 'bpmn://diagram/{diagramId}/xml',
+    name: 'Diagram XML',
+    description:
+      'Current BPMN 2.0 XML of the diagram. Useful for re-grounding context during iterative editing sessions.',
+    mimeType: 'application/xml',
+  },
 ];
 
 /**
@@ -98,6 +105,12 @@ export function listResources(): any[] {
       description: `Process variables in diagram "${name}"`,
       mimeType: 'application/json',
     });
+    resources.push({
+      uri: `bpmn://diagram/${id}/xml`,
+      name: `${name} — XML`,
+      description: `BPMN 2.0 XML of diagram "${name}"`,
+      mimeType: 'application/xml',
+    });
   }
 
   return resources;
@@ -154,6 +167,17 @@ export async function readResource(
     const result = await handleListProcessVariables({ diagramId });
     return {
       contents: [{ uri, mimeType: 'application/json', text: extractText(result) }],
+    };
+  }
+
+  // bpmn://diagram/{id}/xml
+  const xmlMatch = uri.match(/^bpmn:\/\/diagram\/([^/]+)\/xml$/);
+  if (xmlMatch) {
+    const diagramId = xmlMatch[1];
+    ensureDiagramExists(diagramId);
+    const diagram = getDiagram(diagramId)!;
+    return {
+      contents: [{ uri, mimeType: 'application/xml', text: diagram.xml }],
     };
   }
 

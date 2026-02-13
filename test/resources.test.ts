@@ -13,12 +13,13 @@ import {
 afterEach(() => clearDiagrams());
 
 describe('RESOURCE_TEMPLATES', () => {
-  test('has templates for summary, lint, and variables', () => {
-    expect(RESOURCE_TEMPLATES).toHaveLength(3);
+  test('has templates for summary, lint, variables, and xml', () => {
+    expect(RESOURCE_TEMPLATES).toHaveLength(4);
     const uris = RESOURCE_TEMPLATES.map((t) => t.uriTemplate);
     expect(uris).toContain('bpmn://diagram/{diagramId}/summary');
     expect(uris).toContain('bpmn://diagram/{diagramId}/lint');
     expect(uris).toContain('bpmn://diagram/{diagramId}/variables');
+    expect(uris).toContain('bpmn://diagram/{diagramId}/xml');
   });
 });
 
@@ -43,14 +44,15 @@ describe('listResources', () => {
   test('returns per-diagram resources when diagrams exist', async () => {
     const id = await createDiagram('Test Process');
     const resources = listResources();
-    // 1 (diagrams list) + static resources + 3 (summary, lint, variables)
-    expect(resources).toHaveLength(1 + STATIC_RESOURCES.length + 3);
+    // 1 (diagrams list) + static resources + 4 (summary, lint, variables, xml)
+    expect(resources).toHaveLength(1 + STATIC_RESOURCES.length + 4);
     const uris = resources.map((r: any) => r.uri);
     expect(uris).toContain('bpmn://diagrams');
     expect(uris).toContain('bpmn://guides/executable-camunda7');
     expect(uris).toContain(`bpmn://diagram/${id}/summary`);
     expect(uris).toContain(`bpmn://diagram/${id}/lint`);
     expect(uris).toContain(`bpmn://diagram/${id}/variables`);
+    expect(uris).toContain(`bpmn://diagram/${id}/xml`);
   });
 });
 
@@ -88,6 +90,16 @@ describe('readResource', () => {
     expect(result.contents).toHaveLength(1);
     const data = JSON.parse(result.contents[0].text);
     expect(data.success).toBe(true);
+  });
+
+  test('reads bpmn://diagram/{id}/xml', async () => {
+    const id = await createDiagram('XML Test');
+    await addElement(id, 'bpmn:StartEvent', { name: 'Start' });
+    const result = await readResource(`bpmn://diagram/${id}/xml`);
+    expect(result.contents).toHaveLength(1);
+    expect(result.contents[0].mimeType).toBe('application/xml');
+    expect(result.contents[0].text).toContain('bpmn:definitions');
+    expect(result.contents[0].text).toContain('StartEvent');
   });
 
   test('throws on unknown URI', async () => {

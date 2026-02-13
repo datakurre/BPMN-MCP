@@ -248,6 +248,12 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   // Auto-connect to afterElement when requested (default: true for afterElementId)
   const { autoConnect } = args;
   let connectionId: string | undefined;
+  const connectionsCreated: Array<{
+    id: string;
+    sourceId: string;
+    targetId: string;
+    type: string;
+  }> = [];
   if (afterElementId && autoConnect !== false) {
     const afterEl = elementRegistry.get(afterElementId);
     if (afterEl) {
@@ -259,6 +265,12 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
         });
         fixConnectionId(conn, flowId);
         connectionId = conn.id;
+        connectionsCreated.push({
+          id: conn.id,
+          sourceId: afterElementId,
+          targetId: createdElement.id,
+          type: 'bpmn:SequenceFlow',
+        });
       } catch {
         // Auto-connect may fail for some element type combinations — non-fatal
       }
@@ -334,6 +346,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     },
     ...(assignToLaneId ? { laneId: assignToLaneId } : {}),
     ...(connectionId ? { connectionId, autoConnected: true } : {}),
+    ...(connectionsCreated.length > 0 ? { connectionsCreated } : {}),
     ...(eventDefinitionApplied ? { eventDefinitionType: eventDefinitionApplied } : {}),
     ...(warnings.length > 0 ? { warnings } : {}),
     ...(hostInfo
