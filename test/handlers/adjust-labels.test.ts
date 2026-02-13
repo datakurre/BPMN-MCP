@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleAdjustLabels } from '../../src/handlers/adjust-labels-handler';
+import { handleAdjustLabels } from '../../src/handlers/layout/adjust-labels-handler';
 
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../helpers';
 

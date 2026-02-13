@@ -7,11 +7,11 @@
  */
 
 import { describe, test, expect, afterEach } from 'vitest';
-import { handleImportXml } from '../../src/handlers/import-xml';
-import { handleAddElement } from '../../src/handlers/add-element';
-import { handleExportBpmn } from '../../src/handlers/export';
-import { handleListElements } from '../../src/handlers/list-elements';
-import { handleInsertElement } from '../../src/handlers/insert-element';
+import { handleImportXml } from '../../src/handlers/core/import-xml';
+import { handleAddElement } from '../../src/handlers/elements/add-element';
+import { handleExportBpmn } from '../../src/handlers/core/export';
+import { handleListElements } from '../../src/handlers/elements/list-elements';
+import { handleInsertElement } from '../../src/handlers/elements/insert-element';
 import { clearDiagrams } from '../../src/diagram-manager';
 import { parseResult } from '../helpers';
 

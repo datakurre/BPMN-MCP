@@ -8,7 +8,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { handleCreateCollaboration, handleAddElement, handleValidate } from '../../src/handlers';
-import { handleSetEventDefinition } from '../../src/handlers/set-event-definition';
+import { handleSetEventDefinition } from '../../src/handlers/properties/set-event-definition';
 import { parseResult, createDiagram, clearDiagrams, connect, connectAll } from '../helpers';
 import { getDiagram } from '../../src/diagram-manager';
 

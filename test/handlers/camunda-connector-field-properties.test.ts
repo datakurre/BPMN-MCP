@@ -5,8 +5,8 @@
 
 import { describe, test, expect, afterEach } from 'vitest';
 import { createDiagram, addElement, parseResult, clearDiagrams } from '../helpers';
-import { handleSetProperties } from '../../src/handlers/set-properties';
-import { handleGetProperties } from '../../src/handlers/get-properties';
+import { handleSetProperties } from '../../src/handlers/properties/set-properties';
+import { handleGetProperties } from '../../src/handlers/elements/get-properties';
 
 afterEach(() => clearDiagrams());
 

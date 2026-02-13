@@ -3,8 +3,8 @@
  */
 
 import { describe, test, expect, afterEach } from 'vitest';
-import { handleInsertElement } from '../../src/handlers/insert-element';
-import { handleConnect } from '../../src/handlers/connect';
+import { handleInsertElement } from '../../src/handlers/elements/insert-element';
+import { handleConnect } from '../../src/handlers/elements/connect';
 import { clearDiagrams } from '../../src/diagram-manager';
 import { parseResult, createDiagram, addElement } from '../helpers';
 

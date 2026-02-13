@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect, afterEach } from 'vitest';
-import { handleSummarizeDiagram } from '../../src/handlers/summarize-diagram';
+import { handleSummarizeDiagram } from '../../src/handlers/core/summarize-diagram';
 import { clearDiagrams } from '../../src/diagram-manager';
 import { parseResult, createDiagram, addElement } from '../helpers';
 

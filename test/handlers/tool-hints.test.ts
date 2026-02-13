@@ -4,13 +4,13 @@
 
 import { describe, test, expect, afterEach } from 'vitest';
 import { createDiagram, parseResult, clearDiagrams } from '../helpers';
-import { handleAddElement } from '../../src/handlers/add-element';
-import { handleConnect } from '../../src/handlers/connect';
-import { handleCreateCollaboration } from '../../src/handlers/create-collaboration';
-import { handleSetLoopCharacteristics } from '../../src/handlers/set-loop-characteristics';
-import { handleSetProperties } from '../../src/handlers/set-properties';
-import { handleInsertElement } from '../../src/handlers/insert-element';
-import { handleListElements } from '../../src/handlers/list-elements';
+import { handleAddElement } from '../../src/handlers/elements/add-element';
+import { handleConnect } from '../../src/handlers/elements/connect';
+import { handleCreateCollaboration } from '../../src/handlers/collaboration/create-collaboration';
+import { handleSetLoopCharacteristics } from '../../src/handlers/properties/set-loop-characteristics';
+import { handleSetProperties } from '../../src/handlers/properties/set-properties';
+import { handleInsertElement } from '../../src/handlers/elements/insert-element';
+import { handleListElements } from '../../src/handlers/elements/list-elements';
 
 afterEach(() => clearDiagrams());
 

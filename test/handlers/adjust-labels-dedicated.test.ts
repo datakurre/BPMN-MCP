@@ -2,8 +2,8 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { handleLayoutDiagram } from '../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../helpers';
 import { getDiagram } from '../../src/diagram-manager';
-import { adjustDiagramLabels, adjustFlowLabels } from '../../src/handlers/adjust-labels';
-import { rectsOverlap } from '../../src/handlers/label-utils';
+import { adjustDiagramLabels, adjustFlowLabels } from '../../src/handlers/layout/adjust-labels';
+import { rectsOverlap } from '../../src/handlers/layout/label-utils';
 
 describe('adjust_bpmn_labels — dedicated', () => {
   beforeEach(() => {

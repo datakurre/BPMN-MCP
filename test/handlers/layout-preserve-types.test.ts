@@ -7,9 +7,9 @@
  */
 
 import { describe, test, expect, afterEach } from 'vitest';
-import { handleImportXml } from '../../src/handlers/import-xml';
-import { handleLayoutDiagram } from '../../src/handlers/layout-diagram';
-import { handleListElements } from '../../src/handlers/list-elements';
+import { handleImportXml } from '../../src/handlers/core/import-xml';
+import { handleLayoutDiagram } from '../../src/handlers/layout/layout-diagram';
+import { handleListElements } from '../../src/handlers/elements/list-elements';
 import { clearDiagrams } from '../../src/diagram-manager';
 import { parseResult } from '../helpers';
 

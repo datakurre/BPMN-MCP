@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleDistributeElements } from '../../src/handlers/align-elements';
+import { handleDistributeElements } from '../../src/handlers/layout/align-elements';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../helpers';
 
 describe('align_bpmn_elements — distribute', () => {

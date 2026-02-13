@@ -5,7 +5,7 @@ import {
   segmentIntersectsRect,
   getLabelCandidatePositions,
   scoreLabelPosition,
-} from '../../src/handlers/label-utils';
+} from '../../src/handlers/layout/label-utils';
 
 describe('label-utils', () => {
   describe('rectsOverlap', () => {

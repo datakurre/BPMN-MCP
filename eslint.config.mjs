@@ -132,6 +132,23 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+
+      // ── Module boundary: elk/ must not import from handlers/ or bpmnlint-plugin-bpmn-mcp/
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../handlers', '../handlers/*'],
+              message: 'elk/ must not depend on handlers/',
+            },
+            {
+              group: ['../bpmnlint-plugin-bpmn-mcp', '../bpmnlint-plugin-bpmn-mcp/*'],
+              message: 'elk/ must not depend on bpmnlint-plugin-bpmn-mcp/',
+            },
+          ],
+        },
+      ],
     },
   },
 
@@ -141,6 +158,23 @@ export default tseslint.config(
     rules: {
       complexity: ['error', 40],
       'max-lines-per-function': ['error', { max: 120, skipBlankLines: true, skipComments: true }],
+
+      // ── Module boundary: bpmnlint-plugin/ must not import from handlers/ or elk/
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../handlers', '../handlers/*'],
+              message: 'bpmnlint-plugin-bpmn-mcp/ must not depend on handlers/',
+            },
+            {
+              group: ['../elk', '../elk/*'],
+              message: 'bpmnlint-plugin-bpmn-mcp/ must not depend on elk/',
+            },
+          ],
+        },
+      ],
     },
   },
 
