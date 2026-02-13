@@ -13,13 +13,19 @@ import {
   createBusinessObject,
   fixConnectionId,
   buildElementCounts,
+  getVisibleElements,
   getService,
 } from '../helpers';
 import { STANDARD_BPMN_GAP, getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
 import { handleInsertElement } from './insert-element';
 import { handleSetEventDefinition } from '../properties/set-event-definition';
-import { shiftDownstreamElements, snapToLane, createAndPlaceElement } from './add-element-helpers';
+import {
+  shiftDownstreamElements,
+  snapToLane,
+  createAndPlaceElement,
+  avoidCollision,
+} from './add-element-helpers';
 import { getTypeSpecificHints, getNamingHint } from '../type-hints';
 import { validateElementType, ALLOWED_ELEMENT_TYPES } from '../element-type-validation';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
@@ -159,6 +165,15 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   const laneSnap = snapToLane(elementRegistry, x, y, elementSize.height);
   y = laneSnap.y;
 
+  // Collision avoidance: shift right if position overlaps an existing element.
+  // Only when using default placement (no explicit x/y, no afterElementId, no host).
+  const usingDefaultPosition = args.x === undefined && args.y === undefined;
+  if (usingDefaultPosition && !hostElementId && !afterElementId) {
+    const avoided = avoidCollision(elementRegistry, x, y, elementSize.width, elementSize.height);
+    x = avoided.x;
+    y = avoided.y;
+  }
+
   // Pre-create the business object with our descriptive ID so the
   // exported XML ID matches the element ID returned to callers.
   const businessObject = createBusinessObject(diagram.modeler, elementType, descriptiveId);
@@ -236,6 +251,22 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     warnings.push(
       'x/y coordinates were ignored because afterElementId was provided (element is auto-positioned relative to the reference element).'
     );
+  }
+
+  // Duplicate detection: warn if another element with same type+name exists
+  if (elementName) {
+    const duplicates = getVisibleElements(elementRegistry).filter(
+      (el: any) =>
+        el.id !== createdElement.id &&
+        el.type === elementType &&
+        el.businessObject?.name === elementName
+    );
+    if (duplicates.length > 0) {
+      warnings.push(
+        `An element with the same type (${elementType}) and name ("${elementName}") already exists: ${duplicates.map((d: any) => d.id).join(', ')}. ` +
+          `This may indicate accidental duplication.`
+      );
+    }
   }
 
   const result = jsonResult({
