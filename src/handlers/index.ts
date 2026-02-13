@@ -85,6 +85,10 @@ import {
   handleGetProperties,
   TOOL_DEFINITION as GET_PROPERTIES_DEF,
 } from './elements/get-properties';
+import {
+  handleSetConnectionWaypoints,
+  TOOL_DEFINITION as SET_CONNECTION_WAYPOINTS_DEF,
+} from './elements/set-connection-waypoints';
 
 // ── Properties: property setters ───────────────────────────────────────────
 
@@ -230,6 +234,7 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: ADD_ELEMENT_CHAIN_DEF, handler: handleAddElementChain },
   { definition: SUMMARIZE_DIAGRAM_DEF, handler: handleSummarizeDiagram },
   { definition: LIST_PROCESS_VARIABLES_DEF, handler: handleListProcessVariables },
+  { definition: SET_CONNECTION_WAYPOINTS_DEF, handler: handleSetConnectionWaypoints },
 ];
 
 // ── Auto-derived exports ───────────────────────────────────────────────────
@@ -311,6 +316,7 @@ export {
   handleValidateLaneOrganization,
   handleSummarizeDiagram,
   handleListProcessVariables,
+  handleSetConnectionWaypoints,
 };
 
 // Backward-compat aliases for removed tool names

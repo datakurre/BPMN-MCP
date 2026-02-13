@@ -15,20 +15,18 @@ import {
   jsonResult,
   syncXml,
   generateDescriptiveId,
-  generateFlowId,
   validateArgs,
-  getVisibleElements,
   createBusinessObject,
-  fixConnectionId,
   typeMismatchError,
 } from '../helpers';
 import { STANDARD_BPMN_GAP, getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
-import { resizeParentContainers } from './add-element-helpers';
 import {
   detectOverlaps,
   resolveInsertionOverlaps,
   buildInsertResult,
+  shiftIfNeeded,
+  reconnectThroughElement,
 } from './insert-element-helpers';
 import { validateElementType, INSERTABLE_ELEMENT_TYPES } from '../element-type-validation';
 
@@ -79,64 +77,10 @@ function validateInsertionArgs(
   return { flow, source: flow.source, target: flow.target };
 }
 
-/** Shift downstream elements right when there isn't enough horizontal space. */
-function shiftIfNeeded(
-  elementRegistry: any,
-  modeling: any,
-  srcRight: number,
-  tgtLeft: number,
-  requiredSpace: number,
-  sourceId: string
-): number {
-  const availableSpace = tgtLeft - srcRight;
-  if (availableSpace >= requiredSpace) return 0;
-
-  const shiftAmount = requiredSpace - availableSpace;
-  const toShift = getVisibleElements(elementRegistry).filter(
-    (el: any) =>
-      !el.type.includes('SequenceFlow') &&
-      !el.type.includes('MessageFlow') &&
-      !el.type.includes('Association') &&
-      el.type !== 'bpmn:Participant' &&
-      el.type !== 'bpmn:Lane' &&
-      el.id !== sourceId &&
-      el.x >= tgtLeft
-  );
-  if (toShift.length > 0) modeling.moveElements(toShift, { x: shiftAmount, y: 0 });
-  resizeParentContainers(elementRegistry, modeling);
-  return shiftAmount;
-}
-
-/** Reconnect source→newElement→target with new sequence flows. */
-function reconnectThroughElement(
-  modeling: any,
-  elementRegistry: any,
-  source: any,
-  createdElement: any,
-  target: any,
-  elementName: string | undefined,
-  flowCondition: any
-): { conn1: any; conn2: any } {
-  const flowId1 = generateFlowId(elementRegistry, source?.businessObject?.name, elementName);
-  const conn1 = modeling.connect(source, createdElement, {
-    type: 'bpmn:SequenceFlow',
-    id: flowId1,
-  });
-  fixConnectionId(conn1, flowId1);
-  if (flowCondition) {
-    modeling.updateProperties(conn1, { conditionExpression: flowCondition });
-  }
-
-  const flowId2 = generateFlowId(elementRegistry, elementName, target?.businessObject?.name);
-  const conn2 = modeling.connect(createdElement, target, {
-    type: 'bpmn:SequenceFlow',
-    id: flowId2,
-  });
-  fixConnectionId(conn2, flowId2);
-  return { conn1, conn2 };
-}
-
 /** Compute the insertion midpoint between source right edge and target left edge. */
+/** Tolerance in pixels: source and target are considered "aligned" if their centers differ by less than this. */
+const ALIGNMENT_TOLERANCE = 15;
+
 function computeInsertionMidpoint(
   source: any,
   target: any,
@@ -146,32 +90,78 @@ function computeInsertionMidpoint(
   const tgtLeft = target.x;
   const srcCy = source.y + (source.height || 0) / 2;
   const tgtCy = target.y + (target.height || 0) / 2;
+
+  // When source and target are approximately aligned vertically,
+  // preserve the alignment instead of averaging (avoids micro-offsets
+  // that break straight horizontal flows, especially for gateways).
+  const midY =
+    Math.abs(srcCy - tgtCy) <= ALIGNMENT_TOLERANCE
+      ? srcCy - newSize.height / 2
+      : Math.round((srcCy + tgtCy) / 2) - newSize.height / 2;
+
   return {
     midX: Math.round((srcRight + tgtLeft) / 2) - newSize.width / 2,
-    midY: Math.round((srcCy + tgtCy) / 2) - newSize.height / 2,
+    midY,
   };
 }
 
 /**
  * Resolve Y position and optional lane assignment.
  * If laneId is provided, centers the element vertically in that lane.
+ * If no laneId and the flow crosses lanes, defaults to the source element's lane
+ * (avoids inserting into an unrelated middle lane at the geometric midpoint).
  * Otherwise, uses the default midpoint Y.
  */
 function resolveLanePlacement(
   elementRegistry: any,
+  source: any,
   midY: number,
   halfHeight: number,
   laneId?: string
-): { insertY: number; assignedLaneId?: string } {
-  if (!laneId) return { insertY: midY + halfHeight };
-  const targetLane = requireElement(elementRegistry, laneId);
-  if (targetLane.type !== 'bpmn:Lane') {
-    throw typeMismatchError(laneId, targetLane.type, ['bpmn:Lane']);
+): { insertY: number; assignedLaneId?: string; autoLaneHint?: string } {
+  if (laneId) {
+    const targetLane = requireElement(elementRegistry, laneId);
+    if (targetLane.type !== 'bpmn:Lane') {
+      throw typeMismatchError(laneId, targetLane.type, ['bpmn:Lane']);
+    }
+    return {
+      insertY: targetLane.y + (targetLane.height || 0) / 2,
+      assignedLaneId: laneId,
+    };
   }
-  return {
-    insertY: targetLane.y + (targetLane.height || 0) / 2,
-    assignedLaneId: laneId,
-  };
+
+  // Auto-detect: if the source element is inside a lane, prefer that lane
+  // over the raw midpoint (which may land in an unrelated lane for cross-lane flows)
+  const lanes = elementRegistry.filter((el: any) => el.type === 'bpmn:Lane');
+  if (lanes.length > 0) {
+    const sourceCy = source.y + (source.height || 0) / 2;
+    const sourceLane = lanes.find((lane: any) => {
+      const ly = lane.y ?? 0;
+      const lh = lane.height ?? 0;
+      return sourceCy >= ly && sourceCy <= ly + lh;
+    });
+    if (sourceLane) {
+      const laneCy = sourceLane.y + (sourceLane.height || 0) / 2;
+      // Only override if midpoint would land in a different lane
+      const midpointLane = lanes.find((lane: any) => {
+        const ly = lane.y ?? 0;
+        const lh = lane.height ?? 0;
+        return midY + halfHeight >= ly && midY + halfHeight <= ly + lh;
+      });
+      if (!midpointLane || midpointLane.id !== sourceLane.id) {
+        return {
+          insertY: laneCy,
+          assignedLaneId: sourceLane.id,
+          autoLaneHint:
+            `Element auto-placed in source lane "${sourceLane.businessObject?.name || sourceLane.id}" ` +
+            'instead of geometric midpoint (cross-lane flow detected). ' +
+            'Use laneId parameter to override.',
+        };
+      }
+    }
+  }
+
+  return { insertY: midY + halfHeight };
 }
 
 /** Register element in lane's flowNodeRef list. */
@@ -198,8 +188,9 @@ function createInsertedShape(opts: {
   newSize: { width: number; height: number };
   parent: any;
   laneId?: string;
-}): { createdElement: any; assignedLaneId?: string } {
-  const { diagram, elementType, elementName, midX, midY, newSize, parent, laneId } = opts;
+  source: any;
+}): { createdElement: any; assignedLaneId?: string; autoLaneHint?: string } {
+  const { diagram, elementType, elementName, midX, midY, newSize, parent, laneId, source } = opts;
   const modeling = diagram.modeler.get('modeling');
   const elementFactory = diagram.modeler.get('elementFactory');
   const elementRegistry = diagram.modeler.get('elementRegistry');
@@ -212,8 +203,9 @@ function createInsertedShape(opts: {
     businessObject,
   });
 
-  const { insertY, assignedLaneId } = resolveLanePlacement(
+  const { insertY, assignedLaneId, autoLaneHint } = resolveLanePlacement(
     elementRegistry,
+    source,
     midY,
     newSize.height / 2,
     laneId
@@ -230,7 +222,7 @@ function createInsertedShape(opts: {
     assignToLane(elementRegistry, assignedLaneId, createdElement);
   }
 
-  return { createdElement, assignedLaneId };
+  return { createdElement, assignedLaneId, autoLaneHint };
 }
 
 export async function handleInsertElement(args: InsertElementArgs): Promise<ToolResult> {
@@ -273,7 +265,7 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
   const parent = updatedSource.parent;
   if (!parent) throw new McpError(ErrorCode.InternalError, 'Could not determine parent container');
 
-  const { createdElement, assignedLaneId } = createInsertedShape({
+  const { createdElement, assignedLaneId, autoLaneHint } = createInsertedShape({
     diagram,
     elementType,
     elementName,
@@ -282,6 +274,7 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
     newSize,
     parent,
     laneId: args.laneId,
+    source: updatedSource,
   });
 
   // Step 4: Reconnect
@@ -302,100 +295,28 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
 
   await syncXml(diagram);
 
-  const result = jsonResult(
-    buildInsertResult({
-      createdElement,
-      elementType,
-      elementName,
-      midX,
-      midY,
-      flowId,
-      conn1,
-      conn2,
-      sourceId,
-      targetId,
-      shiftApplied,
-      overlaps,
-      flowLabel,
-      elementRegistry,
-      laneId: assignedLaneId,
-    })
-  );
+  const resultData = buildInsertResult({
+    createdElement,
+    elementType,
+    elementName,
+    midX,
+    midY,
+    flowId,
+    conn1,
+    conn2,
+    sourceId,
+    targetId,
+    shiftApplied,
+    overlaps,
+    flowLabel,
+    elementRegistry,
+    laneId: assignedLaneId,
+  });
+  if (autoLaneHint) {
+    resultData.autoLaneHint = autoLaneHint;
+  }
+  const result = jsonResult(resultData);
   return appendLintFeedback(result, diagram);
 }
 
-export const TOOL_DEFINITION = {
-  name: 'insert_bpmn_element',
-  description:
-    'Insert a new element into an existing sequence flow, splitting the flow and reconnecting automatically. ' +
-    'Accepts a flowId to split, the elementType to insert, and an optional name. ' +
-    "The new element is positioned at the midpoint between the flow's source and target. " +
-    'This is a common operation when modifying existing diagrams — it replaces the 3-step ' +
-    'pattern of delete flow → add element → create two new flows.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      diagramId: { type: 'string', description: 'The diagram ID' },
-      flowId: {
-        type: 'string',
-        description: 'The ID of the sequence flow to split',
-      },
-      elementType: {
-        type: 'string',
-        enum: [
-          'bpmn:Task',
-          'bpmn:UserTask',
-          'bpmn:ServiceTask',
-          'bpmn:ScriptTask',
-          'bpmn:ManualTask',
-          'bpmn:BusinessRuleTask',
-          'bpmn:SendTask',
-          'bpmn:ReceiveTask',
-          'bpmn:CallActivity',
-          'bpmn:ExclusiveGateway',
-          'bpmn:ParallelGateway',
-          'bpmn:InclusiveGateway',
-          'bpmn:EventBasedGateway',
-          'bpmn:IntermediateCatchEvent',
-          'bpmn:IntermediateThrowEvent',
-          'bpmn:SubProcess',
-          'bpmn:StartEvent',
-          'bpmn:EndEvent',
-        ],
-        description: 'The type of BPMN element to insert',
-      },
-      name: {
-        type: 'string',
-        description: 'The name/label for the inserted element',
-      },
-      laneId: {
-        type: 'string',
-        description:
-          'Override automatic Y positioning by centering the element in the specified lane. ' +
-          'When inserting into a cross-lane flow, the default midpoint may land in an unrelated lane. ' +
-          "Use laneId to place the element in the source element's lane or any other appropriate lane.",
-      },
-    },
-    required: ['diagramId', 'flowId', 'elementType'],
-    examples: [
-      {
-        title: 'Insert an approval task into an existing flow',
-        value: {
-          diagramId: '<diagram-id>',
-          flowId: 'Flow_SubmitToEnd',
-          elementType: 'bpmn:UserTask',
-          name: 'Approve Request',
-        },
-      },
-      {
-        title: 'Insert a decision gateway into an existing flow',
-        value: {
-          diagramId: '<diagram-id>',
-          flowId: 'Flow_ReviewToProcess',
-          elementType: 'bpmn:ExclusiveGateway',
-          name: 'Order valid?',
-        },
-      },
-    ],
-  },
-} as const;
+export { TOOL_DEFINITION } from './insert-element-schema';

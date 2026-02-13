@@ -57,6 +57,7 @@ import unalignedMessageEvents from './rules/unaligned-message-events';
 import inconsistentAssigneeGrouping from './rules/inconsistent-assignee-grouping';
 import detectSingleOrganizationCollaboration from './rules/detect-single-organization-collaboration';
 import messageFlowCrossingExcessive from './rules/message-flow-crossing-excessive';
+import missingDiShape from './rules/missing-di-shape';
 
 /**
  * All custom lint rules keyed by rule name (without plugin prefix).
@@ -113,6 +114,7 @@ export const rules: Record<string, any> = {
   'inconsistent-assignee-grouping': inconsistentAssigneeGrouping,
   'detect-single-organization-collaboration': detectSingleOrganizationCollaboration,
   'message-flow-crossing-excessive': messageFlowCrossingExcessive,
+  'missing-di-shape': missingDiShape,
 };
 
 export const configs = {
@@ -165,6 +167,7 @@ export const configs = {
       'bpmn-mcp/inconsistent-assignee-grouping': 'warn',
       'bpmn-mcp/detect-single-organization-collaboration': 'info',
       'bpmn-mcp/message-flow-crossing-excessive': 'warn',
+      'bpmn-mcp/missing-di-shape': 'warn',
     },
   },
 };

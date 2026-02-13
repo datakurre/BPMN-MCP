@@ -5,8 +5,14 @@
  */
 
 import { STANDARD_BPMN_GAP } from '../../constants';
-import { buildElementCounts } from '../helpers';
+import {
+  buildElementCounts,
+  getVisibleElements,
+  generateFlowId,
+  fixConnectionId,
+} from '../helpers';
 import { getTypeSpecificHints } from '../type-hints';
+import { resizeParentContainers } from './add-element-helpers';
 
 /**
  * Detect elements that overlap with the newly inserted element.
@@ -124,4 +130,61 @@ export function buildInsertResult(opts: {
     data.note = `Original flow label "${opts.flowLabel}" was removed`;
   }
   return data;
+}
+
+/** Shift downstream elements right when there isn't enough horizontal space. */
+export function shiftIfNeeded(
+  elementRegistry: any,
+  modeling: any,
+  srcRight: number,
+  tgtLeft: number,
+  requiredSpace: number,
+  sourceId: string
+): number {
+  const availableSpace = tgtLeft - srcRight;
+  if (availableSpace >= requiredSpace) return 0;
+
+  const shiftAmount = requiredSpace - availableSpace;
+  const toShift = getVisibleElements(elementRegistry).filter(
+    (el: any) =>
+      !el.type.includes('SequenceFlow') &&
+      !el.type.includes('MessageFlow') &&
+      !el.type.includes('Association') &&
+      el.type !== 'bpmn:Participant' &&
+      el.type !== 'bpmn:Lane' &&
+      el.id !== sourceId &&
+      el.x >= tgtLeft
+  );
+  if (toShift.length > 0) modeling.moveElements(toShift, { x: shiftAmount, y: 0 });
+  resizeParentContainers(elementRegistry, modeling);
+  return shiftAmount;
+}
+
+/** Reconnect source→newElement→target with new sequence flows. */
+export function reconnectThroughElement(
+  modeling: any,
+  elementRegistry: any,
+  source: any,
+  createdElement: any,
+  target: any,
+  elementName: string | undefined,
+  flowCondition: any
+): { conn1: any; conn2: any } {
+  const flowId1 = generateFlowId(elementRegistry, source?.businessObject?.name, elementName);
+  const conn1 = modeling.connect(source, createdElement, {
+    type: 'bpmn:SequenceFlow',
+    id: flowId1,
+  });
+  fixConnectionId(conn1, flowId1);
+  if (flowCondition) {
+    modeling.updateProperties(conn1, { conditionExpression: flowCondition });
+  }
+
+  const flowId2 = generateFlowId(elementRegistry, elementName, target?.businessObject?.name);
+  const conn2 = modeling.connect(createdElement, target, {
+    type: 'bpmn:SequenceFlow',
+    id: flowId2,
+  });
+  fixConnectionId(conn2, flowId2);
+  return { conn1, conn2 };
 }

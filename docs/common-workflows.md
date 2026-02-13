@@ -316,4 +316,32 @@ to control which lane the new element lands in.
 
 Without `laneId`, the element is placed at the midpoint between the
 flow's source and target — which may land in an unrelated lane when
-the flow crosses lanes vertically.
+the flow crosses lanes vertically. When no `laneId` is specified and
+the flow crosses lanes, the element is automatically placed in the
+source element's lane to avoid landing in an unrelated middle lane.
+
+---
+
+## 16. Manually route a loopback flow
+
+When a gateway has a "No" branch that loops back to an earlier task,
+the auto-router may create zigzag paths. Use `set_bpmn_connection_waypoints`
+to set clean U-shaped waypoints:
+
+```
+1. list_bpmn_elements          → find the loopback flow ID and element positions
+2. set_bpmn_connection_waypoints → { connectionId: "Flow_No",
+                                      waypoints: [
+                                        { x: 425, y: 230 },   // gateway bottom
+                                        { x: 425, y: 350 },   // drop down
+                                        { x: 250, y: 350 },   // go left
+                                        { x: 250, y: 230 }    // rise up to target
+                                      ] }
+```
+
+This creates a clean U-shape below the main path. The waypoints should:
+
+- Start at the gateway's bottom center
+- Drop below the main path (50–100px gap)
+- Run horizontally back to the target
+- Rise up to the target's bottom center

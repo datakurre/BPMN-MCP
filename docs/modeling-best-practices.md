@@ -151,3 +151,28 @@ Camunda 7 already provides binding concepts for called processes/decisions.
 - Avoid modeling “retry loops” in BPMN for technical failures.
   - In Operaton, prefer engine-level mechanisms (job retries/incidents) and worker-side retry/backoff for external tasks.
   - Keep BPMN focused on business-level exception handling.
+
+## Loopback / review-and-rework patterns
+
+A common pattern is **Task → Review → Gateway → (Yes: continue) / (No: loop back to Task)**. This models "go back and edit" flows for human review cycles.
+
+**Recommended structure:**
+
+```
+[Enter Details] → [Review & Confirm] → <Confirmed?> -Yes→ [Next Step] → (End)
+                                             |
+                                             No (loopback to Enter Details)
+```
+
+**Layout guidance:**
+
+- Keep the **happy path** (Yes branch) straight and horizontal — it should flow left-to-right without vertical detours.
+- Route the **loopback** (No branch) **below** the main path with a clean U-shape: down → left → up. This keeps the loopback visually distinct.
+- Use `set_bpmn_connection_waypoints` to manually set clean U-shaped waypoints when the auto-router creates zigzag paths.
+- When inserting a gateway into an existing straight flow, use `insert_bpmn_element` — it preserves horizontal alignment between source, gateway, and target.
+
+**Modeling tips:**
+
+- Consider adding a rework annotation or intermediate task on the No-path (e.g., "Rework details") for clearer readability when the business process allows it.
+- Loopback to the first user task is fine for simple "go back and edit" flows. For complex multi-step forms, consider using a subprocess with an error boundary event instead.
+- Label the gateway as a question (e.g., "Confirmed?", "Details correct?") and the outgoing flows as answers ("Yes" / "No").
