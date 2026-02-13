@@ -43,6 +43,10 @@ import laneCrossingExcessive from './rules/lane-crossing-excessive';
 import laneSingleElement from './rules/lane-single-element';
 import laneMissingStartOrEnd from './rules/lane-missing-start-or-end';
 import inconsistentLaneNaming from './rules/inconsistent-lane-naming';
+import subprocessExpansionIssue from './rules/subprocess-expansion-issue';
+import laneOvercrowding from './rules/lane-overcrowding';
+import preferLanesOverPools from './rules/prefer-lanes-over-pools';
+import roleMismatchWithLane from './rules/role-mismatch-with-lane';
 
 /**
  * All custom lint rules keyed by rule name (without plugin prefix).
@@ -85,6 +89,10 @@ export const rules: Record<string, any> = {
   'lane-single-element': laneSingleElement,
   'lane-missing-start-or-end': laneMissingStartOrEnd,
   'inconsistent-lane-naming': inconsistentLaneNaming,
+  'subprocess-expansion-issue': subprocessExpansionIssue,
+  'lane-overcrowding': laneOvercrowding,
+  'prefer-lanes-over-pools': preferLanesOverPools,
+  'role-mismatch-with-lane': roleMismatchWithLane,
 };
 
 export const configs = {
@@ -123,6 +131,10 @@ export const configs = {
       'bpmn-mcp/lane-single-element': 'info',
       'bpmn-mcp/lane-missing-start-or-end': 'warn',
       'bpmn-mcp/inconsistent-lane-naming': 'info',
+      'bpmn-mcp/subprocess-expansion-issue': 'warn',
+      'bpmn-mcp/lane-overcrowding': 'warn',
+      'bpmn-mcp/prefer-lanes-over-pools': 'info',
+      'bpmn-mcp/role-mismatch-with-lane': 'warn',
     },
   },
 };
