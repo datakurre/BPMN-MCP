@@ -2,13 +2,14 @@
  * Handler for create_bpmn_diagram tool.
  */
 
-import { type ToolResult } from '../../types';
+import { type ToolResult, type HintLevel } from '../../types';
 import { storeDiagram, generateDiagramId, createModeler } from '../../diagram-manager';
 import { jsonResult, getService } from '../helpers';
 
 export interface CreateDiagramArgs {
   name?: string;
   draftMode?: boolean;
+  hintLevel?: HintLevel;
 }
 
 /** Convert a human name into a valid BPMN process id (XML NCName). */
@@ -40,19 +41,26 @@ export async function handleCreateDiagram(args: CreateDiagramArgs): Promise<Tool
 
   const savedXml = args.name ? (await modeler.saveXML({ format: true })).xml || '' : xml || '';
 
+  // Resolve effective hint level: explicit hintLevel > draftMode > server default
+  const hintLevel: HintLevel | undefined = args.hintLevel ?? (args.draftMode ? 'none' : undefined);
+
   storeDiagram(diagramId, {
     modeler,
     xml: savedXml,
     name: args.name,
     draftMode: args.draftMode ?? false,
+    hintLevel,
   });
+
+  const effectiveDraft = hintLevel === 'none' || (args.draftMode ?? false);
 
   return jsonResult({
     success: true,
     diagramId,
     name: args.name || undefined,
-    draftMode: args.draftMode ?? false,
-    message: `Created new BPMN diagram with ID: ${diagramId}${args.draftMode ? ' (draft mode — lint feedback suppressed)' : ''}`,
+    draftMode: effectiveDraft,
+    hintLevel: hintLevel ?? 'full',
+    message: `Created new BPMN diagram with ID: ${diagramId}${effectiveDraft ? ' (draft mode — lint feedback suppressed)' : ''}`,
   });
 }
 
@@ -74,7 +82,17 @@ export const TOOL_DEFINITION = {
           'When true, suppress implicit lint feedback on every operation. ' +
           'Useful during incremental diagram construction to reduce noise. ' +
           'Validation is still available via validate_bpmn_diagram, and ' +
-          'export_bpmn still enforces its lint gate. Default: false.',
+          'export_bpmn still enforces its lint gate. Default: false. ' +
+          'Deprecated: use hintLevel instead.',
+      },
+      hintLevel: {
+        type: 'string',
+        enum: ['none', 'minimal', 'full'],
+        description:
+          "Controls implicit feedback verbosity. 'full' (default) includes " +
+          "lint errors, layout hints, and connectivity warnings. 'minimal' " +
+          "includes only lint errors. 'none' suppresses all implicit feedback " +
+          '(equivalent to draftMode: true). Overrides draftMode when set.',
       },
     },
   },

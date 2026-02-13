@@ -6,7 +6,7 @@
  * from the working directory.
  */
 
-import { type DiagramState, type ToolResult } from './types';
+import { type DiagramState, type ToolResult, type HintLevel } from './types';
 import type { LintConfig, LintResults, FlatLintIssue } from './bpmnlint-types';
 import { suggestFix } from './lint-suggestions';
 import {
@@ -287,6 +287,31 @@ export function setBatchMode(enabled: boolean): void {
   batchMode = enabled;
 }
 
+// ── Server-wide hint level ─────────────────────────────────────────────────
+
+let serverHintLevel: HintLevel = 'full';
+
+/** Set the server-wide default hint level (e.g. from CLI --hint-level). */
+export function setServerHintLevel(level: HintLevel): void {
+  serverHintLevel = level;
+}
+
+/** Get the server-wide default hint level. */
+export function getServerHintLevel(): HintLevel {
+  return serverHintLevel;
+}
+
+/**
+ * Resolve the effective hint level for a diagram.
+ *
+ * Priority: diagram.hintLevel > diagram.draftMode > server default.
+ */
+export function resolveHintLevel(diagram: DiagramState): HintLevel {
+  if (diagram.hintLevel !== undefined) return diagram.hintLevel;
+  if (diagram.draftMode) return 'none';
+  return serverHintLevel;
+}
+
 // ── Implicit lint feedback ─────────────────────────────────────────────────
 
 /**
@@ -312,7 +337,12 @@ const INCREMENTAL_NOISE_RULES = new Set([
  * are filtered out because they always fire during incremental construction —
  * they remain enforced at export time and via validate_bpmn_diagram.
  *
- * Skipped when the diagram is in draft mode or batch mode.
+ * Feedback verbosity is controlled by the diagram's effective hint level:
+ * - `'full'`    — lint errors + layout hints + connectivity warnings
+ * - `'minimal'` — lint errors only
+ * - `'none'`   — no implicit feedback (legacy draftMode equivalent)
+ *
+ * Skipped in batch mode.
  * Wrapped in try/catch so linting failures never break the primary operation.
  * Invalidates the lint cache for this diagram since it's called after mutations.
  */
@@ -323,78 +353,84 @@ export async function appendLintFeedback(
   // In batch mode, skip intermediate lint to avoid N full lint runs
   if (batchMode) return result;
 
-  // In draft mode, skip lint feedback — user explicitly opted out
-  if (diagram.draftMode) return result;
+  const hintLevel = resolveHintLevel(diagram);
+
+  // In none mode, skip all feedback
+  if (hintLevel === 'none') return result;
 
   // Bump version since a mutation just occurred, and invalidate stale cache
   bumpDiagramVersion(diagram);
   const diagramId = getDiagramId(diagram);
   if (diagramId) invalidateLintCache(diagramId);
 
+  // Lint errors: shown at 'minimal' and 'full'
   try {
     const issues = await lintDiagramFlat(diagram);
     const errors = issues.filter(
       (i) => i.severity === 'error' && !INCREMENTAL_NOISE_RULES.has(i.rule)
     );
-    if (errors.length === 0) return result;
-
-    // Enrich error messages with contextual hints
-    const elementRegistry = diagram.modeler.get('elementRegistry');
-    const diagramId = getDiagramId(diagram) ?? '';
-    const lines = errors.map((i) => {
-      let line = `- [${i.rule}] ${i.message}${i.elementId ? ` (${i.elementId})` : ''}`;
-      // Add fix suggestion from the shared FIX_SUGGESTIONS table
-      const fix = suggestFix(i, diagramId);
-      if (fix) {
-        line += ` → ${fix}`;
-      }
-      // Add context for boundary event issues
-      if (i.elementId && (i.rule === 'no-implicit-start' || i.rule === 'no-implicit-end')) {
-        const el = elementRegistry.get(i.elementId);
-        if (el?.type === 'bpmn:BoundaryEvent' && !el.host) {
-          line +=
-            ' — This boundary event is not attached to a host element. ' +
-            'Use add_bpmn_element with hostElementId to attach it to a task or subprocess.';
+    if (errors.length > 0) {
+      // Enrich error messages with contextual hints
+      const elementRegistry = diagram.modeler.get('elementRegistry');
+      const dId = getDiagramId(diagram) ?? '';
+      const lines = errors.map((i) => {
+        let line = `- [${i.rule}] ${i.message}${i.elementId ? ` (${i.elementId})` : ''}`;
+        // Add fix suggestion from the shared FIX_SUGGESTIONS table
+        const fix = suggestFix(i, dId);
+        if (fix) {
+          line += ` → ${fix}`;
         }
-      }
-      return line;
-    });
-    const feedback = `\n⚠ Lint issues (${errors.length}):\n${lines.join('\n')}`;
-    result.content.push({ type: 'text', text: feedback });
+        // Add context for boundary event issues
+        if (i.elementId && (i.rule === 'no-implicit-start' || i.rule === 'no-implicit-end')) {
+          const el = elementRegistry.get(i.elementId);
+          if (el?.type === 'bpmn:BoundaryEvent' && !el.host) {
+            line +=
+              ' — This boundary event is not attached to a host element. ' +
+              'Use add_bpmn_element with hostElementId to attach it to a task or subprocess.';
+          }
+        }
+        return line;
+      });
+      const feedback = `\n⚠ Lint issues (${errors.length}):\n${lines.join('\n')}`;
+      result.content.push({ type: 'text', text: feedback });
+    }
   } catch {
     // Linting should never break the primary tool response
   }
 
-  // Append layout hint when many structural mutations have occurred without layout
-  const LAYOUT_HINT_THRESHOLD = 5;
-  const mutations = diagram.mutationsSinceLayout ?? 0;
-  if (mutations >= LAYOUT_HINT_THRESHOLD && mutations % LAYOUT_HINT_THRESHOLD === 0) {
-    result.content.push({
-      type: 'text',
-      text: `\n💡 Hint: ${mutations} changes since last layout — consider calling layout_bpmn_diagram to arrange elements.`,
-    });
-  }
-
-  // Surface connectivity warnings post-mutation (when diagram has >3 elements)
-  try {
-    const elementRegistry = diagram.modeler.get('elementRegistry');
-    const flowElements = elementRegistry.filter(
-      (el: any) =>
-        el.type &&
-        (el.type.includes('Event') ||
-          el.type.includes('Task') ||
-          el.type.includes('Gateway') ||
-          el.type.includes('SubProcess') ||
-          el.type.includes('CallActivity'))
-    );
-    if (flowElements.length > 3) {
-      const connectivityWarnings = buildConnectivityWarnings(elementRegistry);
-      if (connectivityWarnings.length > 0) {
-        result.content.push({ type: 'text', text: '\n' + connectivityWarnings.join('\n') });
-      }
+  // Layout hint and connectivity warnings: only at 'full' level
+  if (hintLevel === 'full') {
+    // Append layout hint when many structural mutations have occurred without layout
+    const LAYOUT_HINT_THRESHOLD = 5;
+    const mutations = diagram.mutationsSinceLayout ?? 0;
+    if (mutations >= LAYOUT_HINT_THRESHOLD && mutations % LAYOUT_HINT_THRESHOLD === 0) {
+      result.content.push({
+        type: 'text',
+        text: `\n💡 Hint: ${mutations} changes since last layout — consider calling layout_bpmn_diagram to arrange elements.`,
+      });
     }
-  } catch {
-    // Non-fatal — connectivity check should never break the primary operation
+
+    // Surface connectivity warnings post-mutation (when diagram has >3 elements)
+    try {
+      const elementRegistry = diagram.modeler.get('elementRegistry');
+      const flowElements = elementRegistry.filter(
+        (el: any) =>
+          el.type &&
+          (el.type.includes('Event') ||
+            el.type.includes('Task') ||
+            el.type.includes('Gateway') ||
+            el.type.includes('SubProcess') ||
+            el.type.includes('CallActivity'))
+      );
+      if (flowElements.length > 3) {
+        const connectivityWarnings = buildConnectivityWarnings(elementRegistry);
+        if (connectivityWarnings.length > 0) {
+          result.content.push({ type: 'text', text: '\n' + connectivityWarnings.join('\n') });
+        }
+      }
+    } catch {
+      // Non-fatal — connectivity check should never break the primary operation
+    }
   }
 
   return result;

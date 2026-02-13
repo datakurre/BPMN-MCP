@@ -26,11 +26,14 @@ import {
 import { type ToolModule } from './module';
 import { bpmnModule } from './bpmn-module';
 import { enablePersistence } from './persistence';
+import { setServerHintLevel } from './linter';
+import type { HintLevel } from './types';
 
 // ── CLI argument parsing ───────────────────────────────────────────────────
 
 interface CliOptions {
   persistDir?: string;
+  hintLevel?: HintLevel;
 }
 
 function printUsage(): void {
@@ -39,18 +42,21 @@ function printUsage(): void {
 Options:
   --persist-dir <dir>   Enable file-backed diagram persistence in <dir>.
                         Diagrams are saved as .bpmn files and restored on startup.
+  --hint-level <level>  Set server-wide feedback verbosity. Values: full (default),
+                        minimal (lint errors only), none (no implicit feedback).
   --help                Show this help message and exit.
 
 Examples:
   bpmn-js-mcp
   bpmn-js-mcp --persist-dir ./diagrams
+  bpmn-js-mcp --hint-level minimal
 
 MCP configuration (.vscode/mcp.json):
   {
     "servers": {
       "bpmn": {
         "command": "npx",
-        "args": ["bpmn-js-mcp", "--persist-dir", "./diagrams"]
+        "args": ["bpmn-js-mcp", "--persist-dir", "./diagrams", "--hint-level", "minimal"]
       }
     }
   }
@@ -70,6 +76,15 @@ function parseArgs(argv: string[]): CliOptions {
           process.exit(1);
         }
         options.persistDir = dir;
+        break;
+      }
+      case '--hint-level': {
+        const level = args[++i];
+        if (!level || !['none', 'minimal', 'full'].includes(level)) {
+          console.error("Error: --hint-level requires a value: 'none', 'minimal', or 'full'");
+          process.exit(1);
+        }
+        options.hintLevel = level as HintLevel;
         break;
       }
       case '--help':
@@ -113,6 +128,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any): Promise<an
 
 async function main() {
   const options = parseArgs(process.argv);
+
+  // Set server-wide hint level if specified
+  if (options.hintLevel) {
+    setServerHintLevel(options.hintLevel);
+    console.error(`Hint level set to: ${options.hintLevel}`);
+  }
 
   // Enable file-backed persistence if requested
   if (options.persistDir) {

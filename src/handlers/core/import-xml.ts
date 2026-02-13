@@ -11,7 +11,7 @@
  * the layout quality.
  */
 
-import { type ToolResult } from '../../types';
+import { type ToolResult, type HintLevel } from '../../types';
 import { storeDiagram, generateDiagramId, createModelerFromXml } from '../../diagram-manager';
 import { jsonResult, syncXml } from '../helpers';
 import { appendLintFeedback } from '../../linter';
@@ -22,8 +22,12 @@ export interface ImportXmlArgs {
   xml?: string;
   filePath?: string;
   autoLayout?: boolean;
-  /** When true, suppress implicit lint feedback on every operation. */
+  /** When true, suppress implicit lint feedback on every operation.
+   *  @deprecated Use `hintLevel` instead.
+   */
   draftMode?: boolean;
+  /** Controls implicit feedback verbosity. Overrides draftMode when set. */
+  hintLevel?: HintLevel;
 }
 
 /** Check whether BPMN XML contains diagram interchange (DI) coordinates. */
@@ -63,7 +67,15 @@ export async function handleImportXml(args: ImportXmlArgs): Promise<ToolResult> 
   }
 
   const modeler = await createModelerFromXml(finalXml);
-  const diagram = { modeler, xml: finalXml, draftMode: draftMode ?? false };
+
+  // Resolve effective hint level: explicit hintLevel > draftMode > server default
+  const hintLevel: HintLevel | undefined = args.hintLevel ?? (draftMode ? 'none' : undefined);
+  const diagram = {
+    modeler,
+    xml: finalXml,
+    draftMode: draftMode ?? false,
+    hintLevel,
+  };
 
   if (shouldLayout) {
     // Step 2: ELK layered algorithm improves layout quality
@@ -119,7 +131,17 @@ export const TOOL_DEFINITION = {
         type: 'boolean',
         description:
           'When true, suppress implicit lint feedback on every operation. ' +
-          'Useful during incremental diagram editing to reduce noise. Default: false.',
+          'Useful during incremental diagram editing to reduce noise. Default: false. ' +
+          'Deprecated: use hintLevel instead.',
+      },
+      hintLevel: {
+        type: 'string',
+        enum: ['none', 'minimal', 'full'],
+        description:
+          "Controls implicit feedback verbosity. 'full' (default) includes " +
+          "lint errors, layout hints, and connectivity warnings. 'minimal' " +
+          "includes only lint errors. 'none' suppresses all implicit feedback " +
+          '(equivalent to draftMode: true). Overrides draftMode when set.',
       },
     },
   },
