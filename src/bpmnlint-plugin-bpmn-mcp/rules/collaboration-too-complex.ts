@@ -46,7 +46,8 @@ function ruleFactory(config?: { maxParticipants?: number; maxElements?: number }
         node.id,
         `Collaboration has ${totalElements} total elements across ${participants.length} pools ` +
           `(threshold: ${maxElements}) — consider decomposing into smaller, independently ` +
-          `deployable processes using Call Activities or message-based integration.`
+          `deployable processes using Call Activities, message-based integration, or ` +
+          `Link events to split complex flows into readable sections within a single process.`
       );
     }
   }

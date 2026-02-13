@@ -39,8 +39,9 @@ function ruleFactory(config?: { maxFlowNodes?: number }) {
       reporter.report(
         node.id,
         `Process has ${flowNodes.length} flow nodes (threshold: ${threshold}) — ` +
-          `consider decomposing into smaller processes using Call Activities or ` +
-          `message-based integration between participants`
+          `consider decomposing into smaller processes using Call Activities, ` +
+          `message-based integration between participants, or Link events to split ` +
+          `the flow into readable sections within the same process`
       );
     }
   }

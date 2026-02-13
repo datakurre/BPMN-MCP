@@ -3,7 +3,12 @@
  */
 import { describe, test, expect, afterEach } from 'vitest';
 import { createDiagram, clearDiagrams, addElement } from './helpers';
-import { listResources, readResource, RESOURCE_TEMPLATES } from '../src/resources';
+import {
+  listResources,
+  readResource,
+  RESOURCE_TEMPLATES,
+  STATIC_RESOURCES,
+} from '../src/resources';
 
 afterEach(() => clearDiagrams());
 
@@ -17,20 +22,32 @@ describe('RESOURCE_TEMPLATES', () => {
   });
 });
 
+describe('STATIC_RESOURCES', () => {
+  test('has the executable Camunda 7 guide', () => {
+    expect(STATIC_RESOURCES.length).toBeGreaterThanOrEqual(1);
+    const uris = STATIC_RESOURCES.map((r) => r.uri);
+    expect(uris).toContain('bpmn://guides/executable-camunda7');
+  });
+});
+
 describe('listResources', () => {
-  test('returns bpmn://diagrams when no diagrams exist', () => {
+  test('returns bpmn://diagrams and static guides when no diagrams exist', () => {
     const resources = listResources();
-    expect(resources).toHaveLength(1);
-    expect(resources[0].uri).toBe('bpmn://diagrams');
+    // 1 (diagrams list) + static resources
+    expect(resources).toHaveLength(1 + STATIC_RESOURCES.length);
+    const uris = resources.map((r: any) => r.uri);
+    expect(uris).toContain('bpmn://diagrams');
+    expect(uris).toContain('bpmn://guides/executable-camunda7');
   });
 
   test('returns per-diagram resources when diagrams exist', async () => {
     const id = await createDiagram('Test Process');
     const resources = listResources();
-    // 1 (diagrams list) + 3 (summary, lint, variables)
-    expect(resources).toHaveLength(4);
+    // 1 (diagrams list) + static resources + 3 (summary, lint, variables)
+    expect(resources).toHaveLength(1 + STATIC_RESOURCES.length + 3);
     const uris = resources.map((r: any) => r.uri);
     expect(uris).toContain('bpmn://diagrams');
+    expect(uris).toContain('bpmn://guides/executable-camunda7');
     expect(uris).toContain(`bpmn://diagram/${id}/summary`);
     expect(uris).toContain(`bpmn://diagram/${id}/lint`);
     expect(uris).toContain(`bpmn://diagram/${id}/variables`);
@@ -81,5 +98,14 @@ describe('readResource', () => {
     await expect(readResource('bpmn://diagram/nonexistent/summary')).rejects.toThrow(
       'Diagram not found'
     );
+  });
+
+  test('reads bpmn://guides/executable-camunda7', async () => {
+    const result = await readResource('bpmn://guides/executable-camunda7');
+    expect(result.contents).toHaveLength(1);
+    expect(result.contents[0].mimeType).toBe('text/markdown');
+    expect(result.contents[0].text).toContain('Executable BPMN for Camunda 7');
+    expect(result.contents[0].text).toContain('External Task pattern');
+    expect(result.contents[0].text).toContain('Link events');
   });
 });

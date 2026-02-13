@@ -63,9 +63,9 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
   'bpmn-mcp/unpaired-link-event':
     'Add a matching link throw/catch event pair. Link events must have matching names set via set_bpmn_event_definition with properties: { name: "LinkName" }',
   'bpmn-mcp/collaboration-too-complex':
-    'Decompose the collaboration into smaller, independently deployable processes. Use Call Activities or message-based integration between separate BPMN deployments',
+    'Decompose the collaboration into smaller, independently deployable processes. Use Call Activities or message-based integration between separate BPMN deployments, or Link events to split complex flows within a single process',
   'bpmn-mcp/process-too-complex':
-    'Decompose the process into smaller subprocesses using Call Activities (add_bpmn_element with elementType "bpmn:CallActivity") to keep processes maintainable',
+    'Decompose the process into smaller subprocesses using Call Activities (add_bpmn_element with elementType "bpmn:CallActivity"), or use Link events (bpmn:IntermediateThrowEvent + bpmn:IntermediateCatchEvent with LinkEventDefinition) to split the flow into readable sections within the same process',
 };
 
 /**
