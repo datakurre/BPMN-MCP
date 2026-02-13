@@ -63,4 +63,48 @@ describe('create_bpmn_collaboration', () => {
     expect(res.participantIds[0]).toContain('Participant');
     expect(res.participantIds[1]).toContain('Participant');
   });
+
+  test('creates lanes within a participant when lanes are specified', async () => {
+    const diagramId = await createDiagram();
+
+    const res = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          {
+            name: 'HR Department',
+            lanes: [{ name: 'Recruiter' }, { name: 'Hiring Manager' }],
+          },
+          { name: 'Candidate', collapsed: true },
+        ],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.participantCount).toBe(2);
+    expect(res.lanesCreated).toBeDefined();
+    const hrParticipantId = res.participantIds[0];
+    expect(res.lanesCreated[hrParticipantId]).toHaveLength(2);
+  });
+
+  test('ignores lanes on collapsed participants', async () => {
+    const diagramId = await createDiagram();
+
+    const res = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          { name: 'Main Process' },
+          {
+            name: 'External System',
+            collapsed: true,
+            lanes: [{ name: 'Should Be Ignored' }, { name: 'Also Ignored' }],
+          },
+        ],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.lanesCreated).toBeUndefined();
+  });
 });

@@ -16,6 +16,7 @@ import {
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { ELEMENT_SIZES } from '../../constants';
+import { handleCreateLanes } from './create-lanes';
 
 /** Height of a collapsed participant pool (thin bar, no internal flow). */
 const COLLAPSED_POOL_HEIGHT = 60;
@@ -31,6 +32,8 @@ export interface CreateCollaborationArgs {
     height?: number;
     x?: number;
     y?: number;
+    /** Optional lanes to create within this participant (requires at least 2). Ignored for collapsed pools. */
+    lanes?: Array<{ name: string; height?: number }>;
   }>;
 }
 
@@ -131,11 +134,37 @@ export async function handleCreateCollaboration(
 
   await syncXml(diagram);
 
+  // Create lanes for participants that requested them
+  const lanesCreated: Record<string, string[]> = {};
+  for (let i = 0; i < participants.length; i++) {
+    const p = participants[i];
+    if (p.lanes && p.lanes.length >= 2 && !p.collapsed) {
+      const lanesResult = await handleCreateLanes({
+        diagramId,
+        participantId: createdIds[i],
+        lanes: p.lanes,
+      });
+      // Extract laneIds from the result
+      const lanesText = lanesResult.content?.[0];
+      if (lanesText && 'text' in lanesText) {
+        try {
+          const parsed = JSON.parse(lanesText.text as string);
+          if (parsed.laneIds) {
+            lanesCreated[createdIds[i]] = parsed.laneIds;
+          }
+        } catch {
+          // Non-fatal: lanes were created but we couldn't parse the result
+        }
+      }
+    }
+  }
+
   const result = jsonResult({
     success: true,
     participantIds: createdIds,
     participantCount: createdIds.length,
-    message: `Created collaboration with ${createdIds.length} participants: ${createdIds.join(', ')}`,
+    ...(Object.keys(lanesCreated).length > 0 ? { lanesCreated } : {}),
+    message: `Created collaboration with ${createdIds.length} participants: ${createdIds.join(', ')}${Object.keys(lanesCreated).length > 0 ? ` (with lanes in ${Object.keys(lanesCreated).length} participant(s))` : ''}`,
     nextSteps: [
       {
         tool: 'add_bpmn_element',
@@ -196,6 +225,28 @@ export const TOOL_DEFINITION = {
               type: 'number',
               description: 'Optional Y coordinate for pool center (default: auto-stacked)',
             },
+            lanes: {
+              type: 'array',
+              description:
+                'Optional lanes to create within this participant (requires at least 2). ' +
+                'Ignored for collapsed pools. Creates a bpmn:LaneSet dividing the pool height evenly.',
+              items: {
+                type: 'object',
+                properties: {
+                  name: {
+                    type: 'string',
+                    description: 'Lane name (typically a role or department)',
+                  },
+                  height: {
+                    type: 'number',
+                    description:
+                      'Optional lane height in pixels. If omitted, the pool height is divided evenly.',
+                  },
+                },
+                required: ['name'],
+              },
+              minItems: 2,
+            },
           },
           required: ['name'],
         },
@@ -212,6 +263,19 @@ export const TOOL_DEFINITION = {
           participants: [
             { name: 'Order Processing', processId: 'Process_OrderProcessing' },
             { name: 'Customer', collapsed: true },
+          ],
+        },
+      },
+      {
+        title: 'Pool with swimlanes for role separation',
+        value: {
+          diagramId: '<diagram-id>',
+          participants: [
+            {
+              name: 'HR Department',
+              lanes: [{ name: 'Recruiter' }, { name: 'Hiring Manager' }, { name: 'HR Admin' }],
+            },
+            { name: 'Candidate', collapsed: true },
           ],
         },
       },
