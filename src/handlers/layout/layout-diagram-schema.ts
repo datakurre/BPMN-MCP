@@ -82,6 +82,13 @@ export const TOOL_DEFINITION = {
           "Lane layout strategy: 'preserve' = keep elements in their current lanes (default), " +
           "'optimize' = reorder lanes to minimize cross-lane flows.",
       },
+      poolExpansion: {
+        type: 'boolean',
+        description:
+          'When true, automatically resize pools and lanes after layout to fit all elements ' +
+          'with proper padding. Prevents elements from overflowing pool/lane boundaries after ' +
+          'layout repositioning. Default: false.',
+      },
     },
     required: ['diagramId'],
   },

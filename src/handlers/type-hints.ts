@@ -20,12 +20,16 @@ const TYPE_HINTS: Array<{ match: (type: string) => boolean; hints: Hint[] }> = [
     hints: [
       {
         tool: 'set_bpmn_form_data',
-        description: 'Define form fields for user input',
+        description:
+          'Define generated form fields for user input (simple key/value fields embedded in BPMN XML, good for prototyping)',
       },
       {
         tool: 'set_bpmn_element_properties',
         description:
-          'Set camunda:assignee, camunda:candidateGroups, camunda:dueDate, or camunda:formKey',
+          'Set camunda:assignee, camunda:candidateGroups, camunda:dueDate. ' +
+          'For forms: camunda:formRef (Camunda Platform Form deployed separately — use a companion form-js-mcp server if available to design the form), ' +
+          'camunda:formKey (embedded:app:forms/... or external app:...), ' +
+          'or camunda:formRefBinding/camunda:formRefVersion for version control.',
       },
     ],
   },
@@ -58,7 +62,17 @@ const TYPE_HINTS: Array<{ match: (type: string) => boolean; hints: Hint[] }> = [
       {
         tool: 'set_bpmn_element_properties',
         description:
-          'Set camunda:decisionRef for DMN integration, or camunda:class for custom rule logic. For DMN, also set camunda:decisionRefBinding and camunda:mapDecisionResult.',
+          'Primary: Set camunda:decisionRef to a DMN decision table ID (deployed separately). ' +
+          "Also set camunda:decisionRefBinding ('latest'/'deployment'/'version'), " +
+          "camunda:mapDecisionResult ('singleEntry'/'singleResult'/'collectEntries'/'resultList'), " +
+          "and camunda:decisionRefVersion (when binding='version'). " +
+          'Alternative: camunda:class or camunda:delegateExpression for custom Java rule logic.',
+      },
+      {
+        tool: 'set_bpmn_input_output_mapping',
+        description:
+          'Map process variables to DMN input columns and DMN output to process variables. ' +
+          'Use a companion dmn-js-mcp server (if available) to design the DMN decision table itself.',
       },
     ],
   },

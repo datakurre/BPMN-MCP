@@ -191,6 +191,14 @@ import {
   handleSuggestPoolVsLanes,
   TOOL_DEFINITION as SUGGEST_POOL_VS_LANES_DEF,
 } from './collaboration/suggest-pool-vs-lanes';
+import {
+  handleRedistributeElementsAcrossLanes,
+  TOOL_DEFINITION as REDISTRIBUTE_ELEMENTS_ACROSS_LANES_DEF,
+} from './collaboration/redistribute-elements-across-lanes';
+import {
+  handleAutosizePoolsAndLanes,
+  TOOL_DEFINITION as AUTOSIZE_POOLS_AND_LANES_DEF,
+} from './collaboration/autosize-pools-and-lanes';
 
 // ── Unified tool registry ──────────────────────────────────────────────────
 //
@@ -243,6 +251,11 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: CONVERT_COLLABORATION_TO_LANES_DEF, handler: handleConvertCollaborationToLanes },
   { definition: RESIZE_POOL_TO_FIT_DEF, handler: handleResizePoolToFit },
   { definition: SUGGEST_POOL_VS_LANES_DEF, handler: handleSuggestPoolVsLanes },
+  {
+    definition: REDISTRIBUTE_ELEMENTS_ACROSS_LANES_DEF,
+    handler: handleRedistributeElementsAcrossLanes,
+  },
+  { definition: AUTOSIZE_POOLS_AND_LANES_DEF, handler: handleAutosizePoolsAndLanes },
   { definition: DUPLICATE_ELEMENT_DEF, handler: handleDuplicateElement },
   { definition: INSERT_ELEMENT_DEF, handler: handleInsertElement },
   { definition: REPLACE_ELEMENT_DEF, handler: handleReplaceElement },
@@ -332,6 +345,8 @@ export {
   handleConvertCollaborationToLanes,
   handleResizePoolToFit,
   handleSuggestPoolVsLanes,
+  handleRedistributeElementsAcrossLanes,
+  handleAutosizePoolsAndLanes,
   handleSummarizeDiagram,
   handleListProcessVariables,
   handleSetConnectionWaypoints,

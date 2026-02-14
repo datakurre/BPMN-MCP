@@ -29,6 +29,7 @@ import {
   repairMissingDiShapes,
   deduplicateDiInModeler,
 } from './layout-helpers';
+import { handleAutosizePoolsAndLanes } from '../collaboration/autosize-pools-and-lanes';
 
 export interface LayoutDiagramArgs {
   diagramId: string;
@@ -58,6 +59,13 @@ export interface LayoutDiagramArgs {
    * - 'optimize': reorder lanes to minimize cross-lane flows
    */
   laneStrategy?: 'preserve' | 'optimize';
+  /**
+   * When true, automatically resize pools and lanes after layout to fit all
+   * elements with proper padding. Prevents the common problem of elements
+   * overflowing pool/lane boundaries after layout repositioning.
+   * Default: false.
+   */
+  poolExpansion?: boolean;
 }
 
 /** Perform a dry-run layout: clone → layout → diff → discard clone. */
@@ -245,6 +253,14 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
   const labelsMoved = await adjustDiagramLabels(diagram);
   const flowLabelsMoved = await adjustFlowLabels(diagram);
 
+  // Auto-resize pools/lanes after layout if poolExpansion is enabled
+  let poolExpansionApplied = false;
+  if (args.poolExpansion) {
+    const poolResult = await handleAutosizePoolsAndLanes({ diagramId });
+    const poolData = JSON.parse(poolResult.content[0].text as string);
+    poolExpansionApplied = (poolData.resizedCount ?? 0) > 0;
+  }
+
   // Check DI integrity: warn about elements missing visual representation
   const diWarnings = checkDiIntegrity(diagram, elementRegistry);
   // Include repair messages alongside DI warnings
@@ -260,6 +276,7 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
     elementRegistry,
     usedDeterministic,
     diWarnings: allDiWarnings,
+    poolExpansionApplied,
   });
   return appendLintFeedback(result, diagram);
 }

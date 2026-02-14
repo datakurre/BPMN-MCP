@@ -50,10 +50,13 @@ const PROMPTS: PromptDefinition[] = [
               `(e.g. "Order valid?"). Set conditions on outgoing flows and mark one as default.\n` +
               `5. **Add end event**: Use \`add_bpmn_element\` with elementType "bpmn:EndEvent"\n` +
               `6. **Configure tasks**:\n` +
-              `   - UserTasks: Set \`camunda:assignee\` or \`camunda:candidateGroups\`, add form fields ` +
-              `with \`set_bpmn_form_data\`\n` +
+              `   - UserTasks: Set \`camunda:assignee\` or \`camunda:candidateGroups\`. For forms,\n` +
+              `     use \`set_bpmn_form_data\` (generated fields, good for prototyping) or\n` +
+              `     \`camunda:formRef\` (Camunda Platform Form deployed separately)\n` +
               `   - ServiceTasks: Set \`camunda:type\` to "external" and \`camunda:topic\` for ` +
               `external task workers\n` +
+              `   - BusinessRuleTasks: Set \`camunda:decisionRef\` to a DMN decision table ID, ` +
+              `with \`camunda:decisionRefBinding\` and \`camunda:mapDecisionResult\`\n` +
               `7. **Add exception handling**: Add boundary timer/error events where appropriate\n` +
               `8. **Layout**: Run \`layout_bpmn_diagram\` for clean arrangement\n` +
               `9. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n` +
@@ -222,7 +225,8 @@ const PROMPTS: PromptDefinition[] = [
               `   - afterElementId: "${afterId}"\n` +
               `2. **Configure the task**:\n` +
               `   - Set \`camunda:candidateGroups\` to "${group}"\n` +
-              `   - Add form fields with \`set_bpmn_form_data\`:\n` +
+              `   - Add form fields with \`set_bpmn_form_data\` (for prototyping) or use\n` +
+              `     \`camunda:formRef\` (for a Camunda Platform Form deployed separately):\n` +
               `     - "approved" (boolean): "Approved?"\n` +
               `     - "comment" (string): "Comments"\n` +
               `3. **Add gateway**: Use \`add_bpmn_element\` with:\n` +

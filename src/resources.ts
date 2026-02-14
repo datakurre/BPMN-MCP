@@ -221,12 +221,12 @@ const EXECUTABLE_CAMUNDA7_GUIDE = `# Executable BPMN for Camunda 7 / Operaton
 
 | BPMN type | Camunda usage | Key properties |
 |-----------|---------------|----------------|
-| **User Task** | Human work in Tasklist | \`camunda:assignee\`, \`camunda:candidateGroups\`, \`camunda:formKey\` or generated form fields |
+| **User Task** | Human work in Tasklist | \`camunda:assignee\`, \`camunda:candidateGroups\`, \`camunda:formKey\` or \`camunda:formRef\` or generated form fields |
 | **Service Task (external)** | Polled by external workers | \`camunda:type="external"\`, \`camunda:topic\` |
 | **Service Task (Java)** | In-process Java delegate | \`camunda:class\` or \`camunda:delegateExpression\` |
 | **Service Task (connector)** | HTTP/REST via connector | \`camunda:connectorId\` |
 | **Script Task** | Inline Groovy/JS/JUEL | \`scriptFormat\`, inline script, optional \`camunda:resultVariable\` |
-| **Business Rule Task** | DMN decision | \`camunda:decisionRef\`, \`camunda:mapDecisionResult\` |
+| **Business Rule Task** | DMN decision | \`camunda:decisionRef\`, \`camunda:decisionRefBinding\`, \`camunda:mapDecisionResult\`, \`camunda:decisionRefVersion\` (when binding=version) |
 | **Send Task** | Fire-and-forget message | \`camunda:type="external"\`, \`camunda:topic\` (like service task) |
 | **Receive Task** | Wait for correlated message | Message reference + correlation key |
 | **Call Activity** | Invoke another BPMN process | \`calledElement\`, \`camunda:calledElementBinding\` |
@@ -235,10 +235,27 @@ const EXECUTABLE_CAMUNDA7_GUIDE = `# Executable BPMN for Camunda 7 / Operaton
 
 - **Generated task forms** (\`set_bpmn_form_data\`): simple key/value fields
   embedded in the BPMN XML. Good for prototyping.
+- **Camunda Platform Forms** (\`camunda:formRef\`): form designed separately
+  (e.g. using @bpmn.io/form-js) and deployed alongside the process.
+  Set \`camunda:formRefBinding\` (\`latest\`/\`deployment\`/\`version\`) to control
+  version resolution. Use a companion \`form-js-mcp\` server if available
+  to design the form.
 - **Embedded forms** (\`camunda:formKey: "embedded:app:forms/myform.html"\`):
   custom HTML forms deployed with the application.
 - **External forms** (\`camunda:formKey: "app:my-form"\`): separate
   frontend application handles rendering.
+
+## Business Rule Task and DMN
+
+Business Rule Tasks primarily integrate with DMN decision tables:
+1. Deploy the DMN table separately (or use a companion \`dmn-js-mcp\` server
+   if available to design it).
+2. Set \`camunda:decisionRef\` to the decision table ID.
+3. Set \`camunda:decisionRefBinding\` (\`latest\`/\`deployment\`/\`version\`)
+   and \`camunda:mapDecisionResult\` (\`singleEntry\`/\`singleResult\`/
+   \`collectEntries\`/\`resultList\`).
+4. Use \`set_bpmn_input_output_mapping\` to map process variables to/from
+   the decision input/output columns.
 
 ## External Task pattern
 

@@ -57,7 +57,7 @@ function hintDmnBinding(
     hints.push({
       tool: 'set_bpmn_element_properties',
       description:
-        "Consider setting camunda:decisionRefBinding ('latest', 'deployment', 'version') and camunda:mapDecisionResult ('singleEntry', 'singleResult', 'collectEntries', 'resultList') to control DMN evaluation behavior",
+        "Consider setting camunda:decisionRefBinding ('latest', 'deployment', 'version') and camunda:mapDecisionResult ('singleEntry', 'singleResult', 'collectEntries', 'resultList') to control DMN evaluation behavior. When binding='version', also set camunda:decisionRefVersion.",
     });
   }
 }
