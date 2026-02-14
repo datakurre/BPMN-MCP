@@ -15,7 +15,7 @@ import {
   validateArgs,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
-import { ELEMENT_SIZES } from '../../constants';
+import { ELEMENT_SIZES, calculateOptimalPoolSize } from '../../constants';
 import { handleCreateLanes } from './create-lanes';
 
 /** Height of a collapsed participant pool (thin bar, no internal flow). */
@@ -111,6 +111,50 @@ function createParticipantShape(
   return createdElement.id;
 }
 
+type ParticipantDef = CreateCollaborationArgs['participants'][number];
+
+/** Apply dynamic pool sizing defaults for a single participant definition. */
+function applyPoolSizeDefaults(p: ParticipantDef): ParticipantDef {
+  const laneCount = p.lanes && !p.collapsed ? p.lanes.length : 0;
+  const optimal =
+    laneCount > 0
+      ? calculateOptimalPoolSize(0, laneCount)
+      : { width: ELEMENT_SIZES.participant.width, height: ELEMENT_SIZES.participant.height };
+  return {
+    ...p,
+    width: p.width ?? optimal.width,
+    height: p.height ?? (p.collapsed ? undefined : optimal.height),
+  };
+}
+
+/** Create lanes for participants that requested them. Returns a map of participantId → laneIds. */
+async function createLanesForParticipants(
+  diagramId: string,
+  participants: ParticipantDef[],
+  createdIds: string[]
+): Promise<Record<string, string[]>> {
+  const lanesCreated: Record<string, string[]> = {};
+  for (let i = 0; i < participants.length; i++) {
+    const p = participants[i];
+    if (!p.lanes || p.lanes.length < 2 || p.collapsed) continue;
+    const lanesResult = await handleCreateLanes({
+      diagramId,
+      participantId: createdIds[i],
+      lanes: p.lanes,
+    });
+    const lanesText = lanesResult.content?.[0];
+    if (lanesText && 'text' in lanesText) {
+      try {
+        const parsed = JSON.parse(lanesText.text as string);
+        if (parsed.laneIds) lanesCreated[createdIds[i]] = parsed.laneIds;
+      } catch {
+        // Non-fatal: lanes were created but we couldn't parse the result
+      }
+    }
+  }
+  return lanesCreated;
+}
+
 export async function handleCreateCollaboration(
   args: CreateCollaborationArgs
 ): Promise<ToolResult> {
@@ -124,40 +168,16 @@ export async function handleCreateCollaboration(
   const diagram = requireDiagram(diagramId);
 
   const createdIds: string[] = [];
-  const defaultPoolHeight = ELEMENT_SIZES.participant.height;
 
   for (let i = 0; i < participants.length; i++) {
-    createdIds.push(
-      createParticipantShape(diagram, participants[i], i, participants, defaultPoolHeight)
-    );
+    const pWithDefaults = applyPoolSizeDefaults(participants[i]);
+    const optimalHeight = pWithDefaults.height ?? ELEMENT_SIZES.participant.height;
+    createdIds.push(createParticipantShape(diagram, pWithDefaults, i, participants, optimalHeight));
   }
 
   await syncXml(diagram);
 
-  // Create lanes for participants that requested them
-  const lanesCreated: Record<string, string[]> = {};
-  for (let i = 0; i < participants.length; i++) {
-    const p = participants[i];
-    if (p.lanes && p.lanes.length >= 2 && !p.collapsed) {
-      const lanesResult = await handleCreateLanes({
-        diagramId,
-        participantId: createdIds[i],
-        lanes: p.lanes,
-      });
-      // Extract laneIds from the result
-      const lanesText = lanesResult.content?.[0];
-      if (lanesText && 'text' in lanesText) {
-        try {
-          const parsed = JSON.parse(lanesText.text as string);
-          if (parsed.laneIds) {
-            lanesCreated[createdIds[i]] = parsed.laneIds;
-          }
-        } catch {
-          // Non-fatal: lanes were created but we couldn't parse the result
-        }
-      }
-    }
-  }
+  const lanesCreated = await createLanesForParticipants(diagramId, participants, createdIds);
 
   const result = jsonResult({
     success: true,

@@ -40,3 +40,6 @@ export {
   type LintConfig,
   type FlatLintIssue,
 } from '../bpmnlint-types';
+
+// Pool/lane sizing utilities
+export { calculateOptimalPoolSize } from '../constants';

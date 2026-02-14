@@ -19,6 +19,7 @@ import {
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { autoDistributeElements, type AutoDistributeResult } from './auto-distribute';
+import { calculateOptimalPoolSize } from '../../constants';
 
 export interface CreateLanesArgs {
   diagramId: string;
@@ -153,15 +154,20 @@ export async function handleCreateLanes(args: CreateLanesArgs): Promise<ToolResu
   const poolY = participant.y;
   const poolWidth = participant.width || 600;
   const poolHeight = participant.height || 250;
-  const geometry = computeLaneGeometry(poolX, poolWidth, poolHeight, lanes);
 
-  // Resize pool if lanes exceed its height
-  if (geometry.totalLaneHeight > poolHeight) {
+  // Calculate optimal height to fit all lanes with adequate space
+  const optimalSize = calculateOptimalPoolSize(0, lanes.length);
+  const effectivePoolHeight = Math.max(poolHeight, optimalSize.height);
+  const geometry = computeLaneGeometry(poolX, poolWidth, effectivePoolHeight, lanes);
+
+  // Resize pool if lanes need more space than currently available
+  if (effectivePoolHeight > poolHeight || geometry.totalLaneHeight > poolHeight) {
+    const newHeight = Math.max(effectivePoolHeight, geometry.totalLaneHeight);
     modeling.resizeShape(participant, {
       x: poolX,
       y: poolY,
       width: poolWidth,
-      height: geometry.totalLaneHeight,
+      height: newHeight,
     });
   }
 

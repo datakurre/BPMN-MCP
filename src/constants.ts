@@ -147,6 +147,54 @@ export const ARROW_HEAD_LENGTH = 5;
  */
 export const LABEL_SHAPE_PROXIMITY_MARGIN = 10;
 
+// ── Pool/lane sizing utilities ─────────────────────────────────────────────
+
+/** Minimum pool width in pixels. */
+export const MIN_POOL_WIDTH = 600;
+
+/** Pixels per element for pool width estimation. */
+export const WIDTH_PER_ELEMENT = 150;
+
+/** Minimum lane height in pixels (for auto-sizing). */
+export const MIN_LANE_HEIGHT = 120;
+
+/** Default pool height per lane row (when creating lanes). */
+export const HEIGHT_PER_LANE = 150;
+
+/** Minimum pool height in pixels. */
+export const MIN_POOL_HEIGHT = 250;
+
+/**
+ * Calculate optimal pool dimensions based on element count and lane count.
+ *
+ * Width formula:  `max(1200, elementCount × 150)`
+ * Height formula: `max(250, laneCount × 150)`
+ *
+ * When no elements exist yet (e.g. at creation time), uses the lane count to
+ * estimate a reasonable default width (each lane will hold ~4 elements on
+ * average, so width ≈ laneCount × 4 × 150 / laneCount = 600 minimum).
+ *
+ * @param elementCount  Number of flow elements (tasks, events, gateways)
+ * @param laneCount     Number of lanes (0 if no lanes)
+ * @param nestingDepth  Maximum subprocess nesting depth (0 if flat)
+ */
+export function calculateOptimalPoolSize(
+  elementCount: number = 0,
+  laneCount: number = 0,
+  nestingDepth: number = 0
+): { width: number; height: number } {
+  // Width: at least 1200, scale with element count
+  const nestingMultiplier = 1 + nestingDepth * 0.3;
+  const baseWidth = Math.max(1200, elementCount * WIDTH_PER_ELEMENT);
+  const width = Math.ceil((baseWidth * nestingMultiplier) / 10) * 10;
+
+  // Height: scale with lane count, minimum 250
+  const laneHeight = laneCount > 0 ? laneCount * HEIGHT_PER_LANE : MIN_POOL_HEIGHT;
+  const height = Math.max(MIN_POOL_HEIGHT, Math.ceil(laneHeight / 10) * 10);
+
+  return { width, height };
+}
+
 // ── Element size helpers ───────────────────────────────────────────────────
 
 export function getElementSize(elementType: string): { width: number; height: number } {

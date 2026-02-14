@@ -21,7 +21,7 @@ import {
 } from '../helpers';
 import { getService } from '../../bpmn-types';
 import { appendLintFeedback } from '../../linter';
-import { ELEMENT_SIZES } from '../../constants';
+import { ELEMENT_SIZES, calculateOptimalPoolSize } from '../../constants';
 import { handleCreateLanes } from './create-lanes';
 
 /** Height of a collapsed participant pool. */
@@ -90,9 +90,15 @@ function createPoolShape(diagram: any, id: string, name: string, args: CreatePar
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const canvas = getService(diagram.modeler, 'canvas') as any;
 
-  const poolHeight =
-    args.height || (args.collapsed ? COLLAPSED_POOL_HEIGHT : ELEMENT_SIZES.participant.height);
-  const poolWidth = args.width || ELEMENT_SIZES.participant.width;
+  // Use dynamic sizing when lanes are provided
+  const laneCount = args.lanes && !args.collapsed ? args.lanes.length : 0;
+  const optimal =
+    laneCount > 0
+      ? calculateOptimalPoolSize(0, laneCount)
+      : { width: ELEMENT_SIZES.participant.width, height: ELEMENT_SIZES.participant.height };
+
+  const poolHeight = args.height || (args.collapsed ? COLLAPSED_POOL_HEIGHT : optimal.height);
+  const poolWidth = args.width || optimal.width;
   const x = args.x ?? 300;
   const y = args.y ?? findBottomEdge(elementRegistry);
 

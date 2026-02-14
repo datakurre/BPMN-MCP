@@ -144,7 +144,8 @@ export function deduplicateDiInModeler(diagram: any): number {
 /** Build the nextSteps array, adding lane organization and sizing advice when relevant. */
 function buildNextSteps(
   laneCrossingMetrics: ReturnType<typeof computeLaneCrossingMetrics>,
-  sizingIssues: ContainerSizingIssue[]
+  sizingIssues: ContainerSizingIssue[],
+  poolExpansionApplied?: boolean
 ): Array<{ tool: string; description: string }> {
   const steps: Array<{ tool: string; description: string }> = [
     {
@@ -162,15 +163,15 @@ function buildNextSteps(
   }
 
   const poolIssues = sizingIssues.filter((i) => i.severity === 'warning');
-  if (poolIssues.length > 0) {
+  if (poolIssues.length > 0 && !poolExpansionApplied) {
     steps.push({
-      tool: 'move_bpmn_element',
+      tool: 'autosize_bpmn_pools_and_lanes',
       description:
-        `${poolIssues.length} pool(s) may need resizing: ` +
+        `${poolIssues.length} pool(s) need resizing: ` +
         poolIssues
           .map((i) => `${i.containerName} → ${i.recommendedWidth}×${i.recommendedHeight}px`)
           .join(', ') +
-        '. Use move_bpmn_element with width/height to resize.',
+        '. Run autosize_bpmn_pools_and_lanes to fix automatically, or use move_bpmn_element with width/height for manual control.',
     });
   }
 
@@ -241,6 +242,6 @@ export function buildLayoutResult(params: {
     message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''}${usedDeterministic ? ' (deterministic)' : ''} — ${elementCount} elements arranged`,
     ...(diWarnings && diWarnings.length > 0 ? { diWarnings } : {}),
     ...(poolExpansionApplied ? { poolExpansionApplied: true } : {}),
-    nextSteps: buildNextSteps(laneCrossingMetrics, sizingIssues),
+    nextSteps: buildNextSteps(laneCrossingMetrics, sizingIssues, poolExpansionApplied),
   });
 }

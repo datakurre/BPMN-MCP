@@ -10,6 +10,7 @@
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, syncXml, validateArgs, getService } from '../helpers';
 import { appendLintFeedback } from '../../linter';
+import { MIN_POOL_WIDTH, WIDTH_PER_ELEMENT, MIN_LANE_HEIGHT } from '../../constants';
 
 export interface AutosizePoolsAndLanesArgs {
   diagramId: string;
@@ -23,9 +24,6 @@ export interface AutosizePoolsAndLanesArgs {
 
 const DEFAULT_PADDING = 50;
 const POOL_HEADER_PADDING = 30;
-const MIN_POOL_WIDTH = 600;
-const MIN_LANE_HEIGHT = 120;
-const WIDTH_PER_ELEMENT = 150;
 
 const CONNECTION_TYPES = new Set([
   'bpmn:SequenceFlow',

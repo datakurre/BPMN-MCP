@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { handleCreateParticipant, handleCreateCollaboration } from '../../../src/handlers';
 import { createDiagram, parseResult, clearDiagrams } from '../../helpers';
+import { getDiagram } from '../../../src/diagram-manager';
 
 describe('create_bpmn_participant', () => {
   beforeEach(() => {
@@ -118,5 +119,26 @@ describe('create_bpmn_participant', () => {
     );
 
     expect(res.participantId).toBe('Participant_Custom');
+  });
+
+  test('uses dynamic pool sizing when lanes are provided', async () => {
+    const diagramId = await createDiagram();
+
+    const res = parseResult(
+      await handleCreateParticipant({
+        diagramId,
+        name: 'HR Department',
+        lanes: [{ name: 'Recruiter' }, { name: 'Manager' }, { name: 'Admin' }],
+      })
+    );
+
+    expect(res.success).toBe(true);
+
+    const diagram = getDiagram(diagramId)!;
+    const reg = diagram.modeler.get('elementRegistry') as any;
+    const pool = reg.get(res.participantId);
+
+    // Pool with 3 lanes should use dynamic sizing (wider than old default 600)
+    expect(pool.width).toBeGreaterThan(600);
   });
 });

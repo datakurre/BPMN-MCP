@@ -19,7 +19,16 @@ let BpmnModelerCtor: any;
 export function createHeadlessCanvas(): HTMLElement {
   if (!jsdomInstance) {
     const bpmnJsPath = require.resolve('bpmn-js/dist/bpmn-modeler.development.js');
-    const bpmnJsBundle = fs.readFileSync(bpmnJsPath, 'utf-8');
+    let bpmnJsBundle = fs.readFileSync(bpmnJsPath, 'utf-8');
+
+    // Patch path-intersection: pathToCurve receives null from parsePathString
+    // when given a null/empty path string (headless SVG elements lack renderable
+    // path data). Without this guard, isPathCurve(null) crashes with
+    // "Cannot read properties of null (reading 'length')".
+    bpmnJsBundle = bpmnJsBundle.replace(
+      /if \(isPathCurve\(path\)\) \{/,
+      'if (!path) return []; if (isPathCurve(path)) {'
+    );
 
     jsdomInstance = new JSDOM("<!DOCTYPE html><html><body><div id='canvas'></div></body></html>", {
       runScripts: 'outside-only',
