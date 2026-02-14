@@ -7,7 +7,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { requireDiagram, requireElement, jsonResult } from '../helpers';
+import { requireDiagram, requireElement, jsonResult, getService } from '../helpers';
 
 export interface GetPropertiesArgs {
   diagramId: string;
@@ -317,7 +317,7 @@ export async function handleGetProperties(args: GetPropertiesArgs): Promise<Tool
   const { diagramId, elementId } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const element = requireElement(elementRegistry, elementId);
   const bo = element.businessObject;
 

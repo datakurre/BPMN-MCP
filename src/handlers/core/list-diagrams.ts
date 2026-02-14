@@ -8,7 +8,7 @@
 
 import { type ToolResult } from '../../types';
 import { getAllDiagrams } from '../../diagram-manager';
-import { jsonResult, getVisibleElements } from '../helpers';
+import { jsonResult, getVisibleElements, getService } from '../helpers';
 import { handleSummarizeDiagram } from './summarize-diagram';
 
 export async function handleListDiagrams(args?: any): Promise<ToolResult> {
@@ -21,7 +21,7 @@ export async function handleListDiagrams(args?: any): Promise<ToolResult> {
   const list: any[] = [];
 
   for (const [id, state] of diagrams) {
-    const elementRegistry = state.modeler.get('elementRegistry');
+    const elementRegistry = getService(state.modeler, 'elementRegistry');
     const elements = getVisibleElements(elementRegistry);
     list.push({
       id,

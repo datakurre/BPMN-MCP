@@ -7,7 +7,7 @@
 
 import { type ToolResult } from '../../types';
 import { missingRequiredError, semanticViolationError } from '../../errors';
-import { validateArgs, jsonResult, syncXml } from '../helpers';
+import { validateArgs, jsonResult, syncXml, getService } from '../helpers';
 import { dispatchToolCall } from '../index';
 import { setBatchMode, appendLintFeedback } from '../../linter';
 import { getDiagram } from '../../diagram-manager';
@@ -30,7 +30,7 @@ function captureCommandStackPositions(
     if (id && !positions.has(id)) {
       const diagram = getDiagram(id);
       if (diagram) {
-        const commandStack = diagram.modeler.get('commandStack');
+        const commandStack = getService(diagram.modeler, 'commandStack');
         positions.set(id, commandStack._stackIdx ?? 0);
       }
     }
@@ -43,8 +43,8 @@ async function rollbackDiagrams(positions: Map<string, number>): Promise<void> {
   for (const [id, startIdx] of positions) {
     const diagram = getDiagram(id);
     if (!diagram) continue;
-    const commandStack = diagram.modeler.get('commandStack');
-    while (commandStack._stackIdx > startIdx && commandStack.canUndo()) {
+    const commandStack = getService(diagram.modeler, 'commandStack');
+    while ((commandStack._stackIdx ?? 0) > startIdx && commandStack.canUndo()) {
       commandStack.undo();
     }
     await syncXml(diagram);

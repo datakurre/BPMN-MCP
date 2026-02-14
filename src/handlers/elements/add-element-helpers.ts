@@ -6,6 +6,7 @@
  */
 
 import { getVisibleElements, requireElement } from '../helpers';
+import { getService } from '../../bpmn-types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { STANDARD_BPMN_GAP } from '../../constants';
 
@@ -213,9 +214,9 @@ export function createAndPlaceElement(opts: {
     participantId,
     isExpanded,
   } = opts;
-  const modeling = diagram.modeler.get('modeling');
-  const elementFactory = diagram.modeler.get('elementFactory');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementFactory = getService(diagram.modeler, 'elementFactory');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
 
   // For SubProcess elements, pass isExpanded to createShape so that
   // bpmn-js's SubProcessPlaneBehavior correctly handles planes:
@@ -253,7 +254,7 @@ export function createAndPlaceElement(opts: {
   }
 
   if (elementType === BPMN_PARTICIPANT_TYPE) {
-    const canvas = diagram.modeler.get('canvas');
+    const canvas = getService(diagram.modeler, 'canvas');
     return { createdElement: modeling.createShape(shape, { x, y }, canvas.getRootElement()) };
   }
 

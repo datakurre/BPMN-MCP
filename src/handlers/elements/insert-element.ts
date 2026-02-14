@@ -18,6 +18,7 @@ import {
   validateArgs,
   createBusinessObject,
   typeMismatchError,
+  getService,
 } from '../helpers';
 import { STANDARD_BPMN_GAP, getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
@@ -191,9 +192,9 @@ function createInsertedShape(opts: {
   source: any;
 }): { createdElement: any; assignedLaneId?: string; autoLaneHint?: string } {
   const { diagram, elementType, elementName, midX, midY, newSize, parent, laneId, source } = opts;
-  const modeling = diagram.modeler.get('modeling');
-  const elementFactory = diagram.modeler.get('elementFactory');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementFactory = getService(diagram.modeler, 'elementFactory');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
 
   const descriptiveId = generateDescriptiveId(elementRegistry, elementType, elementName);
   const businessObject = createBusinessObject(diagram.modeler, elementType, descriptiveId);
@@ -225,28 +226,24 @@ function createInsertedShape(opts: {
   return { createdElement, assignedLaneId, autoLaneHint };
 }
 
-export async function handleInsertElement(args: InsertElementArgs): Promise<ToolResult> {
-  validateArgs(args, ['diagramId', 'flowId', 'elementType']);
-  validateElementType(args.elementType, INSERTABLE_ELEMENT_TYPES);
-  const { diagramId, flowId, elementType, name: elementName } = args;
-  const diagram = requireDiagram(diagramId);
-
-  const modeling = diagram.modeler.get('modeling');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-
-  const { flow, source, target } = validateInsertionArgs(elementRegistry, flowId, elementType);
-
-  // Capture flow properties before deletion
+/** Capture flow properties, remove the flow, and shift downstream elements if needed. */
+function deleteFlowAndShift(
+  diagram: ReturnType<typeof requireDiagram>,
+  flow: any,
+  source: any,
+  target: any,
+  newSize: { width: number; height: number }
+) {
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const flowLabel = flow.businessObject?.name;
   const flowCondition = flow.businessObject?.conditionExpression;
   const sourceId = source.id;
   const targetId = target.id;
-  const newSize = getElementSize(elementType);
   const srcRight = source.x + (source.width || 0);
   const tgtLeft = target.x;
   const requiredSpace = STANDARD_BPMN_GAP + newSize.width + STANDARD_BPMN_GAP;
 
-  // Step 1: Delete existing flow and shift if needed
   modeling.removeElements([flow]);
   const shiftApplied = shiftIfNeeded(
     elementRegistry,
@@ -257,9 +254,49 @@ export async function handleInsertElement(args: InsertElementArgs): Promise<Tool
     sourceId
   );
 
-  // Step 2: Calculate insertion position
   const updatedSource = elementRegistry.get(sourceId);
   const updatedTarget = elementRegistry.get(targetId);
+  if (!updatedSource || !updatedTarget) {
+    throw new McpError(
+      ErrorCode.InternalError,
+      'Source or target element not found after flow deletion'
+    );
+  }
+
+  return {
+    flowLabel,
+    flowCondition,
+    sourceId,
+    targetId,
+    shiftApplied,
+    updatedSource,
+    updatedTarget,
+  };
+}
+
+export async function handleInsertElement(args: InsertElementArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'flowId', 'elementType']);
+  validateElementType(args.elementType, INSERTABLE_ELEMENT_TYPES);
+  const { diagramId, flowId, elementType, name: elementName } = args;
+  const diagram = requireDiagram(diagramId);
+
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const { flow, source, target } = validateInsertionArgs(elementRegistry, flowId, elementType);
+  const newSize = getElementSize(elementType);
+
+  // Step 1: Delete existing flow and shift if needed
+  const {
+    flowLabel,
+    flowCondition,
+    sourceId,
+    targetId,
+    shiftApplied,
+    updatedSource,
+    updatedTarget,
+  } = deleteFlowAndShift(diagram, flow, source, target, newSize);
+
+  // Step 2: Calculate insertion position
   const { midX, midY } = computeInsertionMidpoint(updatedSource, updatedTarget, newSize);
 
   const parent = updatedSource.parent;

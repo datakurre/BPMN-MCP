@@ -7,7 +7,14 @@
  */
 
 import { type ToolResult } from '../../types';
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  validateArgs,
+  getService,
+} from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
 export interface SetConnectionWaypointsArgs {
@@ -43,8 +50,8 @@ export async function handleSetConnectionWaypoints(
   }
 
   const diagram = requireDiagram(diagramId);
-  const modeling = diagram.modeler.get('modeling') as any;
-  const elementRegistry = diagram.modeler.get('elementRegistry') as any;
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
 
   const connection = requireElement(elementRegistry, connectionId);
   const connType = connection.type || connection.businessObject?.$type || '';

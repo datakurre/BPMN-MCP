@@ -6,6 +6,8 @@
  * business objects with specific IDs, and fixing connection BO IDs.
  */
 
+import { getService } from '../bpmn-types';
+
 // ── Shared extensionElements management ────────────────────────────────────
 
 /**
@@ -51,7 +53,7 @@ export function upsertExtensionElement(
  * the exported XML would not match the element IDs returned by MCP tools.
  */
 export function createBusinessObject(modeler: any, bpmnType: string, id: string): any {
-  const bpmnFactory = modeler.get('bpmnFactory');
+  const bpmnFactory = getService(modeler, 'bpmnFactory');
   return bpmnFactory.create(bpmnType, { id });
 }
 

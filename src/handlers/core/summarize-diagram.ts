@@ -14,6 +14,7 @@ import {
   validateArgs,
   isInfrastructureElement,
   isConnectionElement,
+  getService,
 } from '../helpers';
 
 export interface SummarizeDiagramArgs {
@@ -101,7 +102,7 @@ export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promis
   const { diagramId } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
   // Element counts by type

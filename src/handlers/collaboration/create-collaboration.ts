@@ -13,6 +13,7 @@ import {
   syncXml,
   generateDescriptiveId,
   validateArgs,
+  getService,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { ELEMENT_SIZES, calculateOptimalPoolSize } from '../../constants';
@@ -64,10 +65,10 @@ function createParticipantShape(
   participants: CreateCollaborationArgs['participants'],
   defaultPoolHeight: number
 ): string {
-  const modeling = diagram.modeler.get('modeling');
-  const elementFactory = diagram.modeler.get('elementFactory');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const canvas = diagram.modeler.get('canvas');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementFactory = getService(diagram.modeler, 'elementFactory');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const canvas = getService(diagram.modeler, 'canvas');
 
   // Use explicit participantId if provided, otherwise generate one
   let id: string;
@@ -105,12 +106,12 @@ function createParticipantShape(
     height: poolHeight,
   });
 
-  const moddle = diagram.modeler.get('moddle');
-  const canvasForRef = diagram.modeler.get('canvas');
+  const moddle = getService(diagram.modeler, 'moddle');
+  const canvasForRef = getService(diagram.modeler, 'canvas');
   ensureProcessRef(moddle, canvasForRef, createdElement, p.collapsed);
 
   if (p.processId && createdElement.businessObject?.processRef) {
-    createdElement.businessObject.processRef.id = p.processId;
+    (createdElement.businessObject.processRef as { id: string }).id = p.processId;
   }
 
   return createdElement.id;

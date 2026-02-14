@@ -7,7 +7,14 @@
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError, invalidEnumError } from '../../errors';
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  validateArgs,
+  getService,
+} from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
 /** Build contextual hints for multi-instance loop characteristics. */
@@ -102,9 +109,9 @@ export async function handleSetLoopCharacteristics(
   const { diagramId, elementId, loopType, ...options } = args;
   const diagram = requireDiagram(diagramId);
 
-  const modeling = diagram.modeler.get('modeling');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const moddle = diagram.modeler.get('moddle');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const moddle = getService(diagram.modeler, 'moddle');
 
   const element = requireElement(elementRegistry, elementId);
   const bo = element.businessObject;

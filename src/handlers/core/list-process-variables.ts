@@ -13,7 +13,13 @@
  */
 
 import { type ToolResult } from '../../types';
-import { requireDiagram, jsonResult, getVisibleElements, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  jsonResult,
+  getVisibleElements,
+  validateArgs,
+  getService,
+} from '../helpers';
 
 export interface ListProcessVariablesArgs {
   diagramId: string;
@@ -302,7 +308,7 @@ export async function handleListProcessVariables(
   const { diagramId } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
   const allRefs: VariableReference[] = [];

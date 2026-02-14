@@ -7,6 +7,7 @@
 
 import { getDefinitionsFromModeler } from '../../linter';
 import { getElementSize } from '../../constants';
+import { getService } from '../../bpmn-types';
 
 // ── DI integrity check ────────────────────────────────────────────────────
 
@@ -212,7 +213,7 @@ export async function repairMissingDiShapes(diagram: any): Promise<string[]> {
     const definitions = getDefinitionsFromModeler(diagram.modeler);
     if (!definitions) return [];
 
-    const elementRegistry = diagram.modeler.get('elementRegistry');
+    const elementRegistry = getService(diagram.modeler, 'elementRegistry');
     const registeredIds = new Set<string>();
     for (const el of elementRegistry.getAll()) {
       registeredIds.add(el.id);

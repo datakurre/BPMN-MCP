@@ -7,7 +7,14 @@
 
 import { type ToolResult } from '../../types';
 import { illegalCombinationError, missingRequiredError, typeMismatchError } from '../../errors';
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  validateArgs,
+  getService,
+} from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
 export interface SetScriptArgs {
@@ -35,8 +42,8 @@ export async function handleSetScript(args: SetScriptArgs): Promise<ToolResult> 
 
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
 
   const element = requireElement(elementRegistry, elementId);
   const bo = element.businessObject;

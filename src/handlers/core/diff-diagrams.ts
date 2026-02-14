@@ -6,7 +6,13 @@
  */
 
 import { type ToolResult } from '../../types';
-import { requireDiagram, jsonResult, getVisibleElements, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  jsonResult,
+  getVisibleElements,
+  validateArgs,
+  getService,
+} from '../helpers';
 
 export interface DiffDiagramsArgs {
   diagramIdA: string;
@@ -114,8 +120,8 @@ export async function handleDiffDiagrams(args: DiffDiagramsArgs): Promise<ToolRe
   const diagramA = requireDiagram(diagramIdA);
   const diagramB = requireDiagram(diagramIdB);
 
-  const registryA = diagramA.modeler.get('elementRegistry');
-  const registryB = diagramB.modeler.get('elementRegistry');
+  const registryA = getService(diagramA.modeler, 'elementRegistry');
+  const registryB = getService(diagramB.modeler, 'elementRegistry');
 
   const elementsA = getVisibleElements(registryA);
   const elementsB = getVisibleElements(registryB);

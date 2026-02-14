@@ -358,8 +358,6 @@ export {
   handleSetConnectionWaypoints,
 };
 
-// Backward-compat aliases for removed tool names
+// Backward-compat alias for removed tool name (used by tests)
 const handleLintDiagram = handleValidate;
-const handleSearchElements = handleListElements;
-const handleExportSubprocess = handleExportBpmn;
-export { handleLintDiagram, handleSearchElements, handleExportSubprocess };
+export { handleLintDiagram };

@@ -15,6 +15,7 @@ import {
   syncXml,
   upsertExtensionElement,
   validateArgs,
+  getService,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
@@ -39,9 +40,9 @@ export async function handleSetFormData(args: SetFormDataArgs): Promise<ToolResu
   const { diagramId, elementId, businessKey, fields } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const modeling = diagram.modeler.get('modeling');
-  const moddle = diagram.modeler.get('moddle');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const moddle = getService(diagram.modeler, 'moddle');
 
   const element = requireElement(elementRegistry, elementId);
   const bo = element.businessObject;

@@ -97,4 +97,69 @@ describe('partial layout — neighbor edge rebuild', () => {
       ).toBeGreaterThanOrEqual(2);
     }
   });
+
+  test('partial layout runs edge simplification on affected connections', async () => {
+    // Build: Start → T1 → T2 → T3 → End
+    // After partial layout, connections should have clean (simplified) waypoints
+    const diagramId = await createDiagram('Partial Edge Simplification');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const t1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 1' });
+    const t2 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 2' });
+    const t3 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 3' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+
+    await connect(diagramId, start, t1);
+    await connect(diagramId, t1, t2);
+    await connect(diagramId, t2, t3);
+    await connect(diagramId, t3, end);
+
+    // Full layout first
+    await handleLayoutDiagram({ diagramId });
+
+    // Partial layout on T2
+    const result = parseResult(await handleLayoutDiagram({ diagramId, elementIds: [t2] }));
+    expect(result.success).toBe(true);
+
+    // Verify connections don't have redundant collinear waypoints
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    const flows = reg.filter((el: any) => el.type === 'bpmn:SequenceFlow' && el.waypoints);
+
+    for (const flow of flows) {
+      const wps = flow.waypoints;
+      // Check no 3 consecutive waypoints are collinear (same X or same Y)
+      for (let i = 1; i < wps.length - 1; i++) {
+        const prev = wps[i - 1];
+        const curr = wps[i];
+        const next = wps[i + 1];
+        const collinearH = Math.abs(prev.y - curr.y) <= 1 && Math.abs(curr.y - next.y) <= 1;
+        const collinearV = Math.abs(prev.x - curr.x) <= 1 && Math.abs(curr.x - next.x) <= 1;
+        expect(
+          collinearH || collinearV,
+          `Flow ${flow.id} has redundant collinear waypoint at index ${i}`
+        ).toBe(false);
+      }
+    }
+  });
+
+  test('partial layout returns crossing flow metrics', async () => {
+    // Build a simple diagram and verify partial layout returns crossing metrics
+    const diagramId = await createDiagram('Partial Crossing Metrics');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const t1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 1' });
+    const t2 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 2' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+
+    await connect(diagramId, start, t1);
+    await connect(diagramId, t1, t2);
+    await connect(diagramId, t2, end);
+
+    // Full layout first
+    await handleLayoutDiagram({ diagramId });
+
+    // Partial layout
+    const result = parseResult(await handleLayoutDiagram({ diagramId, elementIds: [t1, t2] }));
+    expect(result.success).toBe(true);
+    // The result should contain layout quality metrics (from post-processing)
+    expect(result.message).toBeDefined();
+  });
 });

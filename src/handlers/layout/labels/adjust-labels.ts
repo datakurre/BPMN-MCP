@@ -16,7 +16,7 @@ import {
   scoreLabelPosition,
   getLabelRect,
 } from './label-utils';
-import { getVisibleElements, syncXml } from '../../helpers';
+import { getVisibleElements, syncXml, getService } from '../../helpers';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -205,8 +205,8 @@ function tryRepositionLabel(
  * Returns the number of labels that were moved.
  */
 export async function adjustDiagramLabels(diagram: DiagramState): Promise<number> {
-  const modeling = diagram.modeler.get('modeling');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
   const connectionSegments = collectConnectionSegments(allElements);
@@ -301,8 +301,8 @@ export async function adjustElementLabel(
   diagram: DiagramState,
   elementId: string
 ): Promise<boolean> {
-  const modeling = diagram.modeler.get('modeling');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const el = elementRegistry.get(elementId);
 
   if (!el || !el.label || !hasExternalLabel(el.type) || !el.businessObject?.name) {
@@ -380,7 +380,7 @@ export async function adjustElementLabel(
     const dx = bestCandidate.rect.x - label.x;
     const dy = bestCandidate.rect.y - label.y;
     if (dx !== 0 || dy !== 0) {
-      modeling.moveShape(label, { x: dx, y: dy });
+      modeling.moveShape(label as any, { x: dx, y: dy });
       await syncXml(diagram);
       return true;
     }

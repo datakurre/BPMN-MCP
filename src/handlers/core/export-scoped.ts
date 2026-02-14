@@ -5,7 +5,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { requireElement } from '../helpers';
+import { requireElement, getService } from '../helpers';
 import { createModelerFromXml } from '../../diagram-manager';
 
 /**
@@ -16,7 +16,7 @@ export async function handleScopedExport(
   elementId: string,
   format: string
 ): Promise<ToolResult> {
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const element = requireElement(elementRegistry, elementId);
 
   const elType = element.type || element.businessObject?.$type || '';
@@ -32,7 +32,7 @@ export async function handleScopedExport(
   }
 
   const bo = element.businessObject;
-  const moddle = diagram.modeler.get('moddle');
+  const moddle = getService(diagram.modeler, 'moddle');
 
   let processBO: any;
   if (elType.includes('Participant')) {

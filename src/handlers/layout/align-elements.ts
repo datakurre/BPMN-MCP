@@ -8,7 +8,14 @@
 
 import { type ToolResult } from '../../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  validateArgs,
+  getService,
+} from '../helpers';
 import { STANDARD_BPMN_GAP } from '../../constants';
 
 export interface AlignElementsArgs {
@@ -125,8 +132,8 @@ export async function handleAlignElements(args: AlignElementsArgs): Promise<Tool
     throw new McpError(ErrorCode.InvalidRequest, 'Alignment requires at least 2 elements');
   }
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
   const elements = elementIds.map((id) => requireElement(elementRegistry, id));
 
   // Compute and apply alignment moves
@@ -202,8 +209,8 @@ export async function handleDistributeElements(args: DistributeElementsArgs): Pr
     throw new McpError(ErrorCode.InvalidRequest, 'Distribution requires at least 3 elements');
   }
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
   const elements = elementIds.map((id) => requireElement(elementRegistry, id));
 
   const axis: Axis = orientation === 'horizontal' ? 'x' : 'y';

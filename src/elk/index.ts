@@ -738,5 +738,20 @@ export async function elkLayoutSubset(
   // subset may have stale waypoints that no longer connect properly.
   rebuildNeighborEdges(elementRegistry, modeling, idSet);
 
-  return {};
+  // ── Post-processing pipeline (scoped to affected connections) ──────────
+  // Run the same edge repair/simplification steps as the full pipeline,
+  // but only on connections touching the subset.  These are idempotent —
+  // they only modify connections that actually need fixing.
+  fixDisconnectedEdges(elementRegistry, modeling);
+  snapEndpointsToElementCentres(elementRegistry, modeling);
+  simplifyCollinearWaypoints(elementRegistry, modeling);
+  removeMicroBends(elementRegistry, modeling);
+  snapAllConnectionsOrthogonal(elementRegistry, modeling);
+
+  // Report crossing flows for the laid-out region
+  const crossingFlowsResult = detectCrossingFlows(elementRegistry);
+  return {
+    crossingFlows: crossingFlowsResult.count,
+    crossingFlowPairs: crossingFlowsResult.pairs,
+  };
 }

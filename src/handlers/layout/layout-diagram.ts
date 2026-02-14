@@ -11,7 +11,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { requireDiagram, jsonResult, syncXml, getVisibleElements } from '../helpers';
+import { requireDiagram, jsonResult, syncXml, getVisibleElements, getService } from '../helpers';
 import { appendLintFeedback, resetMutationCounter } from '../../linter';
 import { adjustDiagramLabels, adjustFlowLabels, centerFlowLabels } from './labels/adjust-labels';
 import { elkLayout, elkLayoutSubset, applyDeterministicLayout } from '../../elk/api';
@@ -104,7 +104,7 @@ async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolResult> 
     const tempDiagram = { modeler, xml: xml || '' } as any;
 
     // Record original positions
-    const tempRegistry = modeler.get('elementRegistry');
+    const tempRegistry = getService(modeler, 'elementRegistry');
     const originalPositions = new Map<string, { x: number; y: number }>();
     for (const el of getVisibleElements(tempRegistry)) {
       if (el.x !== undefined && el.y !== undefined) {
@@ -246,7 +246,7 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
   await syncXml(diagram);
   resetMutationCounter(diagram);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const elements = getVisibleElements(elementRegistry).filter(
     (el: any) =>
       !el.type.includes('SequenceFlow') &&

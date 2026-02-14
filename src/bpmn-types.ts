@@ -86,6 +86,7 @@ export interface BpmnElement {
   di?: {
     bounds?: { x: number; y: number; width: number; height: number };
     label?: { bounds?: { x: number; y: number; width: number; height: number } };
+    isExpanded?: boolean;
   };
 }
 
@@ -122,6 +123,12 @@ export interface Modeling {
   resizeShape(
     shape: BpmnElement,
     newBounds: { x: number; y: number; width: number; height: number }
+  ): void;
+  moveShape(
+    shape: BpmnElement,
+    delta: { x: number; y: number },
+    newParent?: BpmnElement | Record<string, unknown>,
+    hints?: Record<string, unknown>
   ): void;
 }
 
@@ -161,6 +168,8 @@ export interface CommandStack {
   undo(): void;
   redo(): void;
   execute(command: string, context: Record<string, unknown>): void;
+  /** @internal Current position in the command stack (bpmn-js internal). */
+  _stackIdx?: number;
 }
 
 /** The BpmnReplace service — replace element types. */

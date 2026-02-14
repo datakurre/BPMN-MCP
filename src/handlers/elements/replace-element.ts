@@ -14,7 +14,14 @@ import {
   ERR_INTERNAL,
 } from '../../errors';
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { requireDiagram, requireElement, jsonResult, syncXml, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  requireElement,
+  jsonResult,
+  syncXml,
+  validateArgs,
+  getService,
+} from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { getTypeSpecificHints, getNamingHint } from '../hints';
 
@@ -51,7 +58,7 @@ export async function handleReplaceElement(args: ReplaceElementArgs): Promise<To
   const { diagramId, elementId, newType } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const element = requireElement(elementRegistry, elementId);
 
   const oldType = element.type || element.businessObject?.$type || '';
@@ -87,7 +94,7 @@ export async function handleReplaceElement(args: ReplaceElementArgs): Promise<To
   // Use bpmn-js bpmnReplace service for safe type replacement
   let bpmnReplace: any;
   try {
-    bpmnReplace = diagram.modeler.get('bpmnReplace');
+    bpmnReplace = getService(diagram.modeler, 'bpmnReplace');
   } catch {
     throw createMcpError(
       ErrorCode.InternalError,

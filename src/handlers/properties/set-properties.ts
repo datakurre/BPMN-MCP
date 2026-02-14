@@ -18,6 +18,7 @@ import {
   syncXml,
   validateArgs,
   upsertExtensionElement,
+  getService,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { buildPropertyHints } from '../hints';
@@ -90,7 +91,7 @@ function handleIsExpandedOnSubProcess(element: any, props: Record<string, any>, 
   if (wantExpanded === currentlyExpanded) return element;
 
   try {
-    const bpmnReplace = diagram.modeler.get('bpmnReplace');
+    const bpmnReplace = getService(diagram.modeler, 'bpmnReplace');
     const newElement = bpmnReplace.replaceElement(element, {
       type: elType,
       isExpanded: wantExpanded,
@@ -112,8 +113,8 @@ function handleIsExpandedOnSubProcess(element: any, props: Record<string, any>, 
 function handleRetryTimeCycle(element: any, camundaProps: Record<string, any>, diagram: any): void {
   if (!('camunda:retryTimeCycle' in camundaProps)) return;
 
-  const moddle = diagram.modeler.get('moddle');
-  const modeling = diagram.modeler.get('modeling');
+  const moddle = getService(diagram.modeler, 'moddle');
+  const modeling = getService(diagram.modeler, 'modeling');
   const bo = element.businessObject;
   const cycleValue = camundaProps['camunda:retryTimeCycle'];
   delete camundaProps['camunda:retryTimeCycle'];
@@ -153,8 +154,8 @@ function handleRetryTimeCycle(element: any, camundaProps: Record<string, any>, d
 function handleConnector(element: any, camundaProps: Record<string, any>, diagram: any): void {
   if (!('camunda:connector' in camundaProps)) return;
 
-  const moddle = diagram.modeler.get('moddle');
-  const modeling = diagram.modeler.get('modeling');
+  const moddle = getService(diagram.modeler, 'moddle');
+  const modeling = getService(diagram.modeler, 'modeling');
   const bo = element.businessObject;
   const connectorDef = camundaProps['camunda:connector'];
   delete camundaProps['camunda:connector'];
@@ -207,8 +208,8 @@ function handleConnector(element: any, camundaProps: Record<string, any>, diagra
 function handleField(element: any, camundaProps: Record<string, any>, diagram: any): void {
   if (!('camunda:field' in camundaProps)) return;
 
-  const moddle = diagram.modeler.get('moddle');
-  const modeling = diagram.modeler.get('modeling');
+  const moddle = getService(diagram.modeler, 'moddle');
+  const modeling = getService(diagram.modeler, 'modeling');
   const bo = element.businessObject;
   const fields = camundaProps['camunda:field'];
   delete camundaProps['camunda:field'];
@@ -251,8 +252,8 @@ function handleField(element: any, camundaProps: Record<string, any>, diagram: a
 function handleProperties(element: any, camundaProps: Record<string, any>, diagram: any): void {
   if (!('camunda:properties' in camundaProps)) return;
 
-  const moddle = diagram.modeler.get('moddle');
-  const modeling = diagram.modeler.get('modeling');
+  const moddle = getService(diagram.modeler, 'moddle');
+  const modeling = getService(diagram.modeler, 'modeling');
   const bo = element.businessObject;
   const propsMap = camundaProps['camunda:properties'];
   delete camundaProps['camunda:properties'];
@@ -284,8 +285,8 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
   const { diagramId, elementId, properties: props } = args;
   const diagram = requireDiagram(diagramId);
 
-  const modeling = diagram.modeler.get('modeling');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
 
   let element = requireElement(elementRegistry, elementId);
 
@@ -308,7 +309,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
   }
 
   handleDefaultOnGateway(element, standardProps, elementRegistry, modeling);
-  handleConditionExpression(standardProps, diagram.modeler.get('moddle'));
+  handleConditionExpression(standardProps, getService(diagram.modeler, 'moddle'));
 
   // Handle `camunda:retryTimeCycle` — creates camunda:FailedJobRetryTimeCycle extension element
   handleRetryTimeCycle(element, camundaProps, diagram);
@@ -324,7 +325,7 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
 
   // Handle `documentation` — creates/updates bpmn:documentation child element
   if ('documentation' in standardProps) {
-    const moddle = diagram.modeler.get('moddle');
+    const moddle = getService(diagram.modeler, 'moddle');
     const bo = element.businessObject;
     const docText = standardProps['documentation'];
     delete standardProps['documentation'];

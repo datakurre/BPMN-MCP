@@ -6,7 +6,7 @@
  */
 
 import { type ToolResult } from '../../types';
-import { jsonResult, getVisibleElements } from '../helpers';
+import { jsonResult, getVisibleElements, getService } from '../helpers';
 import { getDefinitionsFromModeler } from '../../linter';
 import { computeLaneCrossingMetrics } from '../../elk/api';
 import {
@@ -20,8 +20,8 @@ export { checkDiIntegrity, repairMissingDiShapes } from './layout-di-repair';
 
 /** Apply pixel-level grid snapping to all visible non-flow elements. */
 export function applyPixelGridSnap(diagram: any, pixelGridSnap: number): void {
-  const elementRegistry = diagram.modeler.get('elementRegistry');
-  const modeling = diagram.modeler.get('modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
   const visibleElements = getVisibleElements(elementRegistry).filter(
     (el: any) =>
       !el.type.includes('SequenceFlow') &&

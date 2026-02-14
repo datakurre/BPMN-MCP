@@ -17,6 +17,7 @@ import {
   buildConnectivityWarnings,
   validateArgs,
   getVisibleElements,
+  getService,
 } from '../helpers';
 import { lintDiagramFlat } from '../../linter';
 import { handleScopedExport } from './export-scoped';
@@ -108,7 +109,7 @@ function adjustSvgViewBox(svg: string, diagram: any): string {
   if (!svg) return svg;
 
   try {
-    const elementRegistry = diagram.modeler.get('elementRegistry');
+    const elementRegistry = getService(diagram.modeler, 'elementRegistry');
     const allElements = getVisibleElements(elementRegistry);
     const bounds = computeDiagramBounds(allElements);
 
@@ -289,7 +290,7 @@ export async function handleExportBpmn(args: ExportBpmnArgs): Promise<ToolResult
     content.push({ type: 'text', text: '\n' + lintCheck.skipLintWarning });
   }
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const warnings = buildConnectivityWarnings(elementRegistry);
   warnings.push(...buildLayoutWarnings(elementRegistry));
   if (warnings.length > 0) {

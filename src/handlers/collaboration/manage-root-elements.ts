@@ -14,6 +14,7 @@ import {
   validateArgs,
   resolveOrCreateMessage,
   resolveOrCreateSignal,
+  getService,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
@@ -32,8 +33,8 @@ export async function handleManageRootElements(args: ManageRootElementsArgs): Pr
   }
 
   const diagram = requireDiagram(diagramId);
-  const moddle = diagram.modeler.get('moddle');
-  const canvas = diagram.modeler.get('canvas');
+  const moddle = getService(diagram.modeler, 'moddle');
+  const canvas = getService(diagram.modeler, 'canvas');
   const definitions = canvas.getRootElement().businessObject.$parent;
 
   const createdMessages: Array<{ id: string; name: string }> = [];

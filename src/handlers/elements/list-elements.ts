@@ -7,7 +7,13 @@
  */
 
 import { type ToolResult } from '../../types';
-import { requireDiagram, jsonResult, getVisibleElements, validateArgs } from '../helpers';
+import {
+  requireDiagram,
+  jsonResult,
+  getVisibleElements,
+  validateArgs,
+  getService,
+} from '../helpers';
 
 export interface ListElementsArgs {
   diagramId: string;
@@ -84,7 +90,7 @@ export async function handleListElements(args: ListElementsArgs): Promise<ToolRe
   const { diagramId, namePattern, elementType, property } = args;
   const diagram = requireDiagram(diagramId);
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   let elements = getVisibleElements(elementRegistry);
 
   const hasFilters = !!(namePattern || elementType || property);

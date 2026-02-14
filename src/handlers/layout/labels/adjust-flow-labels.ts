@@ -20,7 +20,7 @@ import {
   detectFlowLabelOverlaps,
   hasAnyOverlap,
 } from './flow-label-nudge';
-import { getVisibleElements, syncXml } from '../../helpers';
+import { getVisibleElements, syncXml, getService } from '../../helpers';
 
 /** Indexed shape rects: parallel arrays of Rects and their element IDs. */
 /**
@@ -38,8 +38,8 @@ import { getVisibleElements, syncXml } from '../../helpers';
  * Returns the number of flow labels moved.
  */
 export async function centerFlowLabels(diagram: DiagramState): Promise<number> {
-  const modeling = diagram.modeler.get('modeling');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
   const labeledFlows = allElements.filter(
@@ -108,8 +108,8 @@ export async function centerFlowLabels(diagram: DiagramState): Promise<number> {
  * Returns the number of flow labels moved.
  */
 export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
-  const modeling = diagram.modeler.get('modeling');
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
   const shapeIndex = buildShapeRectIndex(allElements);
