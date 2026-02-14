@@ -232,8 +232,56 @@ export function applyElkEdgeRoutes(
             modeling.layoutConnection(conn);
           }
         } else {
-          // Message flows — let bpmn-js handle routing
-          modeling.layoutConnection(conn);
+          // Message flows — route with clean vertical-horizontal-vertical dog-leg
+          // instead of relying on bpmn-js ManhattanLayout which can produce
+          // diagonal or sub-optimal routes in headless mode.
+          const srcW = src.width || 0;
+          const srcH = src.height || 0;
+          const tgtW = tgt.width || 0;
+          const tgtH = tgt.height || 0;
+          const srcCx = Math.round(src.x + srcW / 2);
+          const tgtCx = Math.round(tgt.x + tgtW / 2);
+
+          // Determine vertical direction: source is above or below target
+          const srcBottom = src.y + srcH;
+          const tgtTop = tgt.y;
+          const srcTop = src.y;
+          const tgtBottom = tgt.y + tgtH;
+
+          if (srcBottom <= tgtTop) {
+            // Source is above target — exit from source bottom, enter target top
+            const midY = Math.round((srcBottom + tgtTop) / 2);
+            const waypoints = [
+              { x: srcCx, y: Math.round(srcBottom) },
+              { x: srcCx, y: midY },
+              { x: tgtCx, y: midY },
+              { x: tgtCx, y: Math.round(tgtTop) },
+            ];
+            const deduped = deduplicateWaypoints(waypoints);
+            if (deduped.length >= 2) {
+              modeling.updateWaypoints(conn, deduped);
+            } else {
+              modeling.layoutConnection(conn);
+            }
+          } else if (tgtBottom <= srcTop) {
+            // Target is above source — exit from source top, enter target bottom
+            const midY = Math.round((tgtBottom + srcTop) / 2);
+            const waypoints = [
+              { x: srcCx, y: Math.round(srcTop) },
+              { x: srcCx, y: midY },
+              { x: tgtCx, y: midY },
+              { x: tgtCx, y: Math.round(tgtBottom) },
+            ];
+            const deduped = deduplicateWaypoints(waypoints);
+            if (deduped.length >= 2) {
+              modeling.updateWaypoints(conn, deduped);
+            } else {
+              modeling.layoutConnection(conn);
+            }
+          } else {
+            // Overlapping Y ranges — fall back to bpmn-js routing
+            modeling.layoutConnection(conn);
+          }
         }
       } else {
         // Generic fallback for other unrouted connections

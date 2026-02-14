@@ -170,6 +170,44 @@ describe('Channel routing for gateway branches', () => {
     }
   });
 
+  test('3-branch exclusive gateway routes through channel', async () => {
+    // A ternary exclusive gateway pattern: approved/rejected/escalated
+    const diagramId = await createDiagram('Channel 3-Branch Exclusive');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Decision?' });
+    const taskApprove = await addElement(diagramId, 'bpmn:UserTask', { name: 'Approve' });
+    const taskReject = await addElement(diagramId, 'bpmn:UserTask', { name: 'Reject' });
+    const taskEscalate = await addElement(diagramId, 'bpmn:UserTask', { name: 'Escalate' });
+    const merge = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Merge' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+
+    await connect(diagramId, start, gw);
+    await connect(diagramId, gw, taskApprove, { label: 'Approved' });
+    await connect(diagramId, gw, taskReject, { label: 'Rejected' });
+    await connect(diagramId, gw, taskEscalate, { label: 'Escalated' });
+    await connect(diagramId, taskApprove, merge);
+    await connect(diagramId, taskReject, merge);
+    await connect(diagramId, taskEscalate, merge);
+    await connect(diagramId, merge, end);
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    // All connections should be orthogonal
+    const connections = reg.filter((el: any) => el.type === 'bpmn:SequenceFlow');
+    for (const conn of connections) {
+      expectOrthogonal(conn);
+    }
+
+    // Branch elements should be on distinct Y positions
+    const branchYs = [taskApprove, taskReject, taskEscalate]
+      .map((id) => centreY(reg.get(id)))
+      .sort((a, b) => a - b);
+    expect(branchYs[1] - branchYs[0]).toBeGreaterThan(10);
+    expect(branchYs[2] - branchYs[1]).toBeGreaterThan(10);
+  });
+
   test('connections remain orthogonal after channel routing', async () => {
     const diagramId = await createDiagram('Orthogonal After Channel');
     const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });

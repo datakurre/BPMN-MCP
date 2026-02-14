@@ -561,9 +561,12 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
 
   const allElements: BpmnElement[] = elementRegistry.getAll();
 
-  // Compute the bottom boundary of all visible non-flow elements
-  // (the lowest Y + height of any shape in the diagram).
-  let maxBottom = 0;
+  // Pre-compute the bottom boundary per participant scope.
+  // In collaboration diagrams, loopbacks should route below the elements
+  // within their own pool, not below ALL elements across all pools.
+  const scopeBottoms = new Map<string, number>();
+  const globalKey = '__global__';
+
   for (const el of allElements) {
     if (
       isConnection(el.type) ||
@@ -575,10 +578,32 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
       continue;
     }
     const bottom = (el.y ?? 0) + (el.height ?? 0);
-    if (bottom > maxBottom) maxBottom = bottom;
+
+    // Find the participant scope for this element
+    let scopeId = globalKey;
+    let parent = el.parent;
+    while (parent) {
+      if (parent.type === 'bpmn:Participant') {
+        scopeId = parent.id;
+        break;
+      }
+      parent = parent.parent;
+    }
+
+    const current = scopeBottoms.get(scopeId) ?? 0;
+    if (bottom > current) scopeBottoms.set(scopeId, bottom);
   }
 
-  if (maxBottom === 0) return;
+  // Also maintain a global bottom for diagrams without participants
+  let globalBottom = 0;
+  for (const bottom of scopeBottoms.values()) {
+    if (bottom > globalBottom) globalBottom = bottom;
+  }
+  if (!scopeBottoms.has(globalKey)) {
+    scopeBottoms.set(globalKey, globalBottom);
+  }
+
+  if (globalBottom === 0) return;
 
   const connections = allElements.filter(
     (el) =>
@@ -606,6 +631,20 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
     // Only process backward flows: target is to the left of source
     // with a meaningful gap (>30px) to avoid touching near-collinear elements.
     if (tgtLeft >= srcRight - 30) continue;
+
+    // Resolve the scope-specific bottom boundary for this connection.
+    // In collaboration diagrams, use the participant's bottom to avoid
+    // routing loopbacks below other pools.
+    let scopeId = '__global__';
+    let parent = src.parent;
+    while (parent) {
+      if (parent.type === 'bpmn:Participant') {
+        scopeId = parent.id;
+        break;
+      }
+      parent = parent.parent;
+    }
+    const maxBottom = scopeBottoms.get(scopeId) ?? globalBottom;
 
     // Skip connections that are already routed below the main path
     // (their waypoints go below the lowest element).

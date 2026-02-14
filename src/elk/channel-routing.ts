@@ -25,7 +25,7 @@ import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
  * prevent overlaps and crossing flows.
  *
  * Only applies to connections where the source is a gateway going to a
- * different layer, with at most 2 off-row branches.
+ * different layer, with at most 3 off-row branches.
  */
 export function routeBranchConnectionsThroughChannels(
   elementRegistry: ElementRegistry,
@@ -61,9 +61,9 @@ export function routeBranchConnectionsThroughChannels(
   }
 
   // Count how many outgoing connections from each split gateway go to
-  // a different row. We only apply channel routing for gateways with
-  // exactly 2 off-row branches (the common exclusive gateway pattern).
-  // For larger fan-outs, ELK already handles routing well.
+  // a different row. We apply channel routing for gateways with up to
+  // 3 off-row branches (covers binary and ternary exclusive gateway
+  // patterns like approved/rejected/escalated).
   const gwOffRowCount = new Map<string, number>();
   for (const conn of allConnections) {
     const src = conn.source!;
@@ -102,9 +102,9 @@ export function routeBranchConnectionsThroughChannels(
     // Only process split gateways (≥2 outgoing flows), not join→next flows
     if ((gwOutgoingCount.get(src.id) || 0) < 2) continue;
 
-    // Skip gateways with more than 2 off-row branches — ELK handles
-    // multi-branch fan-outs well; channel routing can cause crossings.
-    if ((gwOffRowCount.get(src.id) || 0) > 2) continue;
+    // Skip gateways with more than 3 off-row branches — ELK handles
+    // large fan-outs well; channel routing can cause crossings.
+    if ((gwOffRowCount.get(src.id) || 0) > 3) continue;
 
     const srcLayer = elementToLayer.get(src.id);
     const tgtLayer = elementToLayer.get(tgt.id);
@@ -140,11 +140,11 @@ export function routeBranchConnectionsThroughChannels(
   }
 
   // Process each gateway group: spread vertical segments across the channel.
-  // Only apply to gateways with at most 2 branch connections needing routing.
-  // For larger fan-outs (3+ branches), ELK already spaces port positions well
+  // Only apply to gateways with at most 3 branch connections needing routing.
+  // For larger fan-outs (4+ branches), ELK already spaces port positions well
   // and moving vertical segments can cause crossings with join-side connections.
   for (const [, group] of gwGroups) {
-    if (group.length > 2) continue; // Skip large fan-outs
+    if (group.length > 3) continue; // Skip large fan-outs
 
     const { channelAfterLayer } = group[0];
     const leftColRight = layers[channelAfterLayer].maxRight;
