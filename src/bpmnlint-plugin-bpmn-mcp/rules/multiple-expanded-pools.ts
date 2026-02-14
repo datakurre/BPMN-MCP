@@ -57,15 +57,34 @@ export default function multipleExpandedPools() {
 
     if (expanded.length <= 1) return;
 
-    // Report on the collaboration — list all expanded pools
-    const names = expanded.map((p: any) => `"${p.name || p.id}"`).join(', ');
-    reporter.report(
-      node.id,
-      `${expanded.length} expanded pools found (${names}). ` +
-        'In Camunda 7 / Operaton, only one pool can be deployed and executed. ' +
-        'Make non-executable pools collapsed (set collapsed: true in create_bpmn_collaboration) — ' +
-        'collapsed pools have no internal flow and exist only to document message flow endpoints.'
+    // Check how many expanded pools have isExecutable=true on their process
+    const executablePools = expanded.filter(
+      (p: any) => p.processRef && p.processRef.isExecutable === true
     );
+
+    const names = expanded.map((p: any) => `"${p.name || p.id}"`).join(', ');
+
+    if (executablePools.length > 1) {
+      // Multiple executable expanded pools — strong signal they should be lanes
+      const execNames = executablePools.map((p: any) => `"${p.name || p.id}"`).join(', ');
+      reporter.report(
+        node.id,
+        `${executablePools.length} expanded pools are marked isExecutable (${execNames}). ` +
+          'In Camunda 7 / Operaton, only one pool can be deployed and executed. ' +
+          'If these represent roles within the same organization, convert to lanes within a single pool ' +
+          'using convert_bpmn_collaboration_to_lanes. Otherwise, make non-executable pools collapsed ' +
+          '(set collapsed: true).'
+      );
+    } else {
+      // Multiple expanded pools but not all executable
+      reporter.report(
+        node.id,
+        `${expanded.length} expanded pools found (${names}). ` +
+          'In Camunda 7 / Operaton, only one pool can be deployed and executed. ' +
+          'Make non-executable pools collapsed (set collapsed: true in create_bpmn_collaboration) — ' +
+          'collapsed pools have no internal flow and exist only to document message flow endpoints.'
+      );
+    }
   }
 
   return { check };

@@ -33,6 +33,7 @@ const NON_LANE_ASSIGNABLE = new Set([
   'bpmn:Lane',
   'bpmn:Process',
   'bpmn:Collaboration',
+  'bpmn:BoundaryEvent', // Boundary events must stay attached to their host
 ]);
 
 /** Remove an element's business object from all lanes' flowNodeRef lists. */
@@ -103,7 +104,13 @@ export async function handleAssignElementsToLane(
       continue;
     }
     if (NON_LANE_ASSIGNABLE.has(element.type || '')) {
-      skipped.push({ elementId, reason: `${element.type} cannot be assigned to a lane` });
+      skipped.push({
+        elementId,
+        reason:
+          element.type === 'bpmn:BoundaryEvent'
+            ? 'Boundary events follow their host task automatically — assign the host task instead'
+            : `${element.type} cannot be assigned to a lane`,
+      });
       continue;
     }
 
@@ -111,6 +118,16 @@ export async function handleAssignElementsToLane(
     addToLane(lane, element.businessObject);
     if (reposition) repositionInLane(modeling, element, laneCenterY, laneTop, laneBottom);
     assigned.push(elementId);
+
+    // Automatically move attached boundary events with their host task
+    const attachedBoundary = elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:BoundaryEvent' && el.host?.id === elementId
+    );
+    for (const be of attachedBoundary) {
+      removeFromAllLanes(elementRegistry, be.businessObject);
+      addToLane(lane, be.businessObject);
+      // Boundary events follow their host position — no explicit repositioning needed
+    }
   }
 
   await syncXml(diagram);

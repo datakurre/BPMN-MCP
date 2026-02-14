@@ -103,4 +103,33 @@ describe('create_bpmn_lanes', () => {
     expect(res.laneCount).toBe(3);
     expect(res.laneIds).toHaveLength(3);
   });
+
+  test('rejects duplicate lane creation on same participant', async () => {
+    const diagramId = await createDiagram();
+    const participant = await addElement(diagramId, 'bpmn:Participant', {
+      name: 'Pool',
+      x: 300,
+      y: 200,
+    });
+
+    // First call should succeed
+    const res = parseResult(
+      await handleCreateLanes({
+        diagramId,
+        participantId: participant,
+        lanes: [{ name: 'Lane A' }, { name: 'Lane B' }],
+      })
+    );
+    expect(res.success).toBe(true);
+    expect(res.laneCount).toBe(2);
+
+    // Second call on the same participant should reject
+    await expect(
+      handleCreateLanes({
+        diagramId,
+        participantId: participant,
+        lanes: [{ name: 'Lane C' }, { name: 'Lane D' }],
+      })
+    ).rejects.toThrow(/already has/);
+  });
 });

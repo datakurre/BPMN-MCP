@@ -150,6 +150,18 @@ export async function handleCreateLanes(args: CreateLanesArgs): Promise<ToolResu
     throw typeMismatchError(participantId, participant.type, ['bpmn:Participant']);
   }
 
+  // Check for existing lanes — reject if participant already has lanes (idempotency guard)
+  const existingLanes = elementRegistry.filter(
+    (el: any) => el.type === 'bpmn:Lane' && el.parent?.id === participantId
+  );
+  if (existingLanes.length > 0) {
+    const existingNames = existingLanes.map((l: any) => l.businessObject?.name || l.id).join(', ');
+    throw new Error(
+      `Participant "${participantId}" already has ${existingLanes.length} lane(s): ${existingNames}. ` +
+        'Use assign_bpmn_elements_to_lane to modify lane assignments, or delete existing lanes first.'
+    );
+  }
+
   const poolX = participant.x;
   const poolY = participant.y;
   const poolWidth = participant.width || 600;

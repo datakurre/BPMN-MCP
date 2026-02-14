@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { handleAssignElementsToLane, handleCreateLanes } from '../../../src/handlers';
 import { createDiagram, addElement, parseResult, clearDiagrams } from '../../helpers';
+import { getDiagram } from '../../../src/diagram-manager';
 
 describe('assign_bpmn_elements_to_lane', () => {
   beforeEach(() => {
@@ -108,5 +109,60 @@ describe('assign_bpmn_elements_to_lane', () => {
 
     expect(res.success).toBe(true);
     expect(res.assignedCount).toBe(1);
+  });
+
+  test('skips boundary events and suggests assigning host instead', async () => {
+    const diagramId = await createDiagram();
+    const { laneIds } = await createPoolWithLanes(diagramId);
+    const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task', x: 300, y: 200 });
+    const be = await addElement(diagramId, 'bpmn:BoundaryEvent', {
+      name: 'Timer',
+      hostElementId: task,
+    });
+
+    const res = parseResult(
+      await handleAssignElementsToLane({
+        diagramId,
+        laneId: laneIds[0],
+        elementIds: [be],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.assignedCount).toBe(0);
+    expect(res.skipped).toHaveLength(1);
+    expect(res.skipped[0].elementId).toBe(be);
+    expect(res.skipped[0].reason).toContain('host task');
+  });
+
+  test('auto-assigns boundary events when host task is assigned', async () => {
+    const diagramId = await createDiagram();
+    const { laneIds } = await createPoolWithLanes(diagramId);
+    const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task', x: 300, y: 200 });
+    const be = await addElement(diagramId, 'bpmn:BoundaryEvent', {
+      name: 'Timer',
+      hostElementId: task,
+    });
+
+    // Assign the host task — boundary event should follow automatically
+    const res = parseResult(
+      await handleAssignElementsToLane({
+        diagramId,
+        laneId: laneIds[0],
+        elementIds: [task],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.assignedCount).toBe(1);
+    expect(res.assignedElementIds).toContain(task);
+
+    // Check that the boundary event's BO was added to the lane's flowNodeRef
+    const diagram = getDiagram(diagramId)!;
+    const reg = diagram.modeler.get('elementRegistry') as any;
+    const laneEl = reg.get(laneIds[0]);
+    const laneRefs = laneEl.businessObject?.flowNodeRef || [];
+    const beEl = reg.get(be);
+    expect(laneRefs).toContain(beEl.businessObject);
   });
 });
