@@ -13,16 +13,10 @@ import {
   CENTRE_SNAP_TOLERANCE,
   DIFFERENT_ROW_MIN_Y,
   SAME_ROW_Y_TOLERANCE,
+  COLLINEAR_DETOUR_OFFSET,
+  LOOPBACK_BELOW_MARGIN,
+  LOOPBACK_HORIZONTAL_MARGIN,
 } from './constants';
-
-/** Default vertical detour offset (px) for rerouting overlapping collinear flows. */
-const COLLINEAR_DETOUR_OFFSET = 20;
-
-/** Vertical margin (px) below the lowest element for loopback routing. */
-const LOOPBACK_BELOW_MARGIN = 30;
-
-/** Horizontal margin (px) outside source/target for loopback vertical segments. */
-const LOOPBACK_HORIZONTAL_MARGIN = 15;
 
 /** Get the centre point of an element. */
 function elementCentre(el: BpmnElement): { x: number; y: number } {
@@ -519,7 +513,7 @@ export function separateOverlappingGatewayFlows(
 
         // Build rerouted waypoints: gateway exit → up → horizontal → down to target
         // Only for same-row targets; different-row targets are handled elsewhere
-        if (Math.abs(srcCy - tgtCy) <= 5) {
+        if (Math.abs(srcCy - tgtCy) <= SAME_ROW_Y_TOLERANCE) {
           const newWps = [
             { x: Math.round(srcRight), y: Math.round(srcCy) },
             { x: Math.round(srcRight), y: Math.round(detourY) },

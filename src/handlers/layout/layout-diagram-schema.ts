@@ -42,9 +42,10 @@ export const TOOL_DEFINITION = {
           'Optional list of element IDs for partial re-layout. Only these elements and their inter-connections are arranged, leaving the rest of the diagram unchanged.',
       },
       gridSnap: {
-        type: 'number',
+        oneOf: [{ type: 'boolean' }, { type: 'number' }],
         description:
-          'Optional grid size in pixels to snap element positions to after layout (e.g. 10). Reduces near-overlaps and improves visual consistency. Off by default.',
+          'Optional grid snapping control. Pass a number (e.g. 10) to snap element positions to a pixel grid after layout. ' +
+          'Pass true to enable ELK-level grid snapping. Off by default.',
       },
       preserveHappyPath: {
         type: 'boolean',

@@ -19,7 +19,7 @@ import {
   GATEWAY_UPPER_SPLIT_FACTOR,
   CENTER_FACTOR,
   BOUNDARY_TARGET_ROW_BUFFER,
-  BOUNDARY_MIN_MOVE_DELTA,
+  BOUNDARY_SPREAD_MARGIN_FACTOR,
   BOUNDARY_PROXIMITY_TOLERANCE,
   BOUNDARY_TARGET_Y_OFFSET,
   BOUNDARY_TARGET_X_OFFSET,
@@ -564,7 +564,7 @@ function spreadBoundaryEventsOnSameBorder(boundaryEvents: BpmnElement[]): void {
 
     if (border === 'top' || border === 'bottom') {
       // Spread along X axis — use the middle 80% of the host width
-      const margin = hostW * BOUNDARY_MIN_MOVE_DELTA;
+      const margin = hostW * BOUNDARY_SPREAD_MARGIN_FACTOR;
       const availableWidth = hostW - 2 * margin;
       const step = group.length > 1 ? availableWidth / (group.length - 1) : 0;
 
@@ -586,7 +586,7 @@ function spreadBoundaryEventsOnSameBorder(boundaryEvents: BpmnElement[]): void {
       }
     } else {
       // Spread along Y axis — use the middle 80% of the host height
-      const margin = hostH * BOUNDARY_MIN_MOVE_DELTA;
+      const margin = hostH * BOUNDARY_SPREAD_MARGIN_FACTOR;
       const availableHeight = hostH - 2 * margin;
       const step = group.length > 1 ? availableHeight / (group.length - 1) : 0;
 

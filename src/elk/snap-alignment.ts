@@ -4,13 +4,13 @@
 
 import { ELK_LAYER_SPACING } from '../constants';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
-import { SAME_ROW_THRESHOLD, ORTHO_SNAP_TOLERANCE, SUBPROCESS_ROW_THRESHOLD } from './constants';
 import {
-  isConnection,
-  isInfrastructure,
-  isArtifact as _isArtifact,
-  isLayoutableShape,
-} from './helpers';
+  SAME_ROW_THRESHOLD,
+  ORTHO_SNAP_TOLERANCE,
+  SUBPROCESS_ROW_THRESHOLD,
+  MOVEMENT_THRESHOLD,
+} from './constants';
+import { isConnection, isInfrastructure, isLayoutableShape } from './helpers';
 
 /**
  * After ELK positions nodes, elements in the same ELK layer can have small
@@ -102,7 +102,7 @@ export function snapSameLayerElements(
       for (const el of g) {
         const cy = el.y + (el.height || 0) / 2;
         const dy = medianCy - cy;
-        if (Math.abs(dy) > 0.5) {
+        if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
           modeling.moveElements([el], { x: 0, y: dy });
         }
       }

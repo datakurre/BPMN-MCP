@@ -230,8 +230,12 @@ export const MOVEMENT_THRESHOLD = 0.5;
 /** Y-distance buffer (px) for boundary event target row qualification. */
 export const BOUNDARY_TARGET_ROW_BUFFER = 10;
 
-/** Minimum Y-movement (px) to trigger boundary event repositioning. */
-export const BOUNDARY_MIN_MOVE_DELTA = 0.1;
+/**
+ * Fraction of host width/height used as margin on each side when
+ * spreading multiple boundary events along the same border.
+ * 0.1 = 10% margin → events occupy the middle 80% of the border.
+ */
+export const BOUNDARY_SPREAD_MARGIN_FACTOR = 0.1;
 
 // ── Edge routing — local constants promoted from inline values ──────────
 
@@ -295,6 +299,38 @@ export const MIN_CHANNEL_WIDTH = 30;
 
 /** Fraction of channel width used as margin on each side (0.2 = 20%). */
 export const CHANNEL_MARGIN_FACTOR = 0.2;
+
+// ── Edge route simplification constants ─────────────────────────────────
+
+/**
+ * Maximum deviation (px) for a waypoint to be considered a micro-bend.
+ *
+ * Three consecutive waypoints that are nearly collinear — all Y values
+ * within this threshold (horizontal) or all X values within this threshold
+ * (vertical) — indicate a "wiggle" caused by ELK rounding, grid snap, or
+ * post-processing.  The middle point is removed to produce a cleaner route.
+ */
+export const MICRO_BEND_TOLERANCE = 5;
+
+/**
+ * Maximum length (px) of a short orthogonal segment to be merged.
+ *
+ * An H-V-H or V-H-V staircase where the middle segment is shorter than
+ * this threshold is flattened into a single straight segment by snapping
+ * the two surrounding bend points to the same axis.
+ */
+export const SHORT_SEGMENT_THRESHOLD = 6;
+
+// ── Edge route repair constants ───────────────────────────────────────
+
+/** Vertical offset (px) for rerouting overlapping collinear flows. */
+export const COLLINEAR_DETOUR_OFFSET = 20;
+
+/** Vertical margin (px) below the lowest element for loopback routing. */
+export const LOOPBACK_BELOW_MARGIN = 30;
+
+/** Horizontal margin (px) outside source/target for loopback vertical segments. */
+export const LOOPBACK_HORIZONTAL_MARGIN = 15;
 
 // ── Lane layout constants ───────────────────────────────────────────────
 

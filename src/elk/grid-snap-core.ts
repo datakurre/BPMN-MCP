@@ -20,6 +20,7 @@ import {
   GATEWAY_EVENT_GAP_REDUCE,
   GATEWAY_GATEWAY_GAP_EXTRA,
   BOUNDARY_HOST_GAP_EXTRA,
+  MOVEMENT_THRESHOLD,
 } from './constants';
 import type { GridLayer } from './types';
 import {
@@ -348,7 +349,7 @@ export function gridSnapPass(
       const elW = el.width || 0;
       const desiredX = columnX + (layer.maxWidth - elW) / 2;
       const dx = Math.round(desiredX) - el.x;
-      if (Math.abs(dx) > 0.5) {
+      if (Math.abs(dx) > MOVEMENT_THRESHOLD) {
         modeling.moveElements([el], { x: dx, y: 0 });
       }
     }
@@ -408,7 +409,7 @@ export function gridSnapPass(
         const elH = el.height || 0;
         const desiredY = nextY - elH;
         const dy = Math.round(desiredY) - el.y;
-        if (Math.abs(dy) > 0.5) {
+        if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
           modeling.moveElements([el], { x: 0, y: dy });
         }
         nextY = desiredY - nodeSpacing;
@@ -419,7 +420,7 @@ export function gridSnapPass(
       for (const el of below) {
         const desiredY = nextY;
         const dy = Math.round(desiredY) - el.y;
-        if (Math.abs(dy) > 0.5) {
+        if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
           modeling.moveElements([el], { x: 0, y: dy });
         }
         nextY = desiredY + (el.height || 0) + nodeSpacing;
@@ -436,7 +437,7 @@ export function gridSnapPass(
 
       for (const el of sorted) {
         const dy = Math.round(startY) - el.y;
-        if (Math.abs(dy) > 0.5) {
+        if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
           modeling.moveElements([el], { x: 0, y: dy });
         }
         startY += (el.height || 0) + nodeSpacing;

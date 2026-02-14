@@ -8,7 +8,11 @@
 import { isConnection } from './helpers';
 import type { ElementRegistry, Modeling } from '../bpmn-types';
 import { buildZShapeRoute } from './edge-routing-helpers';
-import { DIFFERENT_ROW_THRESHOLD } from './constants';
+import {
+  DIFFERENT_ROW_THRESHOLD,
+  MICRO_BEND_TOLERANCE,
+  SHORT_SEGMENT_THRESHOLD,
+} from './constants';
 
 // ── Gateway branch route simplification ────────────────────────────────────
 
@@ -22,10 +26,10 @@ import { DIFFERENT_ROW_THRESHOLD } from './constants';
  *
  * Only applies when:
  * - The route has 5+ waypoints (indicating unnecessary bends)
- * - The gateway has at most 2 outgoing flows (binary split pattern)
+ * - The gateway has at most 3 outgoing flows (binary/ternary split pattern)
  * - The target is to the right of the source
  *
- * Gateways with 3+ branches are left to ELK routing + channel routing
+ * Gateways with 4+ branches are left to ELK routing + channel routing
  * which handles them better to avoid crossing flows.
  */
 export function simplifyGatewayBranchRoutes(
@@ -64,9 +68,9 @@ export function simplifyGatewayBranchRoutes(
     // Only process split-gateway → branch-target connections
     if (!src.type?.includes('Gateway')) continue;
 
-    // Only apply to binary splits (2 outgoing) — larger fan-outs
+    // Only apply to binary/ternary splits (2–3 outgoing) — larger fan-outs
     // are handled by ELK + channel routing to avoid crossings
-    if ((gwOutCount.get(src.id) || 0) > 2) continue;
+    if ((gwOutCount.get(src.id) || 0) > 3) continue;
 
     // Only process if the target is on a different Y (different row)
     const srcCy = src.y + (src.height || 0) / 2;
@@ -83,7 +87,7 @@ export function simplifyGatewayBranchRoutes(
   }
 
   // Also simplify join-gateway incoming connections (branch-target → join)
-  // but only for binary joins (2 incoming branch flows)
+  // but only for binary/ternary joins (2–3 incoming branch flows)
   const joinConnections = elementRegistry.filter(
     (el) =>
       el.type === BPMN_SEQUENCE_FLOW &&
@@ -98,8 +102,8 @@ export function simplifyGatewayBranchRoutes(
     const src = conn.source!;
     const tgt = conn.target!;
 
-    // Only apply to binary joins
-    if ((gwInCount.get(tgt.id) || 0) > 2) continue;
+    // Only apply to binary/ternary joins
+    if ((gwInCount.get(tgt.id) || 0) > 3) continue;
 
     // Only process if source is on a different Y (different row)
     const srcCy = src.y + (src.height || 0) / 2;
@@ -186,25 +190,6 @@ function removeCollinearPoints(
 }
 
 // ── Micro-bend removal ─────────────────────────────────────────────────────
-
-/**
- * Maximum deviation (px) for a waypoint to be considered a micro-bend.
- *
- * Three consecutive waypoints that are nearly collinear — all Y values
- * within this threshold (horizontal) or all X values within this threshold
- * (vertical) — indicate a "wiggle" caused by ELK rounding, grid snap, or
- * post-processing.  The middle point is removed to produce a cleaner route.
- */
-const MICRO_BEND_TOLERANCE = 5;
-
-/**
- * Maximum length (px) of a short orthogonal segment to be merged.
- *
- * An H-V-H or V-H-V staircase where the middle segment is shorter than
- * this threshold is flattened into a single straight segment by snapping
- * the two surrounding bend points to the same axis.
- */
-const SHORT_SEGMENT_THRESHOLD = 6;
 
 /**
  * Remove micro-bends from all connections in the diagram.
