@@ -26,6 +26,8 @@ import {
   computeDisplacementStats,
   checkDiIntegrity,
   buildLayoutResult,
+  repairMissingDiShapes,
+  deduplicateDiInModeler,
 } from './layout-helpers';
 
 export interface LayoutDiagramArgs {
@@ -217,9 +219,15 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
   const pixelGridSnap = typeof args.gridSnap === 'number' ? args.gridSnap : undefined;
   const diagram = requireDiagram(diagramId);
 
+  // Repair missing DI shapes before layout so ELK can position all elements
+  const repairs = await repairMissingDiShapes(diagram);
+
   const { layoutResult, usedDeterministic } = await executeLayout(diagram, args);
 
   if (pixelGridSnap && pixelGridSnap > 0) applyPixelGridSnap(diagram, pixelGridSnap);
+
+  // Remove duplicate DI entries that may have been created during layout
+  deduplicateDiInModeler(diagram);
 
   await syncXml(diagram);
   resetMutationCounter(diagram);
@@ -239,6 +247,8 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
 
   // Check DI integrity: warn about elements missing visual representation
   const diWarnings = checkDiIntegrity(diagram, elementRegistry);
+  // Include repair messages alongside DI warnings
+  const allDiWarnings = [...repairs, ...diWarnings];
 
   const result = buildLayoutResult({
     diagramId,
@@ -249,7 +259,7 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
     layoutResult,
     elementRegistry,
     usedDeterministic,
-    diWarnings,
+    diWarnings: allDiWarnings,
   });
   return appendLintFeedback(result, diagram);
 }
