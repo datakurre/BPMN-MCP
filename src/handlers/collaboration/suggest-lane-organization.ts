@@ -54,6 +54,98 @@ const CONNECTION_TYPES = new Set([
   'bpmn:DataOutputAssociation',
 ]);
 
+// ── Role extraction ────────────────────────────────────────────────────────
+
+/**
+ * Extract the primary role (assignee or first candidateGroup) from a flow node.
+ * Returns null when no role assignment is found.
+ */
+function extractPrimaryRole(node: any): string | null {
+  const assignee = node.$attrs?.['camunda:assignee'] ?? node.assignee;
+  if (assignee && typeof assignee === 'string' && assignee.trim()) {
+    return assignee.trim();
+  }
+
+  const candidateGroups = node.$attrs?.['camunda:candidateGroups'] ?? node.candidateGroups;
+  if (candidateGroups) {
+    const first = String(candidateGroups).split(',')[0]?.trim();
+    if (first) return first;
+  }
+
+  return null;
+}
+
+/**
+ * Collect distinct roles from all flow nodes.
+ * Returns a map of role → element IDs assigned to that role.
+ */
+function collectRoleAssignments(flowNodes: any[]): Map<string, any[]> {
+  const roleMap = new Map<string, any[]>();
+  for (const node of flowNodes) {
+    const role = extractPrimaryRole(node);
+    if (role) {
+      const list = roleMap.get(role) || [];
+      list.push(node);
+      roleMap.set(role, list);
+    }
+  }
+  return roleMap;
+}
+
+/**
+ * Build lane suggestions based on camunda:assignee / camunda:candidateGroups.
+ * Returns suggestions only when at least 2 distinct roles are found.
+ */
+function buildRoleSuggestions(
+  flowNodes: any[],
+  laneMap: Map<string, string>
+): LaneSuggestion[] | null {
+  const roleAssignments = collectRoleAssignments(flowNodes);
+
+  // Need at least 2 distinct roles for role-based grouping to be useful
+  if (roleAssignments.size < 2) return null;
+
+  const suggestions: LaneSuggestion[] = [];
+  const assignedIds = new Set<string>();
+
+  for (const [role, elements] of roleAssignments) {
+    const ids = elements.map((e: any) => e.id);
+    ids.forEach((id: string) => {
+      laneMap.set(id, role);
+      assignedIds.add(id);
+    });
+
+    const types = [...new Set(elements.map((e: any) => e.$type))].join(', ');
+    suggestions.push({
+      laneName: role,
+      description: `Tasks assigned to "${role}"`,
+      elementIds: ids,
+      elementNames: elements.map((e: any) => e.name || e.id),
+      reasoning: `${elements.length} element(s) of type(s) ${types} share the assignee/candidateGroup "${role}".`,
+    });
+  }
+
+  // Collect unassigned non-flow-control elements into an "Unassigned" group
+  const unassigned = flowNodes.filter(
+    (n: any) => !assignedIds.has(n.id) && !isFlowControl(n.$type)
+  );
+  if (unassigned.length > 0) {
+    const ids = unassigned.map((e: any) => e.id);
+    // Assign unassigned to the first role lane (best guess)
+    const fallbackLane = suggestions[0]?.laneName || 'General';
+    ids.forEach((id: string) => laneMap.set(id, fallbackLane));
+    suggestions.push({
+      laneName: 'Unassigned',
+      description: 'Tasks without explicit assignee or candidateGroup',
+      elementIds: ids,
+      elementNames: unassigned.map((e: any) => e.name || e.id),
+      reasoning: `${unassigned.length} element(s) lack a camunda:assignee or camunda:candidateGroups. Consider assigning them to a role.`,
+    });
+  }
+
+  return suggestions;
+}
+
 /** Check if a flow node type is a gateway or event (flow control elements). */
 function isFlowControl(type: string): boolean {
   return type.includes('Gateway') || type.includes('Event') || type === 'bpmn:Task';
@@ -266,7 +358,13 @@ export async function handleSuggestLaneOrganization(
   const sequenceFlows = flowElements.filter((el: any) => el.$type === 'bpmn:SequenceFlow');
 
   const laneMap = new Map<string, string>();
-  const suggestions = buildCategorySuggestions(flowNodes, laneMap);
+
+  // Prefer role-based grouping (camunda:assignee / camunda:candidateGroups)
+  // when at least 2 distinct roles are found. Fall back to type-based grouping.
+  const roleSuggestions = buildRoleSuggestions(flowNodes, laneMap);
+  const groupingStrategy = roleSuggestions ? 'role' : 'type';
+  const suggestions = roleSuggestions ?? buildCategorySuggestions(flowNodes, laneMap);
+
   assignFlowControlToLanes(flowNodes, laneMap);
   appendFlowControlToSuggestions(flowNodes, laneMap, suggestions);
 
@@ -286,6 +384,7 @@ export async function handleSuggestLaneOrganization(
 
   const result: Record<string, any> = {
     totalFlowNodes: flowNodes.length,
+    groupingStrategy,
     suggestions,
     crossLaneFlows: crossLane,
     intraLaneFlows: intraLane,
@@ -301,9 +400,11 @@ export async function handleSuggestLaneOrganization(
 export const TOOL_DEFINITION = {
   name: 'suggest_bpmn_lane_organization',
   description:
-    'Analyze tasks in a BPMN process and suggest optimal lane assignments based on element types ' +
-    '(human vs automated), sequential dependencies, and connectivity patterns. Returns structured ' +
-    'suggestions with lane names, assigned elements, coherence score, and reasoning. ' +
+    'Analyze tasks in a BPMN process and suggest optimal lane assignments. ' +
+    'When elements have camunda:assignee or camunda:candidateGroups properties, groups by role ' +
+    '(e.g. "Manager", "System"). Otherwise falls back to grouping by element type ' +
+    '(human vs automated). Returns structured suggestions with lane names, assigned elements, ' +
+    'coherence score, grouping strategy ("role" or "type"), and reasoning. ' +
     'Use this before creating lanes to plan a clean lane structure.',
   inputSchema: {
     type: 'object',

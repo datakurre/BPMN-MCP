@@ -4,6 +4,7 @@ import {
   handleValidateLaneOrganization,
   handleCreateLanes,
   handleAssignElementsToLane,
+  handleSetProperties,
 } from '../../../src/handlers';
 import { createDiagram, addElement, connect, parseResult, clearDiagrams } from '../../helpers';
 
@@ -33,6 +34,7 @@ describe('suggest_bpmn_lane_organization', () => {
 
     const res = parseResult(await handleSuggestLaneOrganization({ diagramId }));
 
+    expect(res.groupingStrategy).toBe('type');
     expect(res.totalFlowNodes).toBeGreaterThanOrEqual(6);
     expect(res.suggestions.length).toBeGreaterThanOrEqual(2);
 
@@ -90,6 +92,78 @@ describe('suggest_bpmn_lane_organization', () => {
 
     expect(res.totalFlowNodes).toBeGreaterThanOrEqual(2);
     expect(res.suggestions.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('suggests lanes based on camunda:assignee when roles are present', async () => {
+    const diagramId = await createDiagram();
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Submit Request' });
+    const task2 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Approve Request' });
+    const task3 = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Notify Requester' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+
+    await connect(diagramId, start, task1);
+    await connect(diagramId, task1, task2);
+    await connect(diagramId, task2, task3);
+    await connect(diagramId, task3, end);
+
+    // Set assignees on the tasks
+    await handleSetProperties({
+      diagramId,
+      elementId: task1,
+      properties: { 'camunda:assignee': 'requester' },
+    });
+    await handleSetProperties({
+      diagramId,
+      elementId: task2,
+      properties: { 'camunda:assignee': 'manager' },
+    });
+    await handleSetProperties({
+      diagramId,
+      elementId: task3,
+      properties: { 'camunda:assignee': 'requester' },
+    });
+
+    const res = parseResult(await handleSuggestLaneOrganization({ diagramId }));
+
+    // Should use role-based grouping
+    expect(res.groupingStrategy).toBe('role');
+
+    // Should have lanes named after the roles
+    const requesterLane = res.suggestions.find((s: any) => s.laneName === 'requester');
+    expect(requesterLane).toBeDefined();
+    expect(requesterLane.elementIds).toContain(task1);
+    expect(requesterLane.elementIds).toContain(task3);
+
+    const managerLane = res.suggestions.find((s: any) => s.laneName === 'manager');
+    expect(managerLane).toBeDefined();
+    expect(managerLane.elementIds).toContain(task2);
+  });
+
+  test('falls back to type-based grouping when only one assignee exists', async () => {
+    const diagramId = await createDiagram();
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const userTask1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Review' });
+    const serviceTask = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Process' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+
+    await connect(diagramId, start, userTask1);
+    await connect(diagramId, userTask1, serviceTask);
+    await connect(diagramId, serviceTask, end);
+
+    // Only one assignee — not enough for role-based grouping
+    await handleSetProperties({
+      diagramId,
+      elementId: userTask1,
+      properties: { 'camunda:assignee': 'admin' },
+    });
+
+    const res = parseResult(await handleSuggestLaneOrganization({ diagramId }));
+
+    // Should fall back to type-based grouping
+    expect(res.groupingStrategy).toBe('type');
+    expect(res.suggestions.find((s: any) => s.laneName === 'Human Tasks')).toBeDefined();
+    expect(res.suggestions.find((s: any) => s.laneName === 'Automated Tasks')).toBeDefined();
   });
 
   test('single category suggests no lanes needed', async () => {

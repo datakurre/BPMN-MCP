@@ -20,6 +20,65 @@ export interface SummarizeDiagramArgs {
   diagramId: string;
 }
 
+/**
+ * Build a structure recommendation based on the current diagram state.
+ * Suggests pools vs lanes based on participants, lanes, and element patterns.
+ */
+function buildStructureRecommendation(
+  participants: any[],
+  lanes: any[],
+  flowElements: any[]
+): string | null {
+  const expandedPools = participants.filter(
+    (p: any) => p.di?.isExpanded !== false && p.children && p.children.length > 0
+  );
+
+  // Multiple expanded pools → suggest checking if lanes would be more appropriate
+  if (expandedPools.length > 1) {
+    return (
+      'This diagram uses multiple expanded pools (collaboration). ' +
+      'If the pools represent roles within the same organization, consider ' +
+      'using a single pool with lanes instead. Use convert_collaboration_to_lanes or ' +
+      'create a new diagram with create_bpmn_lanes for role separation.'
+    );
+  }
+
+  // Single pool with no lanes but many distinct user task assignees
+  if (participants.length <= 1 && lanes.length === 0) {
+    const userTasks = flowElements.filter(
+      (el: any) => el.type === 'bpmn:UserTask' || el.type === 'bpmn:ManualTask'
+    );
+    if (userTasks.length >= 3) {
+      const assignees = new Set<string>();
+      for (const t of userTasks) {
+        const a = t.businessObject?.$attrs?.['camunda:assignee'] ?? t.businessObject?.assignee;
+        if (a) assignees.add(String(a));
+      }
+      if (assignees.size >= 2) {
+        return (
+          `Found ${assignees.size} distinct assignees (${[...assignees].join(', ')}) across ` +
+          `${userTasks.length} user tasks without lanes. Consider using suggest_bpmn_lane_organization ` +
+          'and create_bpmn_lanes to organize tasks by role.'
+        );
+      }
+      if (assignees.size === 0) {
+        return (
+          `Found ${userTasks.length} user/manual tasks without lanes. ` +
+          'Consider adding camunda:assignee to tasks and organizing into lanes, ' +
+          'or use suggest_bpmn_lane_organization for a type-based lane suggestion.'
+        );
+      }
+    }
+  }
+
+  // Pool with lanes — all good
+  if (lanes.length > 0) {
+    return null; // No recommendation needed
+  }
+
+  return null;
+}
+
 /** Classify a flow element as disconnected (missing expected connections). */
 function isDisconnected(el: any): boolean {
   const hasIncoming = el.incoming && el.incoming.length > 0;
@@ -88,6 +147,9 @@ export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promis
       name: el.businessObject.name,
     }));
 
+  // Structure recommendation: suggest pools vs lanes based on current state
+  const structureRecommendation = buildStructureRecommendation(participants, lanes, flowElements);
+
   return jsonResult({
     success: true,
     diagramName: diagram.name || processNames[0] || '(unnamed)',
@@ -110,6 +172,7 @@ export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promis
           })),
         }
       : {}),
+    ...(structureRecommendation ? { structureRecommendation } : {}),
   });
 }
 
