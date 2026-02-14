@@ -98,6 +98,20 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Align message flow endpoints vertically (same X coordinate) using move_bpmn_element{elementRef} to create straight vertical message flows',
   'bpmn-mcp/inconsistent-assignee-grouping':
     'Group elements with the same assignee/candidateGroups into a single lane using assign_bpmn_elements_to_lane or move_bpmn_element with laneId',
+  'bpmn-mcp/service-task-missing-implementation':
+    'Use set_bpmn_element_properties to set camunda:class, camunda:delegateExpression, camunda:expression, or camunda:type="external" with camunda:topic{elementRef}',
+  'bpmn-mcp/timer-missing-definition':
+    'Use set_bpmn_event_definition with timeDuration, timeDate, or timeCycle to configure the timer trigger{elementRef}',
+  'bpmn-mcp/call-activity-missing-called-element':
+    'Use set_bpmn_element_properties to set calledElement on the call activity{elementRef}',
+  'bpmn-mcp/event-subprocess-missing-trigger':
+    'Use set_bpmn_event_definition to add a trigger (timer, message, error, signal) to the event subprocess start event{elementRef}',
+  'bpmn-mcp/empty-subprocess':
+    'Add flow elements inside the subprocess{elementRef} using add_bpmn_element, or remove it with delete_bpmn_element',
+  'bpmn-mcp/dangling-boundary-event':
+    'Connect the boundary event{elementRef} to a downstream element using connect_bpmn_elements, or remove it with delete_bpmn_element',
+  'bpmn-mcp/receive-task-missing-message':
+    'Use manage_bpmn_root_elements to create a message definition, then set_bpmn_element_properties to assign messageRef{elementRef}',
 };
 
 /**

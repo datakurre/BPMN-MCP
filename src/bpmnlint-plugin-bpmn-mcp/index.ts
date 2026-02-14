@@ -58,6 +58,13 @@ import inconsistentAssigneeGrouping from './rules/inconsistent-assignee-grouping
 import detectSingleOrganizationCollaboration from './rules/detect-single-organization-collaboration';
 import messageFlowCrossingExcessive from './rules/message-flow-crossing-excessive';
 import missingDiShape from './rules/missing-di-shape';
+import serviceTaskMissingImplementation from './rules/service-task-missing-implementation';
+import timerMissingDefinition from './rules/timer-missing-definition';
+import callActivityMissingCalledElement from './rules/call-activity-missing-called-element';
+import eventSubprocessMissingTrigger from './rules/event-subprocess-missing-trigger';
+import emptySubprocess from './rules/empty-subprocess';
+import danglingBoundaryEvent from './rules/dangling-boundary-event';
+import receiveTaskMissingMessage from './rules/receive-task-missing-message';
 
 /**
  * All custom lint rules keyed by rule name (without plugin prefix).
@@ -115,6 +122,13 @@ export const rules: Record<string, any> = {
   'detect-single-organization-collaboration': detectSingleOrganizationCollaboration,
   'message-flow-crossing-excessive': messageFlowCrossingExcessive,
   'missing-di-shape': missingDiShape,
+  'service-task-missing-implementation': serviceTaskMissingImplementation,
+  'timer-missing-definition': timerMissingDefinition,
+  'call-activity-missing-called-element': callActivityMissingCalledElement,
+  'event-subprocess-missing-trigger': eventSubprocessMissingTrigger,
+  'empty-subprocess': emptySubprocess,
+  'dangling-boundary-event': danglingBoundaryEvent,
+  'receive-task-missing-message': receiveTaskMissingMessage,
 };
 
 export const configs = {
@@ -168,6 +182,13 @@ export const configs = {
       'bpmn-mcp/detect-single-organization-collaboration': 'info',
       'bpmn-mcp/message-flow-crossing-excessive': 'warn',
       'bpmn-mcp/missing-di-shape': 'warn',
+      'bpmn-mcp/service-task-missing-implementation': 'warn',
+      'bpmn-mcp/timer-missing-definition': 'warn',
+      'bpmn-mcp/call-activity-missing-called-element': 'warn',
+      'bpmn-mcp/event-subprocess-missing-trigger': 'error',
+      'bpmn-mcp/empty-subprocess': 'warn',
+      'bpmn-mcp/dangling-boundary-event': 'warn',
+      'bpmn-mcp/receive-task-missing-message': 'warn',
     },
   },
 };
