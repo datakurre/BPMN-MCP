@@ -9,10 +9,12 @@
  * Extracted from layout-helpers.ts to keep file sizes under the max-lines limit.
  */
 
+import { SUBPROCESS_INNER_PADDING } from '../../constants';
+
 // ── Pool/Lane overflow detection ───────────────────────────────────────────
 
 /** Margin (px) between element extent and pool/lane edge considered "tight". */
-const OVERFLOW_MARGIN = 30;
+const OVERFLOW_MARGIN = SUBPROCESS_INNER_PADDING;
 
 export interface ContainerSizingIssue {
   containerId: string;

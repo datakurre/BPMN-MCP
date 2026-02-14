@@ -10,7 +10,13 @@
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, syncXml, validateArgs, getService } from '../helpers';
 import { appendLintFeedback } from '../../linter';
-import { MIN_POOL_WIDTH, WIDTH_PER_ELEMENT, MIN_LANE_HEIGHT } from '../../constants';
+import {
+  MIN_POOL_WIDTH,
+  WIDTH_PER_ELEMENT,
+  MIN_LANE_HEIGHT,
+  MIN_POOL_ASPECT_RATIO,
+  MAX_POOL_ASPECT_RATIO,
+} from '../../constants';
 
 export interface AutosizePoolsAndLanesArgs {
   diagramId: string;
@@ -18,6 +24,12 @@ export interface AutosizePoolsAndLanesArgs {
   padding?: number;
   /** When true (default), also resizes lanes proportionally based on content. */
   resizeLanes?: boolean;
+  /**
+   * Target width:height aspect ratio for pools (e.g. 4 means 4:1).
+   * When set, pool dimensions are adjusted to approach this ratio while
+   * still fitting all elements. Clamped to [3, 5] range for readability.
+   */
+  targetAspectRatio?: number;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -97,7 +109,13 @@ function shapeChanged(shape: any, b: PoolBounds): boolean {
 
 // ── Pool bounds calculation ────────────────────────────────────────────────
 
-function computePoolBounds(pool: any, bbox: BBox, pad: number, count: number): PoolBounds {
+function computePoolBounds(
+  pool: any,
+  bbox: BBox,
+  pad: number,
+  count: number,
+  targetAspectRatio?: number
+): PoolBounds {
   const contentW = bbox.maxX - bbox.minX;
   const estW = Math.max(
     MIN_POOL_WIDTH,
@@ -107,12 +125,26 @@ function computePoolBounds(pool: any, bbox: BBox, pad: number, count: number): P
   const padL = pad + POOL_HEADER_PADDING;
   const x = Math.min(pool.x, bbox.minX - padL);
   const y = Math.min(pool.y, bbox.minY - pad);
-  return {
-    x,
-    y,
-    width: Math.max(pool.width || MIN_POOL_WIDTH, estW, bbox.maxX - x + pad),
-    height: Math.max(pool.height || 250, bbox.maxY - y + pad),
-  };
+  let width = Math.max(pool.width || MIN_POOL_WIDTH, estW, bbox.maxX - x + pad);
+  let height = Math.max(pool.height || 250, bbox.maxY - y + pad);
+
+  // Enforce aspect ratio when requested
+  if (targetAspectRatio != null) {
+    const ratio = Math.max(
+      MIN_POOL_ASPECT_RATIO,
+      Math.min(MAX_POOL_ASPECT_RATIO, targetAspectRatio)
+    );
+    const currentRatio = width / height;
+    if (currentRatio < ratio) {
+      // Too tall/narrow — increase width
+      width = Math.ceil(height * ratio);
+    } else if (currentRatio > ratio) {
+      // Too wide/short — increase height
+      height = Math.ceil(width / ratio);
+    }
+  }
+
+  return { x, y, width, height };
 }
 
 // ── Lane resizing ──────────────────────────────────────────────────────────
@@ -193,7 +225,8 @@ function processPool(
   reg: any,
   modeling: any,
   pad: number,
-  doLanes: boolean
+  doLanes: boolean,
+  targetAspectRatio?: number
 ): PoolResult {
   const name = pool.businessObject?.name || pool.id;
   const children = getChildFlowNodes(reg, pool.id);
@@ -213,7 +246,7 @@ function processPool(
     };
   }
 
-  const nb = computePoolBounds(pool, bbox, pad, children.length);
+  const nb = computePoolBounds(pool, bbox, pad, children.length, targetAspectRatio);
   const changed = shapeChanged(pool, nb);
   if (changed) modeling.resizeShape(pool, nb);
 
@@ -237,7 +270,12 @@ export async function handleAutosizePoolsAndLanes(
   args: AutosizePoolsAndLanesArgs
 ): Promise<ToolResult> {
   validateArgs(args, ['diagramId']);
-  const { diagramId, padding = DEFAULT_PADDING, resizeLanes: doLanes = true } = args;
+  const {
+    diagramId,
+    padding = DEFAULT_PADDING,
+    resizeLanes: doLanes = true,
+    targetAspectRatio,
+  } = args;
   const diagram = requireDiagram(diagramId);
   const reg = getService(diagram.modeler, 'elementRegistry');
   const modeling = getService(diagram.modeler, 'modeling');
@@ -251,7 +289,9 @@ export async function handleAutosizePoolsAndLanes(
     });
   }
 
-  const results = pools.map((p: any) => processPool(p, reg, modeling, padding, doLanes));
+  const results = pools.map((p: any) =>
+    processPool(p, reg, modeling, padding, doLanes, targetAspectRatio)
+  );
   await syncXml(diagram);
 
   const resized = results.filter((r: PoolResult) => r.resized).length;
@@ -300,6 +340,13 @@ export const TOOL_DEFINITION = {
         type: 'boolean',
         description:
           'When true (default), also resizes lanes proportionally based on their content height.',
+      },
+      targetAspectRatio: {
+        type: 'number',
+        description:
+          'Target width:height aspect ratio for pools (e.g. 4 means 4:1 width to height). ' +
+          'Pool dimensions are adjusted to approach this ratio while still fitting all elements. ' +
+          'Clamped to [3, 5] range for readability. Omit to skip aspect ratio enforcement.',
       },
     },
     required: ['diagramId'],

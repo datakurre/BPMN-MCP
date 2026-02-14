@@ -165,6 +165,24 @@ export const HEIGHT_PER_LANE = 150;
 export const MIN_POOL_HEIGHT = 250;
 
 /**
+ * Minimum padding (px) inside expanded subprocesses around their child elements.
+ *
+ * When auto-sizing subprocesses, the subprocess bounds should be at least
+ * `innerElementExtent + SUBPROCESS_INNER_PADDING` on each side.
+ */
+export const SUBPROCESS_INNER_PADDING = 30;
+
+/**
+ * Pool aspect ratio range for readability.
+ *
+ * Pools with a width:height ratio below MIN_POOL_ASPECT_RATIO look too tall/narrow,
+ * and above MAX_POOL_ASPECT_RATIO look too wide/short. The autosize tool can
+ * optionally enforce these bounds.
+ */
+export const MIN_POOL_ASPECT_RATIO = 3;
+export const MAX_POOL_ASPECT_RATIO = 5;
+
+/**
  * Calculate optimal pool dimensions based on element count and lane count.
  *
  * Width formula:  `max(1200, elementCount × 150)`

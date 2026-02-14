@@ -134,4 +134,85 @@ describe('autosize_bpmn_pools_and_lanes', () => {
 
     expect(result.success).toBe(true);
   });
+
+  test('enforces target aspect ratio on pools', async () => {
+    const diagramId = await createDiagram();
+
+    const collab = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          { name: 'Process', width: 600, height: 600 },
+          { name: 'External', collapsed: true },
+        ],
+      })
+    );
+    const poolId = collab.participantIds[0];
+
+    // Add a few elements that make the pool roughly square
+    for (let i = 0; i < 3; i++) {
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: `Task ${i + 1}`,
+        participantId: poolId,
+        x: 200 + i * 150,
+        y: 200,
+      });
+    }
+
+    const result = parseResult(
+      await handleAutosizePoolsAndLanes({
+        diagramId,
+        targetAspectRatio: 4,
+      })
+    );
+
+    expect(result.success).toBe(true);
+    const processPool = result.poolResults.find((p: any) => p.participantName === 'Process');
+    expect(processPool).toBeDefined();
+    // With targetAspectRatio=4, the width/height ratio should be close to 4
+    const ratio = processPool.newWidth / processPool.newHeight;
+    expect(ratio).toBeGreaterThanOrEqual(2.5); // Allow some tolerance
+    expect(ratio).toBeLessThanOrEqual(5.5);
+  });
+
+  test('clamps aspect ratio to valid range', async () => {
+    const diagramId = await createDiagram();
+
+    const collab = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          { name: 'Pool', width: 600, height: 250 },
+          { name: 'External', collapsed: true },
+        ],
+      })
+    );
+    const poolId = collab.participantIds[0];
+
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:UserTask',
+      name: 'Task',
+      participantId: poolId,
+      x: 200,
+      y: 200,
+    });
+
+    // Request extreme ratio (10:1) — should be clamped to 5:1
+    const result = parseResult(
+      await handleAutosizePoolsAndLanes({
+        diagramId,
+        targetAspectRatio: 10,
+      })
+    );
+
+    expect(result.success).toBe(true);
+    const pool = result.poolResults.find((p: any) => p.participantName === 'Pool');
+    expect(pool).toBeDefined();
+    const ratio = pool.newWidth / pool.newHeight;
+    // Should be clamped to max 5:1
+    expect(ratio).toBeLessThanOrEqual(6); // Allow some tolerance for content constraints
+  });
 });
