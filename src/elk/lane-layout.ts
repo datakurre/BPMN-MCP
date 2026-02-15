@@ -166,23 +166,11 @@ export function repositionLanes(
     // Total minimum height for all lane bands
     const totalLaneHeight = Array.from(laneBandHeights.values()).reduce((a, b) => a + b, 0);
 
-    // Compact: resize pool to fit lane bands exactly (shrink or grow).
-    // Previous behaviour scaled lanes up to fill an oversized pool;
-    // lane compaction instead shrinks the pool to the minimum needed.
     const poolX = pool.x;
     const poolY = pool.y;
     const poolWidth = pool.width;
 
     const newPoolHeight = totalLaneHeight;
-
-    if (Math.abs(pool.height - newPoolHeight) > 1) {
-      modeling.resizeShape(pool, {
-        x: poolX,
-        y: poolY,
-        width: poolWidth,
-        height: newPoolHeight,
-      });
-    }
 
     // Compute Y-band for each lane
     const laneBandY = new Map<string, number>();
@@ -223,7 +211,10 @@ export function repositionLanes(
       }
     }
 
-    // Position and resize each lane to tile vertically inside the pool
+    // Position and resize each lane to tile vertically inside the pool.
+    // Resize lanes FIRST, then correct the pool height.  Doing the pool
+    // resize first would cause bpmn-js to proportionally redistribute
+    // lanes, distorting the target heights.
     const laneX = poolX + POOL_LABEL_BAND;
     const laneWidth = poolWidth - POOL_LABEL_BAND;
 
@@ -238,6 +229,35 @@ export function repositionLanes(
         width: laneWidth,
         height: targetH,
       });
+    }
+
+    // Correct pool height to match the sum of lane bands.
+    // bpmn-js auto-adjusts the pool during lane resizing, but the
+    // cumulative result may not exactly equal totalLaneHeight.
+    const updatedPool = elementRegistry.get(pool.id)!;
+    if (Math.abs(updatedPool.height - newPoolHeight) > 1) {
+      modeling.resizeShape(updatedPool, {
+        x: updatedPool.x,
+        y: updatedPool.y,
+        width: updatedPool.width,
+        height: newPoolHeight,
+      });
+    }
+
+    // Re-verify lanes: pool resize may have redistributed them.
+    // A single correction pass is sufficient.
+    for (const lane of orderedLanes) {
+      const current = elementRegistry.get(lane.id)!;
+      const targetY = laneBandY.get(lane.id)!;
+      const targetH = laneBandHeights.get(lane.id)!;
+      if (Math.abs(current.height - targetH) > 2 || Math.abs(current.y - targetY) > 2) {
+        modeling.resizeShape(current, {
+          x: current.x,
+          y: targetY,
+          width: current.width,
+          height: targetH,
+        });
+      }
     }
   }
 }

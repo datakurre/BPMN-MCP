@@ -25,6 +25,14 @@ export const ELK_LAYOUT_OPTIONS: LayoutOptions = {
   'elk.layered.nodePlacement.favorStraightEdges': 'true',
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
   'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
+  // Treat gateways with many connections (>5 edges) specially to improve
+  // routing around complex decision points.  ELK places high-degree nodes
+  // into separate layers to reduce edge crossings.
+  'elk.layered.highDegreeNodes.treatment': 'true',
+  'elk.layered.highDegreeNodes.threshold': '5',
+  // Post-layout compaction minimises total edge length, tightening the
+  // layout without changing the layering or ordering.
+  'elk.layered.compaction.postCompaction.strategy': 'EDGE_LENGTH',
 };
 
 /**
