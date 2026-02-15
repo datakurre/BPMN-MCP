@@ -399,9 +399,9 @@ function boundsOverlap(a: any, b: any): boolean {
 export const TOOL_DEFINITION = {
   name: 'export_bpmn',
   description:
-    'Export a BPMN diagram as XML or SVG. By default, runs bpmnlint and blocks export if there are error-level lint issues. Set skipLint to true to bypass validation. Optionally scope to a subprocess or participant via elementId. ' +
+    'Export a BPMN diagram as XML or SVG and write it to a file. By default, runs bpmnlint and blocks export if there are error-level lint issues. Set skipLint to true to bypass validation. Optionally scope to a subprocess or participant via elementId. ' +
     "Use format 'both' to get XML and SVG in a single call. " +
-    'Use filePath to write the exported content directly to a file.',
+    'The exported content is also returned in the response.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -411,6 +411,11 @@ export const TOOL_DEFINITION = {
         enum: ['xml', 'svg', 'both'],
         description:
           "The export format: 'xml' for BPMN XML, 'svg' for SVG image, 'both' for XML and SVG in one call",
+      },
+      filePath: {
+        type: 'string',
+        description:
+          "File path to write the exported content to. For 'both' format, writes the XML portion. Directories are created automatically.",
       },
       skipLint: {
         type: 'boolean',
@@ -428,12 +433,7 @@ export const TOOL_DEFINITION = {
         description:
           'Optional ID of a SubProcess or Participant to export as a standalone diagram. When provided, lint gating is skipped.',
       },
-      filePath: {
-        type: 'string',
-        description:
-          "Optional file path to write the exported content to. For 'both' format, writes the XML portion. Directories are created automatically.",
-      },
     },
-    required: ['diagramId', 'format'],
+    required: ['diagramId', 'format', 'filePath'],
   },
 } as const;

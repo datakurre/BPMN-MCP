@@ -64,9 +64,11 @@ describe('tool-definitions', () => {
     expect(enumValues).toContain('bpmn:TextAnnotation');
   });
 
-  test('export_bpmn requires diagramId and format', () => {
+  test('export_bpmn requires diagramId, format, and filePath', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'export_bpmn');
-    expect(tool?.inputSchema.required).toEqual(expect.arrayContaining(['diagramId', 'format']));
+    expect(tool?.inputSchema.required).toEqual(
+      expect.arrayContaining(['diagramId', 'format', 'filePath'])
+    );
     const props = tool?.inputSchema.properties as any;
     expect(props.format.enum).toEqual(['xml', 'svg', 'both']);
   });

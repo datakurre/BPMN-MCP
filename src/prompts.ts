@@ -60,7 +60,7 @@ const PROMPTS: PromptDefinition[] = [
               `7. **Add exception handling**: Add boundary timer/error events where appropriate\n` +
               `8. **Layout**: Run \`layout_bpmn_diagram\` for clean arrangement\n` +
               `9. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n` +
-              `10. **Export**: Use \`export_bpmn\` to get the final BPMN XML`,
+              `10. **Export**: Use \`export_bpmn\` with a \`filePath\` to save the final BPMN XML to disk`,
           },
         },
       ];
