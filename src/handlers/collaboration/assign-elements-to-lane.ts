@@ -16,6 +16,7 @@ import {
   validateArgs,
   getService,
 } from '../helpers';
+import { removeFromAllLanes, addToLane } from '../lane-helpers';
 import { appendLintFeedback } from '../../linter';
 
 export interface AssignElementsToLaneArgs {
@@ -36,27 +37,6 @@ const NON_LANE_ASSIGNABLE = new Set([
   'bpmn:Collaboration',
   'bpmn:BoundaryEvent', // Boundary events must stay attached to their host
 ]);
-
-/** Remove an element's business object from all lanes' flowNodeRef lists. */
-function removeFromAllLanes(elementRegistry: any, elementBo: any): void {
-  const allLanes = elementRegistry.filter((el: any) => el.type === 'bpmn:Lane');
-  for (const existingLane of allLanes) {
-    const refs = existingLane.businessObject?.flowNodeRef;
-    if (Array.isArray(refs)) {
-      const idx = refs.indexOf(elementBo);
-      if (idx >= 0) refs.splice(idx, 1);
-    }
-  }
-}
-
-/** Add an element's business object to a lane's flowNodeRef list. */
-function addToLane(lane: any, elementBo: any): void {
-  const laneBo = lane.businessObject;
-  if (!laneBo) return;
-  const refs: unknown[] = (laneBo.flowNodeRef as unknown[] | undefined) || [];
-  if (!laneBo.flowNodeRef) laneBo.flowNodeRef = refs;
-  if (!refs.includes(elementBo)) refs.push(elementBo);
-}
 
 /** Reposition an element vertically to center within lane bounds. */
 function repositionInLane(

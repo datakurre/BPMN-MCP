@@ -42,6 +42,12 @@ export interface DiagramState {
   version?: number;
   /** Count of structural mutations since the last layout_bpmn_diagram call. */
   mutationsSinceLayout?: number;
+  /**
+   * Set of element IDs that have been manually positioned by the user
+   * (via move_bpmn_element). Partial re-layouts skip pinned elements
+   * unless explicitly included. Full layout clears this set.
+   */
+  pinnedElements?: Set<string>;
 }
 
 /** Shape of the JSON returned by tool handlers that wrap results. */

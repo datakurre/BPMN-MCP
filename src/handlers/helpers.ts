@@ -74,3 +74,6 @@ export {
   resolveOrCreateSignal,
   resolveOrCreateEscalation,
 } from './root-element-helpers';
+
+// ── Lane helpers ───────────────────────────────────────────────────────────
+export { removeFromAllLanes, addToLane, getLaneElements, getSiblingLanes } from './lane-helpers';

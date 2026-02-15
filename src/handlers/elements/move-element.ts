@@ -75,10 +75,8 @@ function applyResize(
 
 export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementId']);
-  const { diagramId, elementId } = args;
-  const { x, y, laneId, width, height } = args;
+  const { diagramId, elementId, x, y, laneId, width, height } = args;
 
-  // Must provide at least one operation
   const hasMove = x !== undefined || y !== undefined;
   const hasResize = width !== undefined || height !== undefined;
   const hasLane = laneId !== undefined;
@@ -93,7 +91,7 @@ export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResu
     ]);
   }
 
-  // Lane mode — handles its own flow
+  // Lane-only mode — handles its own flow
   if (hasLane && !hasMove && !hasResize) {
     return handleMoveToLane(diagramId, elementId, laneId!);
   }
@@ -105,26 +103,60 @@ export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResu
 
   const actions: string[] = [];
 
-  // Move to lane first if combined
   if (hasLane) {
     await performMoveToLane(diagram, element, laneId!);
     actions.push(`moved into lane ${laneId}`);
   }
-
-  // Move to absolute coordinates
   if (hasMove) {
     const pos = applyMove(modeling, element, x, y);
     actions.push(`moved to (${pos.x}, ${pos.y})`);
   }
-
-  // Resize
   if (hasResize) {
     const size = applyResize(modeling, elementRegistry, elementId, element, width, height);
     actions.push(`resized to ${size.width}×${size.height}`);
   }
 
+  pinElement(diagram, elementId);
   await syncXml(diagram);
 
+  const result = jsonResult(
+    buildMoveResult(elementId, actions, {
+      hasMove,
+      hasResize,
+      hasLane,
+      x,
+      y,
+      width,
+      height,
+      laneId,
+      element,
+    })
+  );
+  return appendLintFeedback(result, diagram);
+}
+
+/** Mark an element as manually pinned (survives partial re-layouts). */
+function pinElement(diagram: DiagramState, elementId: string): void {
+  if (!diagram.pinnedElements) diagram.pinnedElements = new Set();
+  diagram.pinnedElements.add(elementId);
+}
+
+/** Build the response data for a move/resize operation. */
+function buildMoveResult(
+  elementId: string,
+  actions: string[],
+  ctx: {
+    hasMove: boolean;
+    hasResize: boolean;
+    hasLane: boolean;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    laneId?: string;
+    element: BpmnElement;
+  }
+): Record<string, unknown> {
   const data: Record<string, unknown> = {
     success: true,
     elementId,
@@ -136,12 +168,15 @@ export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResu
       },
     ],
   };
-  if (hasMove) data.position = { x: x ?? element.x, y: y ?? element.y };
-  if (hasResize) data.newSize = { width: width ?? element.width, height: height ?? element.height };
-  if (hasLane) data.laneId = laneId;
-
-  const result = jsonResult(data);
-  return appendLintFeedback(result, diagram);
+  if (ctx.hasMove) data.position = { x: ctx.x ?? ctx.element.x, y: ctx.y ?? ctx.element.y };
+  if (ctx.hasResize) {
+    data.newSize = {
+      width: ctx.width ?? ctx.element.width,
+      height: ctx.height ?? ctx.element.height,
+    };
+  }
+  if (ctx.hasLane) data.laneId = ctx.laneId;
+  return data;
 }
 
 /**

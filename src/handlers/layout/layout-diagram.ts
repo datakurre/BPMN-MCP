@@ -232,19 +232,39 @@ async function executeLayout(
 export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<ToolResult> {
   if (args.dryRun) return handleDryRunLayout(args);
 
-  const { diagramId, scopeElementId, elementIds } = args;
+  const { diagramId, scopeElementId } = args;
+  let { elementIds } = args;
   const pixelGridSnap = typeof args.gridSnap === 'number' ? args.gridSnap : undefined;
   const diagram = requireDiagram(diagramId);
+
+  // For partial layout, filter out pinned elements
+  const pinnedSkipped: string[] = [];
+  if (elementIds && elementIds.length > 0 && diagram.pinnedElements?.size) {
+    const filtered = elementIds.filter((id) => !diagram.pinnedElements!.has(id));
+    if (filtered.length < elementIds.length) {
+      pinnedSkipped.push(...elementIds.filter((id) => diagram.pinnedElements!.has(id)));
+      elementIds = filtered;
+    }
+  }
+
+  // Build layout args with potentially filtered elementIds
+  const layoutArgs: LayoutDiagramArgs =
+    elementIds !== args.elementIds ? { ...args, elementIds } : args;
 
   // Repair missing DI shapes before layout so ELK can position all elements
   const repairs = await repairMissingDiShapes(diagram);
 
-  const { layoutResult, usedDeterministic } = await executeLayout(diagram, args);
+  const { layoutResult, usedDeterministic } = await executeLayout(diagram, layoutArgs);
 
   if (pixelGridSnap && pixelGridSnap > 0) applyPixelGridSnap(diagram, pixelGridSnap);
 
   // Remove duplicate DI entries that may have been created during layout
   deduplicateDiInModeler(diagram);
+
+  // Full layout clears pinned state — all elements have been repositioned
+  if (!elementIds && !scopeElementId) {
+    diagram.pinnedElements = undefined;
+  }
 
   await syncXml(diagram);
   resetMutationCounter(diagram);
@@ -293,6 +313,7 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
     usedDeterministic,
     diWarnings: allDiWarnings,
     poolExpansionApplied,
+    pinnedSkipped,
   });
   return appendLintFeedback(result, diagram);
 }

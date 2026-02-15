@@ -194,6 +194,7 @@ export function buildLayoutResult(params: {
   usedDeterministic?: boolean;
   diWarnings?: string[];
   poolExpansionApplied?: boolean;
+  pinnedSkipped?: string[];
 }): ToolResult {
   const {
     diagramId,
@@ -206,6 +207,7 @@ export function buildLayoutResult(params: {
     usedDeterministic,
     diWarnings,
     poolExpansionApplied,
+    pinnedSkipped,
   } = params;
   const crossingCount = layoutResult.crossingFlows ?? 0;
   const crossingPairs = layoutResult.crossingFlowPairs ?? [];
@@ -246,6 +248,12 @@ export function buildLayoutResult(params: {
     message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''}${usedDeterministic ? ' (deterministic)' : ''} — ${elementCount} elements arranged`,
     ...(diWarnings && diWarnings.length > 0 ? { diWarnings } : {}),
     ...(poolExpansionApplied ? { poolExpansionApplied: true } : {}),
+    ...(pinnedSkipped && pinnedSkipped.length > 0
+      ? {
+          pinnedSkipped,
+          pinnedNote: `${pinnedSkipped.length} manually-positioned element(s) skipped`,
+        }
+      : {}),
     nextSteps: buildNextSteps(laneCrossingMetrics, sizingIssues, poolExpansionApplied),
   });
 }
