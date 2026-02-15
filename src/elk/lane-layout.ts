@@ -164,25 +164,15 @@ export function repositionLanes(
     }
 
     // Total minimum height for all lane bands
-    let totalLaneHeight = Array.from(laneBandHeights.values()).reduce((a, b) => a + b, 0);
+    const totalLaneHeight = Array.from(laneBandHeights.values()).reduce((a, b) => a + b, 0);
 
-    // If the pool is taller than the minimum, scale lane heights
-    // proportionally to fill the pool.  This preserves the relative
-    // sizing while using all available vertical space.
+    // Compact: resize pool to fit lane bands exactly (shrink or grow).
+    // Previous behaviour scaled lanes up to fill an oversized pool;
+    // lane compaction instead shrinks the pool to the minimum needed.
     const poolX = pool.x;
     const poolY = pool.y;
     const poolWidth = pool.width;
 
-    if (pool.height > totalLaneHeight) {
-      const scale = pool.height / totalLaneHeight;
-      for (const lane of orderedLanes) {
-        const scaled = Math.round(laneBandHeights.get(lane.id)! * scale);
-        laneBandHeights.set(lane.id, scaled);
-      }
-      totalLaneHeight = pool.height;
-    }
-
-    // Resize pool to fit all lane bands (only if it needs to grow)
     const newPoolHeight = totalLaneHeight;
 
     if (Math.abs(pool.height - newPoolHeight) > 1) {

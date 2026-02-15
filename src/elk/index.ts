@@ -26,7 +26,8 @@
  * 8.7. Separate overlapping collinear gateway flows → separateOverlappingGatewayFlows()
  * 8.8. Route loopback (backward) flows below main path → routeLoopbacksBelow()
  * 9. Final orthogonal snap → snapAllConnectionsOrthogonal()
- * 10. Detect crossing flows → detectCrossingFlows()
+ * 10. Reduce edge crossings → reduceCrossings()
+ * 11. Detect crossing flows → detectCrossingFlows()
  */
 
 import type { DiagramState } from '../types';
@@ -89,7 +90,7 @@ import {
   alignHappyPath,
   alignOffPathEndEvents,
 } from './grid-snap';
-import { detectCrossingFlows } from './crossing-detection';
+import { detectCrossingFlows, reduceCrossings } from './crossing-detection';
 import { resolveOverlaps } from './overlap-resolution';
 import type { ElkLayoutOptions } from './types';
 
@@ -433,6 +434,9 @@ export async function elkLayout(
   finaliseBoundaryTargets(ctx);
   applyEdgeRoutes(ctx);
   repairAndSimplifyEdges(ctx);
+
+  // Attempt to reduce edge crossings by nudging waypoints
+  reduceCrossings(elementRegistry, modeling);
 
   const crossingFlowsResult = detectCrossingFlows(elementRegistry);
   return {

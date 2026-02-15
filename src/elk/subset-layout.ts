@@ -32,7 +32,7 @@ import {
   buildZShapeRoute,
 } from './edge-routing';
 import { snapAllConnectionsOrthogonal } from './snap-alignment';
-import { detectCrossingFlows } from './crossing-detection';
+import { detectCrossingFlows, reduceCrossings } from './crossing-detection';
 import type { ElkLayoutOptions } from './types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -279,6 +279,9 @@ export async function elkLayoutSubset(
   removeMicroBends(elementRegistry, modeling);
   routeLoopbacksBelow(elementRegistry, modeling);
   snapAllConnectionsOrthogonal(elementRegistry, modeling);
+
+  // Attempt to reduce edge crossings by nudging waypoints
+  reduceCrossings(elementRegistry, modeling);
 
   // Report crossing flows for the laid-out region
   const crossingFlowsResult = detectCrossingFlows(elementRegistry);
