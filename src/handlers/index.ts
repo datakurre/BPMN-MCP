@@ -295,6 +295,17 @@ export async function dispatchToolCall(name: string, args: any): Promise<ToolRes
 }
 
 // ── Re-export every handler so existing imports keep working ───────────────
+//
+// NOTE: Some handlers are internal helpers called by other tools, not exposed
+// directly via MCP:
+//   • handleAutoConnect, handleCreateDataAssociation — used by connect handler
+//   • handleUndoChange, handleRedoChange — used by history handler
+//   • handleMoveToLane — used by move-element handler
+//   • handleSummarizeDiagram — used by resources
+//   • handleCreateCollaboration — used by create-participant handler
+//   • handleInsertElement — used by add-element handler (via flowId)
+//
+// All other handlers are registered in TOOL_REGISTRY and exposed as MCP tools.
 
 export {
   handleCreateDiagram,
