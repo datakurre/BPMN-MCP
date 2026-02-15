@@ -6,6 +6,7 @@
  * multiple times. Internally uses add_bpmn_element with afterElementId
  * chaining.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { missingRequiredError, typeMismatchError } from '../../errors';

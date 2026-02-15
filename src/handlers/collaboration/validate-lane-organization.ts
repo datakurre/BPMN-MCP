@@ -5,6 +5,7 @@
  * cross-lane flow frequency, zigzag patterns, single-element lanes, and
  * overall coherence. Returns structured issues with fix suggestions.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, validateArgs } from '../helpers';

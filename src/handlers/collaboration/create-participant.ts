@@ -9,6 +9,7 @@
  * participants, and add_bpmn_element with type bpmn:Participant does not
  * support processId or isExecutable options.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { duplicateError } from '../../errors';

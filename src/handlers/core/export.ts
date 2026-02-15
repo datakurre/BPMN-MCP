@@ -9,6 +9,7 @@
  * Implicit lint: by default, export runs bpmnlint and appends error-level
  * issues to the response.  Set `skipLint: true` to bypass.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import { exportFailedError } from '../../errors';

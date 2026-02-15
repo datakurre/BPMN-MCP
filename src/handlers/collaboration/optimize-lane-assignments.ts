@@ -7,6 +7,7 @@
  *    using the `minimize-crossings` strategy.
  * 3. Reports before/after metrics so the caller can see the improvement.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, validateArgs, syncXml } from '../helpers';

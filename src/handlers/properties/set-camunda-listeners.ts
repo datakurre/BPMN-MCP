@@ -7,6 +7,7 @@
  * Task listeners are specific to UserTasks.
  * Error definitions are specific to ServiceTasks (Camunda 7 External Task error handling).
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { missingRequiredError, typeMismatchError } from '../../errors';

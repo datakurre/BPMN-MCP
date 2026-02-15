@@ -6,6 +6,7 @@
  * connectivity patterns. Returns a structured suggestion with lane names,
  * assigned elements, and reasoning.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, validateArgs } from '../helpers';

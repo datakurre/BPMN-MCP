@@ -6,6 +6,7 @@
  * and optional name — a very common operation when modifying existing
  * diagrams.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';

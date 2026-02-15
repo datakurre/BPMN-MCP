@@ -4,6 +4,7 @@
  * Sets loop characteristics on tasks for standard loops,
  * parallel multi-instance, and sequential multi-instance.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError, invalidEnumError } from '../../errors';

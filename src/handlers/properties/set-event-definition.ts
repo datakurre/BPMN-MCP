@@ -1,6 +1,7 @@
 /**
  * Handler for set_event_definition tool.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { illegalCombinationError, missingRequiredError, typeMismatchError } from '../../errors';

@@ -5,6 +5,7 @@
  * overcrowded or when elements are not optimally assigned. Uses role-based
  * matching, flow-neighbor analysis, and lane capacity balancing.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import {

@@ -8,6 +8,7 @@
  * Camunda 7 CallActivities use camunda:in / camunda:out for passing
  * variables between parent and called process.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { missingRequiredError, typeMismatchError } from '../../errors';

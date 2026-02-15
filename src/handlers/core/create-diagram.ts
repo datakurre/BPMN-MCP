@@ -1,6 +1,7 @@
 /**
  * Handler for create_bpmn_diagram tool.
  */
+// @mutating
 
 import { type ToolResult, type HintLevel } from '../../types';
 import { storeDiagram, generateDiagramId, createModeler } from '../../diagram-manager';

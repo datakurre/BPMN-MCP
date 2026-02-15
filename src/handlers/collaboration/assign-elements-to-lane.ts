@@ -4,6 +4,7 @@
  * Bulk-assigns multiple elements to a lane, updating their flowNodeRef
  * membership and optionally repositioning them vertically within the lane.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError } from '../../errors';

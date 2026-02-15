@@ -7,6 +7,7 @@
 
 import { isConnection } from './helpers';
 import type { ElementRegistry, Modeling } from '../bpmn-types';
+import { cloneWaypoints } from '../geometry';
 import { buildZShapeRoute } from './edge-routing-helpers';
 import {
   DIFFERENT_ROW_THRESHOLD,
@@ -139,10 +140,7 @@ export function simplifyCollinearWaypoints(
   );
 
   for (const conn of connections) {
-    const wps: Array<{ x: number; y: number }> = conn.waypoints!.map((wp: any) => ({
-      x: wp.x,
-      y: wp.y,
-    }));
+    const wps = cloneWaypoints(conn.waypoints!);
 
     const simplified = removeCollinearPoints(wps);
 
@@ -223,10 +221,7 @@ export function removeMicroBends(elementRegistry: ElementRegistry, modeling: Mod
   );
 
   for (const conn of connections) {
-    const wps: Array<{ x: number; y: number }> = conn.waypoints!.map((wp: any) => ({
-      x: wp.x,
-      y: wp.y,
-    }));
+    const wps = cloneWaypoints(conn.waypoints!);
 
     // Pass 1: remove near-collinear triples (micro-wiggle)
     let simplified = removeNearCollinearPoints(wps);
@@ -298,7 +293,7 @@ function mergeShortSegments(wps: Array<{ x: number; y: number }>): Array<{ x: nu
   if (wps.length < 4) return wps;
 
   // Work on a copy so we can mutate in-place
-  const result = wps.map((wp) => ({ x: wp.x, y: wp.y }));
+  const result = cloneWaypoints(wps);
   let changed = false;
 
   for (let i = 0; i < result.length - 3; i++) {

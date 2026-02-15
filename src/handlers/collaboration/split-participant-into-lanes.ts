@@ -5,6 +5,7 @@
  * distributes them into lanes based on a chosen strategy (by task type,
  * or by explicit lane definitions with element lists).
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError, missingRequiredError, illegalCombinationError } from '../../errors';

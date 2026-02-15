@@ -5,6 +5,7 @@
  * preserving connections, position, name, and other properties.
  * Uses bpmn-js's built-in bpmnReplace service when available.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import {

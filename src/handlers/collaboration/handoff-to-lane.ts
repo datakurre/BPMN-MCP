@@ -8,6 +8,7 @@
  * This reduces the multi-step pattern of:
  *   add_bpmn_element → assign_bpmn_elements_to_lane → connect_bpmn_elements
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError, semanticViolationError } from '../../errors';

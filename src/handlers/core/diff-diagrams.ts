@@ -4,6 +4,7 @@
  * Compares two diagrams and returns a structured diff of additions,
  * removals, and changes.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import {

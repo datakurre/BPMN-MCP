@@ -5,6 +5,7 @@
  * a specific diagram. When diagramId is provided, returns a detailed
  * summary; when omitted, lists all diagrams.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import { getAllDiagrams } from '../../diagram-manager';

@@ -1,6 +1,7 @@
 /**
  * Handler for delete_diagram tool.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { deleteDiagram as deleteDiagramFromStore } from '../../diagram-manager';

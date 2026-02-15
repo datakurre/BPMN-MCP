@@ -10,6 +10,7 @@
  * interchange) coordinates, then elkjs (ELK layered algorithm) improves
  * the layout quality.
  */
+// @mutating
 
 import { type ToolResult, type HintLevel } from '../../types';
 import { storeDiagram, generateDiagramId, createModelerFromXml } from '../../diagram-manager';

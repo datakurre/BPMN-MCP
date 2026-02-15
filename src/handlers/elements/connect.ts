@@ -8,6 +8,7 @@
  * - Chain mode: elementIds array (former auto_connect)
  * - Data associations: auto-detected when source/target is a data object/store
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import type { BpmnElement } from '../../bpmn-types';

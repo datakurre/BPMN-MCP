@@ -11,6 +11,7 @@
 
 import { isConnection } from './helpers';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
+import { cloneWaypoints } from '../geometry';
 import { deduplicateWaypoints, buildZShapeRoute } from './edge-routing-helpers';
 import {
   DISCONNECT_THRESHOLD,
@@ -95,10 +96,7 @@ export function fixDisconnectedEdges(elementRegistry: ElementRegistry, modeling:
   for (const conn of connections) {
     const src = conn.source!;
     const tgt = conn.target!;
-    const wps: Array<{ x: number; y: number }> = conn.waypoints!.map((wp: any) => ({
-      x: wp.x,
-      y: wp.y,
-    }));
+    const wps = cloneWaypoints(conn.waypoints!);
 
     const srcCentre = elementCentre(src);
     const tgtCentre = elementCentre(tgt);
@@ -234,10 +232,7 @@ export function snapEndpointsToElementCentres(
   for (const conn of connections) {
     const src = conn.source!;
     const tgt = conn.target!;
-    const wps: Array<{ x: number; y: number }> = conn.waypoints!.map((wp: any) => ({
-      x: wp.x,
-      y: wp.y,
-    }));
+    const wps = cloneWaypoints(conn.waypoints!);
 
     const srcCy = Math.round(src.y + (src.height || 0) / 2);
     const srcCx = Math.round(src.x + (src.width || 0) / 2);

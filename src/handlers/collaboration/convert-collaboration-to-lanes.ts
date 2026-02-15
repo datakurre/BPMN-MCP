@@ -16,6 +16,7 @@
  *   7. Remove now-empty pools
  *   8. Optionally run layout
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { semanticViolationError } from '../../errors';

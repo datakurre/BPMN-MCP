@@ -9,6 +9,7 @@
 import { detectLayers } from './grid-snap';
 import { CHANNEL_GW_PROXIMITY, MIN_CHANNEL_WIDTH, CHANNEL_MARGIN_FACTOR } from './constants';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
+import { cloneWaypoints } from '../geometry';
 
 /**
  * Re-route vertical segments of gateway branch connections through the
@@ -191,7 +192,7 @@ export function routeBranchConnectionsThroughChannels(
       const tgtLeft = conn.target!.x;
       if (channelX <= srcRight || channelX >= tgtLeft) continue;
 
-      const newWps = wps.map((wp: { x: number; y: number }) => ({ x: wp.x, y: wp.y }));
+      const newWps = cloneWaypoints(wps);
       newWps[vertSegIndex].x = channelX;
       newWps[vertSegIndex + 1].x = channelX;
       modeling.updateWaypoints(conn, newWps);

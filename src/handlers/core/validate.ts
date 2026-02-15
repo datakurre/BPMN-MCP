@@ -9,6 +9,7 @@
  * Merges the former lint_bpmn_diagram tool — the config override and
  * per-severity counts are now part of this single tool.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, validateArgs } from '../helpers';

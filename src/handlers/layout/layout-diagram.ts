@@ -9,6 +9,7 @@
  * Supports partial re-layout via `elementIds` — only the specified
  * elements and their inter-connections are arranged.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, syncXml, getVisibleElements, getService } from '../helpers';

@@ -6,6 +6,7 @@
  * (which targets a single pool), this tool handles the entire diagram and
  * also calculates dynamic pool widths based on element count and nesting.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, syncXml, validateArgs, getService } from '../helpers';

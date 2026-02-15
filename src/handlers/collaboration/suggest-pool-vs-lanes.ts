@@ -12,6 +12,7 @@
  * - Message flow patterns (fire-and-forget vs bidirectional)
  * - Pool naming patterns suggesting same-org roles
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, validateArgs } from '../helpers';

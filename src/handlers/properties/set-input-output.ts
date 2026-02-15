@@ -6,6 +6,7 @@
  * `sourceExpression` — those belong to `camunda:In`/`camunda:Out` for call
  * activity variable mapping, not to `camunda:InputParameter`.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import {

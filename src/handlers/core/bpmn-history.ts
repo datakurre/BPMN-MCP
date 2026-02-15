@@ -4,6 +4,7 @@
  * Merges the former undo_bpmn_change and redo_bpmn_change tools into a
  * single tool with `action: "undo" | "redo"` and optional `steps` param.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, jsonResult, syncXml, validateArgs, getService } from '../helpers';

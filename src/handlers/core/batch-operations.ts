@@ -4,6 +4,7 @@
  * Accepts an array of operations and executes them sequentially,
  * reducing round-trips for complex diagram construction.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { missingRequiredError, semanticViolationError } from '../../errors';

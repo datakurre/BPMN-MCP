@@ -1,6 +1,7 @@
 /**
  * Handler for add_bpmn_element tool.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import {

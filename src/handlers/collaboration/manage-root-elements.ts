@@ -4,6 +4,7 @@
  * Manages shared root-level bpmn:Message and bpmn:Signal definitions that
  * can be referenced from multiple events across the diagram.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { missingRequiredError } from '../../errors';

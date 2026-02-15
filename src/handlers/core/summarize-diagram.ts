@@ -5,6 +5,7 @@
  * counts by type, participant/lane names, and connectivity stats.
  * Useful for AI callers to orient before making changes.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import {

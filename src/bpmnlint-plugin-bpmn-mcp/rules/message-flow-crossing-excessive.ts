@@ -15,10 +15,7 @@ const isType = (node: any, type: string): boolean =>
 /** Maximum allowed crossings per message flow before warning. */
 const MAX_CROSSINGS = 2;
 
-interface Point {
-  x: number;
-  y: number;
-}
+import type { Point } from '../../geometry';
 
 /**
  * Determine if two line segments (p1→p2) and (p3→p4) intersect.

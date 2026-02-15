@@ -3,6 +3,7 @@
  *
  * Exposes label adjustment as an explicit MCP tool.
  */
+// @mutating
 
 import { type ToolResult } from '../../../types';
 import { validateArgs, requireDiagram, jsonResult } from '../../helpers';

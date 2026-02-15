@@ -1,6 +1,7 @@
 /**
  * Handler for clone_diagram tool.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { storeDiagram, generateDiagramId, createModelerFromXml } from '../../diagram-manager';

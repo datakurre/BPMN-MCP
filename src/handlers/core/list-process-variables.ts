@@ -11,6 +11,7 @@
  * - Loop characteristics (collection, elementVariable)
  * - Execution/task listener scripts
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import {

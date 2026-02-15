@@ -4,6 +4,7 @@
  * Sets inline script content on a ScriptTask element, including
  * the script body, format (language), and optional result variable.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { illegalCombinationError, missingRequiredError, typeMismatchError } from '../../errors';

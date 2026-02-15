@@ -7,6 +7,7 @@
  * When `x`/`y` are provided, moves to absolute coordinates.
  * Multiple operations can be combined in a single call.
  */
+// @mutating
 
 import { type ToolResult, type DiagramState } from '../../types';
 import type { BpmnElement, Modeling, ElementRegistry } from '../../bpmn-types';

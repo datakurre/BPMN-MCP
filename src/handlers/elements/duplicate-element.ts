@@ -3,6 +3,7 @@
  *
  * Copies an element with its properties and places it at an offset position.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError, createMcpError, ERR_INTERNAL } from '../../errors';

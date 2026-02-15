@@ -5,6 +5,7 @@
  * participant pool.  Each lane gets proper DI bounds and is sized to
  * divide the pool height evenly (or as specified).
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { missingRequiredError, typeMismatchError } from '../../errors';

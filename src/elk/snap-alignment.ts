@@ -4,6 +4,7 @@
 
 import { ELK_LAYER_SPACING } from '../constants';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
+import { cloneWaypoints } from '../geometry';
 import {
   SAME_ROW_THRESHOLD,
   ORTHO_SNAP_TOLERANCE,
@@ -133,7 +134,7 @@ export function snapAllConnectionsOrthogonal(
     let changed = false;
 
     // Build snapped copy of waypoints
-    const snapped = wps.map((wp: { x: number; y: number }) => ({ x: wp.x, y: wp.y }));
+    const snapped = cloneWaypoints(wps);
 
     for (let i = 1; i < snapped.length; i++) {
       const prev = snapped[i - 1];

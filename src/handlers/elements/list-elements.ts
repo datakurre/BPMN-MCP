@@ -5,6 +5,7 @@
  * Optional filters (namePattern, elementType, property) allow searching
  * within the same tool — merges the former search_bpmn_elements tool.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import {

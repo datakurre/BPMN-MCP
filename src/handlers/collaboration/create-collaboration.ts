@@ -4,6 +4,7 @@
  * Higher-level helper for creating collaboration diagrams with multiple
  * participants (pools) and optional message flows between them.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { duplicateError, missingRequiredError } from '../../errors';

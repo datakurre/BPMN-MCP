@@ -5,6 +5,7 @@
  * Useful for deterministic routing of loopbacks, cross-lane handoffs,
  * and other special cases where the auto-router produces suboptimal paths.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import {

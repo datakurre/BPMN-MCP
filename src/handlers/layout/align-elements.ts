@@ -5,6 +5,7 @@
  * Supports an optional `compact` flag that, when true, also redistributes
  * elements along the perpendicular axis with ~50px edge-to-edge gaps.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';

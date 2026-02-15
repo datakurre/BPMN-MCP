@@ -17,19 +17,8 @@ import {
   isLayoutableShape,
 } from './helpers';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
+import { type Rect, rectsOverlap } from '../geometry';
 import { MIN_OVERLAP_GAP, OVERLAP_MAX_ITERATIONS } from './constants';
-
-interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** Check if two rectangles overlap (with zero tolerance). */
-function rectsOverlap(a: Rect, b: Rect): boolean {
-  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-}
 
 /**
  * Resolve overlapping elements by pushing them apart vertically.

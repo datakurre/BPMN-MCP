@@ -6,6 +6,7 @@
  * common failure mode where agents re-add elements when trying to create
  * a collaboration from an existing process.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { semanticViolationError } from '../../errors';

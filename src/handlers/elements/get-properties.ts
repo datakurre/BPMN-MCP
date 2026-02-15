@@ -5,6 +5,7 @@
  * extension elements (I/O mapping, form data), connections, and
  * event definitions for a given element.
  */
+// @readonly
 
 import { type ToolResult } from '../../types';
 import { requireDiagram, requireElement, jsonResult, getService } from '../helpers';

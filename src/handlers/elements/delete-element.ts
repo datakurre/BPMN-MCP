@@ -4,6 +4,7 @@
  * Supports both single element deletion (elementId) and bulk deletion
  * (elementIds array) to avoid repeated round-trips.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import type { BpmnElement } from '../../bpmn-types';

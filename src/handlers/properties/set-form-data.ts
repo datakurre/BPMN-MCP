@@ -5,6 +5,7 @@
  * elements on User Tasks and Start Events.  This produces "Generated Task
  * Forms" (as opposed to "Embedded or External Task Forms" via formKey).
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError } from '../../errors';

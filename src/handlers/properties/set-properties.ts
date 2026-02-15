@@ -9,6 +9,7 @@
  *
  * For loop characteristics, use the dedicated set_loop_characteristics tool.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import {

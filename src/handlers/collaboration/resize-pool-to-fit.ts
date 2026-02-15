@@ -5,6 +5,7 @@
  * (and optionally its lanes) to fit all elements with proper margins.
  * Solves the common problem of elements overflowing pool boundaries.
  */
+// @mutating
 
 import { type ToolResult } from '../../types';
 import { typeMismatchError } from '../../errors';
