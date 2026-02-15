@@ -74,58 +74,58 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubProcess_HandleCancellation_di" bpmnElement="SubProcess_HandleCancellation" isExpanded="true">
-        <dc:Bounds x="120" y="190" width="490" height="150" />
+        <dc:Bounds x="120" y="190" width="490" height="160" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="StartEvent_CancellationRequested_di" bpmnElement="StartEvent_CancellationRequested">
-        <dc:Bounds x="152" y="242" width="36" height="36" />
+        <dc:Bounds x="152" y="252" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="140" y="285" width="61" height="27" />
+          <dc:Bounds x="140" y="295" width="61" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_ConfirmCancellation_di" bpmnElement="UserTask_ConfirmCancellation">
-        <dc:Bounds x="240" y="220" width="100" height="80" />
+        <dc:Bounds x="240" y="230" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_OrderCancelled_di" bpmnElement="EndEvent_OrderCancelled">
-        <dc:Bounds x="542" y="242" width="36" height="36" />
+        <dc:Bounds x="542" y="252" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="520" y="285" width="81" height="14" />
+          <dc:Bounds x="520" y="295" width="81" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_CancellationRequested_to_ConfirmCancellation_di" bpmnElement="Flow_CancellationRequested_to_ConfirmCancellation">
-        <di:waypoint x="188" y="260" />
-        <di:waypoint x="240" y="260" />
+        <di:waypoint x="188" y="270" />
+        <di:waypoint x="240" y="270" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_ConfirmCancellation_to_OrderCancelled_di" bpmnElement="Flow_ConfirmCancellation_to_OrderCancelled">
-        <di:waypoint x="340" y="260" />
-        <di:waypoint x="542" y="260" />
+        <di:waypoint x="340" y="270" />
+        <di:waypoint x="542" y="270" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="SubProcess_MonitorProgress_di" bpmnElement="SubProcess_MonitorProgress" isExpanded="true">
-        <dc:Bounds x="120" y="370" width="490" height="150" />
+        <dc:Bounds x="120" y="380" width="490" height="160" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="StartEvent_EveryHour_di" bpmnElement="StartEvent_EveryHour">
-        <dc:Bounds x="152" y="422" width="36" height="36" />
+        <dc:Bounds x="152" y="442" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="142" y="465" width="56" height="14" />
+          <dc:Bounds x="142" y="485" width="56" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ServiceTask_SendStatusUpdate_di" bpmnElement="ServiceTask_SendStatusUpdate">
-        <dc:Bounds x="240" y="400" width="100" height="80" />
+        <dc:Bounds x="240" y="420" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_StatusSent_di" bpmnElement="EndEvent_StatusSent">
-        <dc:Bounds x="542" y="422" width="36" height="36" />
+        <dc:Bounds x="542" y="442" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="532" y="465" width="58" height="14" />
+          <dc:Bounds x="532" y="485" width="58" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_EveryHour_to_SendStatusUpdate_di" bpmnElement="Flow_EveryHour_to_SendStatusUpdate">
-        <di:waypoint x="188" y="440" />
-        <di:waypoint x="240" y="440" />
+        <di:waypoint x="188" y="460" />
+        <di:waypoint x="240" y="460" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_SendStatusUpdate_to_StatusSent_di" bpmnElement="Flow_SendStatusUpdate_to_StatusSent">
-        <di:waypoint x="340" y="440" />
-        <di:waypoint x="542" y="440" />
+        <di:waypoint x="340" y="460" />
+        <di:waypoint x="542" y="460" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_OrderReceived_to_ProcessOrder_di" bpmnElement="Flow_OrderReceived_to_ProcessOrder">
         <di:waypoint x="188" y="120" />
