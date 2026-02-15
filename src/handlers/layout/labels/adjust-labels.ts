@@ -200,6 +200,36 @@ function tryRepositionLabel(
 }
 
 /**
+ * Normalise labels to canonical positions before the scoring pass.
+ *
+ * After ELK layout, some labels retain their bpmn-js default offset
+ * (e.g. 7px below events) while others get displaced and later
+ * corrected to the canonical candidate offset (15px below events).
+ * This creates inconsistent vertical gaps for labels that should look
+ * identical (e.g. Start vs End event).  Fix by snapping every label
+ * that is already at its preferred orientation to the canonical
+ * candidate position.
+ */
+function normaliseLabelPositions(labelBearers: any[], modeling: any): void {
+  for (const el of labelBearers) {
+    const label = el.label;
+    if (!label) continue;
+    const orientation = getCurrentLabelOrientation(el, label);
+    const actualLabelSize = { width: label.width || 90, height: label.height || 20 };
+    const candidates = getLabelCandidatePositions(el, actualLabelSize);
+    const preferredCandidate = candidates[0];
+    if (!preferredCandidate || orientation !== preferredCandidate.orientation) continue;
+
+    // Snap to canonical position if more than 1px off
+    const dx = Math.round(preferredCandidate.rect.x - label.x);
+    const dy = Math.round(preferredCandidate.rect.y - label.y);
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      modeling.moveShape(label as unknown as BpmnElement, { x: dx, y: dy });
+    }
+  }
+}
+
+/**
  * Adjust all external labels in a diagram to minimise overlap with
  * connections and other labels.
  *
@@ -233,6 +263,8 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
   );
 
   if (labelBearers.length === 0) return 0;
+
+  normaliseLabelPositions(labelBearers, modeling);
 
   // Collect current label rects for cross-label overlap checking
   const labelRects = new Map<string, Rect>();

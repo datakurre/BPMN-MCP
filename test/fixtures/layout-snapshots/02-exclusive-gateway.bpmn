@@ -59,13 +59,13 @@
       <bpmndi:BPMNShape id="Gateway_0jdocql_di" bpmnElement="Gateway_0jdocql" isMarkerVisible="true">
         <dc:Bounds x="453" y="115" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="452" y="85" width="54" height="14" />
+          <dc:Bounds x="451" y="91" width="54" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_1hd85cz_di" bpmnElement="Gateway_1hd85cz" isMarkerVisible="true">
         <dc:Bounds x="733" y="115" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="742" y="85" width="32" height="14" />
+          <dc:Bounds x="742" y="91" width="32" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0a768vd_di" bpmnElement="Event_0a768vd">
