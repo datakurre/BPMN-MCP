@@ -3,7 +3,13 @@
  */
 
 import type { LayoutOptions } from 'elkjs';
-import { ELK_LAYER_SPACING, ELK_NODE_SPACING, ELK_EDGE_NODE_SPACING } from '../constants';
+import {
+  ELK_LAYER_SPACING,
+  ELK_NODE_SPACING,
+  ELK_EDGE_NODE_SPACING,
+  ELK_EDGE_EDGE_BETWEEN_LAYERS_SPACING,
+  ELK_EDGE_NODE_BETWEEN_LAYERS_SPACING,
+} from '../constants';
 
 /** Default ELK layout options tuned for BPMN diagrams. */
 export const ELK_LAYOUT_OPTIONS: LayoutOptions = {
@@ -12,8 +18,11 @@ export const ELK_LAYOUT_OPTIONS: LayoutOptions = {
   'elk.spacing.nodeNode': String(ELK_NODE_SPACING),
   'elk.layered.spacing.nodeNodeBetweenLayers': String(ELK_LAYER_SPACING),
   'elk.spacing.edgeNode': String(ELK_EDGE_NODE_SPACING),
+  'elk.layered.spacing.edgeEdgeBetweenLayers': String(ELK_EDGE_EDGE_BETWEEN_LAYERS_SPACING),
+  'elk.layered.spacing.edgeNodeBetweenLayers': String(ELK_EDGE_NODE_BETWEEN_LAYERS_SPACING),
   'elk.edgeRouting': 'ORTHOGONAL',
   'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+  'elk.layered.nodePlacement.favorStraightEdges': 'true',
   'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
   'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
 };

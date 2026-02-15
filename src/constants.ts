@@ -21,6 +21,22 @@ export const ELK_NODE_SPACING = 50;
 export const ELK_EDGE_NODE_SPACING = 15;
 
 /**
+ * Spacing (px) between parallel edges running between layers.
+ *
+ * ELK default is 10, but BPMN diagrams benefit from slightly more
+ * breathing room to avoid overlapping labels and crowded branch routes.
+ */
+export const ELK_EDGE_EDGE_BETWEEN_LAYERS_SPACING = 15;
+
+/**
+ * Spacing (px) between edges and nodes in adjacent layers.
+ *
+ * Prevents edge routes from hugging too close to unrelated nodes.
+ * ELK default is 10; a modest increase reduces visual clutter.
+ */
+export const ELK_EDGE_NODE_BETWEEN_LAYERS_SPACING = 15;
+
+/**
  * Tighter edge-to-edge gap (px) between elements that are all branches
  * of the same gateway (parallel fork-join pattern).
  *

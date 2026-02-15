@@ -20,6 +20,10 @@ import {
 } from './constants';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 
+// ── BPMN element type constants ────────────────────────────────────────
+const BPMN_START_EVENT = 'bpmn:StartEvent';
+const BPMN_END_EVENT = 'bpmn:EndEvent';
+
 /**
  * Build ELK child nodes and internal edges for a given container element.
  *
@@ -112,11 +116,23 @@ function buildChildNodes(
     if (hasChildren) {
       children.push(buildCompoundNode(allElements, shape, excludeIds));
     } else {
-      children.push({
+      const node: ElkNode = {
         id: shape.id,
         width: shape.width || BPMN_TASK_WIDTH,
         height: shape.height || BPMN_TASK_HEIGHT,
-      });
+      };
+
+      // Pin start events to the first layer and end events to the last layer.
+      // ELK's layering heuristic usually gets this right, but being explicit
+      // prevents edge-case misordering (e.g. start events with incoming
+      // message flows or end events with attached boundary-event proxy edges).
+      if (shape.type === BPMN_START_EVENT) {
+        node.layoutOptions = { 'elk.layered.layering.layerConstraint': 'FIRST' };
+      } else if (shape.type === BPMN_END_EVENT) {
+        node.layoutOptions = { 'elk.layered.layering.layerConstraint': 'LAST' };
+      }
+
+      children.push(node);
     }
   }
 
@@ -303,7 +319,6 @@ function detectShortBranches(
   internalConns: BpmnElement[],
   outgoingAdj: Map<string, BpmnElement[]>
 ): Set<string> {
-  const BPMN_END_EVENT = 'bpmn:EndEvent';
   const shortBranchEdgeIds = new Set<string>();
   for (const [gwId, defaultFlowId] of gatewayDefaults) {
     if (!decisionGatewayIds.has(gwId)) continue;
@@ -378,11 +393,11 @@ function addSyntheticOrderingEdges(
 
     // Find the rejection end event (follow forward from rejection target)
     let rejEndEventId: string | null = null;
-    if (defaultConn.target.type === 'bpmn:EndEvent') {
+    if (defaultConn.target.type === BPMN_END_EVENT) {
       rejEndEventId = rejTargetId;
     } else {
       const rejOutConns = outgoingAdj.get(rejTargetId);
-      if (rejOutConns?.length === 1 && rejOutConns[0].target?.type === 'bpmn:EndEvent') {
+      if (rejOutConns?.length === 1 && rejOutConns[0].target?.type === BPMN_END_EVENT) {
         rejEndEventId = rejOutConns[0].target.id;
       }
     }
@@ -400,7 +415,7 @@ function addSyntheticOrderingEdges(
       );
       if (nextConns.length === 0) break;
 
-      const endConn = nextConns.find((c) => c.target!.type === 'bpmn:EndEvent');
+      const endConn = nextConns.find((c) => c.target!.type === BPMN_END_EVENT);
       if (endConn) {
         predecessorOfEnd = traceId;
         break;
