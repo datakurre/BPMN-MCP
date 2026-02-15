@@ -239,12 +239,10 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: BATCH_OPERATIONS_DEF, handler: handleBatchOperations },
   { definition: SET_CAMUNDA_LISTENERS_DEF, handler: handleSetCamundaListeners },
   { definition: SET_CALL_ACTIVITY_VARIABLES_DEF, handler: handleSetCallActivityVariables },
-  { definition: CREATE_COLLABORATION_DEF, handler: handleCreateCollaboration },
   { definition: MANAGE_ROOT_ELEMENTS_DEF, handler: handleManageRootElements },
   { definition: CREATE_LANES_DEF, handler: handleCreateLanes },
   { definition: ASSIGN_ELEMENTS_TO_LANE_DEF, handler: handleAssignElementsToLane },
   { definition: WRAP_PROCESS_IN_COLLABORATION_DEF, handler: handleWrapProcessInCollaboration },
-  { definition: SPLIT_PARTICIPANT_INTO_LANES_DEF, handler: handleSplitParticipantIntoLanes },
   { definition: CREATE_PARTICIPANT_DEF, handler: handleCreateParticipant },
   { definition: HANDOFF_TO_LANE_DEF, handler: handleHandoffToLane },
   { definition: SUGGEST_LANE_ORGANIZATION_DEF, handler: handleSuggestLaneOrganization },
@@ -256,10 +254,7 @@ const TOOL_REGISTRY: ToolRegistration[] = [
     handler: handleRedistributeElementsAcrossLanes,
   },
   { definition: AUTOSIZE_POOLS_AND_LANES_DEF, handler: handleAutosizePoolsAndLanes },
-  { definition: RESIZE_POOL_TO_FIT_DEF, handler: handleResizePoolToFit },
-  { definition: OPTIMIZE_LANE_ASSIGNMENTS_DEF, handler: handleOptimizeLaneAssignments },
   { definition: DUPLICATE_ELEMENT_DEF, handler: handleDuplicateElement },
-  { definition: INSERT_ELEMENT_DEF, handler: handleInsertElement },
   { definition: REPLACE_ELEMENT_DEF, handler: handleReplaceElement },
   { definition: ADD_ELEMENT_CHAIN_DEF, handler: handleAddElementChain },
   { definition: LIST_PROCESS_VARIABLES_DEF, handler: handleListProcessVariables },
@@ -302,8 +297,11 @@ export async function dispatchToolCall(name: string, args: any): Promise<ToolRes
 //   • handleUndoChange, handleRedoChange — used by history handler
 //   • handleMoveToLane — used by move-element handler
 //   • handleSummarizeDiagram — used by resources
-//   • handleCreateCollaboration — used by create-participant handler
-//   • handleInsertElement — used by add-element handler (via flowId)
+//   • handleCreateCollaboration — used by create-participant (merged multi-pool support)
+//   • handleInsertElement — used by add-element via flowId param (merged insert support)
+//   • handleSplitParticipantIntoLanes — used by create-lanes via distributeStrategy param (merged)
+//   • handleOptimizeLaneAssignments — used by redistribute via validate param (merged)
+//   • handleResizePoolToFit — superset in autosize-pools-and-lanes (keep as alternative impl)
 //
 // All other handlers are registered in TOOL_REGISTRY and exposed as MCP tools.
 

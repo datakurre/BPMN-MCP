@@ -62,7 +62,7 @@ For best results, follow this recommended workflow after structural changes:
 
 No separate "repair layout" tool is needed — chain these existing tools for fine-grained control.
 
-## Available Tools (34)
+## Available Tools (32)
 
 ### Core BPMN Tools
 
@@ -70,7 +70,6 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 | ----------------------------- | -------------------------------------------------------------------- |
 | `create_bpmn_diagram`         | Create a new BPMN diagram                                            |
 | `add_bpmn_element`            | Add elements (with `flowId` to insert into existing flows)           |
-| `insert_bpmn_element`         | Insert an element into an existing sequence flow                     |
 | `connect_bpmn_elements`       | Connect elements with sequence/message flows or associations         |
 | `delete_bpmn_element`         | Remove an element or connection                                      |
 | `move_bpmn_element`           | Move, resize, or reassign an element to a lane                       |
@@ -81,7 +80,6 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 | `validate_bpmn_diagram`       | Validate using bpmnlint (recommended + Camunda 7 + custom MCP rules) |
 | `export_bpmn`                 | Export as BPMN 2.0 XML or SVG (with implicit lint gate)              |
 | `import_bpmn_xml`             | Import existing BPMN XML (auto-layout if no DI)                      |
-| `create_bpmn_collaboration`   | Create collaboration diagrams with multiple participants (pools)     |
 | `manage_bpmn_root_elements`   | Create or update shared Message and Signal definitions               |
 
 ### Layout & Alignment Tools
