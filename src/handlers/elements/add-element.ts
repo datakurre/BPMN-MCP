@@ -50,6 +50,8 @@ export interface AddElementArgs {
   autoConnect?: boolean;
   /** Place the element into a specific lane (auto-centers vertically within the lane). */
   laneId?: string;
+  /** Place the element inside a specific parent container (SubProcess or Participant). Child elements are nested in the parent's BPMN structure. */
+  parentId?: string;
   /** When true, reject creation if another element with the same type and name already exists. Default: false. */
   ensureUnique?: boolean;
   /**
@@ -180,6 +182,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     hostElementId,
     afterElementId,
     participantId,
+    parentId,
   } = args;
   // SubProcess defaults to expanded (true) unless explicitly set to false
   const isExpanded = elementType === 'bpmn:SubProcess' ? args.isExpanded !== false : undefined;
@@ -275,6 +278,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     y,
     hostElementId,
     participantId,
+    parentId,
     isExpanded,
   });
 

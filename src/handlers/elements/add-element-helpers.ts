@@ -201,6 +201,7 @@ export function createAndPlaceElement(opts: {
   y: number;
   hostElementId?: string;
   participantId?: string;
+  parentId?: string;
   isExpanded?: boolean;
 }): { createdElement: any; hostInfo?: HostInfo } {
   const {
@@ -212,6 +213,7 @@ export function createAndPlaceElement(opts: {
     y,
     hostElementId,
     participantId,
+    parentId,
     isExpanded,
   } = opts;
   const modeling = getService(diagram.modeler, 'modeling');
@@ -260,7 +262,13 @@ export function createAndPlaceElement(opts: {
 
   // Regular element
   let parent: any;
-  if (participantId) {
+  if (parentId) {
+    // Explicit parent (SubProcess or Participant)
+    parent = elementRegistry.get(parentId);
+    if (!parent) {
+      throw new McpError(ErrorCode.InvalidRequest, `Parent element not found: ${parentId}`);
+    }
+  } else if (participantId) {
     parent = elementRegistry.get(participantId);
     if (!parent) {
       throw new McpError(ErrorCode.InvalidRequest, `Participant not found: ${participantId}`);

@@ -97,6 +97,13 @@ export const TOOL_DEFINITION = {
         description:
           'For collaboration diagrams: the ID of the participant (pool) to add the element into. If omitted, uses the first participant or process.',
       },
+      parentId: {
+        type: 'string',
+        description:
+          'Place the element inside a specific parent container (SubProcess or Participant). ' +
+          'Use this to add elements inside event subprocesses or regular subprocesses. ' +
+          "The element will be nested in the parent's BPMN structure and positioned relative to the parent's coordinate system.",
+      },
       laneId: {
         type: 'string',
         description:
