@@ -44,6 +44,9 @@ export const SAME_ROW_THRESHOLD = 20;
 /** Padding inside compound containers (expanded subprocesses). */
 export const CONTAINER_PADDING = '[top=60,left=40,bottom=60,right=50]';
 
+/** Padding inside event subprocesses (reduced to fit compact interrupt/non-interrupt handlers). */
+export const EVENT_SUBPROCESS_PADDING = '[top=40,left=32,bottom=40,right=32]';
+
 /** Padding inside participant pools — extra left for the ~30px bpmn-js label band. */
 export const PARTICIPANT_PADDING = '[top=80,left=50,bottom=80,right=40]';
 

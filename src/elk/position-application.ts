@@ -2,7 +2,7 @@
  * Apply ELK-computed positions and sizes to bpmn-js elements.
  */
 
-import type { ElkNode } from 'elkjs';
+import ELK, { type ElkNode } from 'elkjs';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import {
   isConnection as _isConnection,
@@ -19,6 +19,19 @@ import {
   POOL_COMPACT_RIGHT_PADDING,
   POOL_LABEL_BAND,
 } from './constants';
+import { buildCompoundNode } from './graph-builder';
+import { applyElkEdgeRoutes } from './edge-routing';
+
+/** Gap between stacked event subprocesses */
+const EVENT_SUBPROCESS_STACK_GAP = 30;
+
+/** BPMN type constants to reduce duplication */
+const BPMN_SUBPROCESS = 'bpmn:SubProcess';
+const BPMN_PROCESS = 'bpmn:Process';
+const BPMN_PARTICIPANT = 'bpmn:Participant';
+
+// Shared ELK instance
+const elk = new ELK();
 
 /**
  * Recursively apply ELK layout results to bpmn-js elements.
@@ -107,6 +120,127 @@ export function resizeCompoundNodes(
 }
 
 /**
+ * Position event subprocesses below the main process flow with appropriate spacing.
+ *
+ * Event subprocesses (triggeredByEvent=true) are excluded from the main ELK layout
+ * to prevent them from interfering with the main sequence flow. Each event subprocess
+ * gets its own separate ELK layout for its children, then is positioned below the
+ * main process with generous vertical spacing (80px gap).
+ *
+ * NOTE: This function captures main flow bounds BEFORE any awaits to avoid position
+ * drift caused by event loop callbacks.
+ */
+export async function positionEventSubprocesses(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling
+): Promise<void> {
+  // Find all processes
+  const processes = elementRegistry.filter(
+    (el) => el.type === BPMN_PROCESS || el.type === BPMN_PARTICIPANT
+  );
+
+  for (const process of processes) {
+    // Find event subprocesses in this process
+    const eventSubprocesses = elementRegistry.filter(
+      (el) =>
+        el.parent === process &&
+        el.type === BPMN_SUBPROCESS &&
+        el.businessObject?.triggeredByEvent === true
+    );
+
+    if (eventSubprocesses.length === 0) continue;
+
+    // Find main flow elements (excluding event subprocesses and their children)
+    const mainFlowElements = elementRegistry.filter(
+      (el) =>
+        el.parent === process &&
+        !el.businessObject?.triggeredByEvent &&
+        el.type !== 'bpmn:Lane' &&
+        el.type !== 'bpmn:SequenceFlow' &&
+        el.type !== 'bpmn:MessageFlow' &&
+        el.type !== 'bpmn:Association' &&
+        el.type !== 'bpmn:BoundaryEvent' &&
+        el.type !== 'label'
+    );
+
+    if (mainFlowElements.length === 0) continue;
+
+    // CAPTURE positions BEFORE any awaits to avoid event loop position drift
+    const mainFlowBottom = Math.max(...mainFlowElements.map((el) => el.y + (el.height || 0)));
+    const mainFlowLeft = Math.min(...mainFlowElements.map((el) => el.x));
+
+    // Position event subprocesses below with 80px gap
+    const EVENT_SUBPROCESS_VERTICAL_GAP = 80;
+    let currentY = mainFlowBottom + EVENT_SUBPROCESS_VERTICAL_GAP;
+
+    for (const eventSubprocess of eventSubprocesses) {
+      // Build ELK graph for this event subprocess to layout its children
+      const allElements = elementRegistry.filter(() => true);
+
+      // Use buildCompoundNode which applies proper EVENT_SUBPROCESS_PADDING
+      const elkGraph = buildCompoundNode(allElements, eventSubprocess);
+
+      // If the event subprocess has no children or only one child, skip ELK layout
+      if (!elkGraph.children || elkGraph.children.length <= 1) {
+        // Just position the event subprocess and continue
+        modeling.moveElements([eventSubprocess], {
+          x: mainFlowLeft - eventSubprocess.x,
+          y: currentY - eventSubprocess.y,
+        });
+        currentY += eventSubprocess.height + EVENT_SUBPROCESS_STACK_GAP;
+        continue;
+      }
+
+      // Run ELK layout for the event subprocess
+      const elkResult = await elk.layout(elkGraph);
+
+      // Apply positions to children of the event subprocess
+      if (elkResult.children) {
+        for (const childNode of elkResult.children) {
+          const childElement = elementRegistry.get(childNode.id);
+          if (childElement && childNode.x !== undefined && childNode.y !== undefined) {
+            modeling.moveElements([childElement], {
+              x: eventSubprocess.x + childNode.x - childElement.x,
+              y: eventSubprocess.y + childNode.y - childElement.y,
+            });
+          }
+        }
+      }
+
+      // Apply edge routes for connections inside the event subprocess
+      if (elkResult.edges) {
+        applyElkEdgeRoutes(
+          elementRegistry,
+          modeling,
+          elkResult,
+          eventSubprocess.x,
+          eventSubprocess.y
+        );
+      }
+
+      // Resize the event subprocess to fit its content
+      if (elkResult.width !== undefined && elkResult.height !== undefined) {
+        modeling.resizeShape(eventSubprocess, {
+          x: eventSubprocess.x,
+          y: eventSubprocess.y,
+          width: Math.round(elkResult.width),
+          height: Math.round(elkResult.height),
+        });
+      }
+
+      // Position the event subprocess below main process
+      modeling.moveElements([eventSubprocess], {
+        x: mainFlowLeft - eventSubprocess.x,
+        y: currentY - eventSubprocess.y,
+      });
+
+      // Stack next event subprocess below with spacing
+      currentY += eventSubprocess.height + EVENT_SUBPROCESS_STACK_GAP;
+    }
+  }
+}
+
+/**
  * Centre elements vertically within each participant pool.
  *
  * After ELK layout + grid snap, the content inside a pool may not be
@@ -119,7 +253,7 @@ export function resizeCompoundNodes(
  * to avoid unnecessary micro-adjustments.
  */
 export function centreElementsInPools(elementRegistry: ElementRegistry, modeling: Modeling): void {
-  const participants = elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+  const participants = elementRegistry.filter((el) => el.type === BPMN_PARTICIPANT);
   if (participants.length === 0) return;
 
   for (const pool of participants) {
@@ -163,7 +297,7 @@ export function centreElementsInPools(elementRegistry: ElementRegistry, modeling
  * between stacked pools by pushing lower pools downward when necessary.
  */
 export function enforceExpandedPoolGap(elementRegistry: ElementRegistry, modeling: Modeling): void {
-  const participants = elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+  const participants = elementRegistry.filter((el) => el.type === BPMN_PARTICIPANT);
   if (participants.length < 2) return;
 
   // Only consider expanded pools (those with flow-element children)
@@ -208,7 +342,7 @@ export function enforceExpandedPoolGap(elementRegistry: ElementRegistry, modelin
  * Lanes (if present) are resized to match the new pool width.
  */
 export function compactPools(elementRegistry: ElementRegistry, modeling: Modeling): void {
-  const participants = elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+  const participants = elementRegistry.filter((el) => el.type === BPMN_PARTICIPANT);
   if (participants.length === 0) return;
 
   for (const pool of participants) {
@@ -274,7 +408,7 @@ export function reorderCollapsedPoolsBelow(
   elementRegistry: ElementRegistry,
   modeling: Modeling
 ): void {
-  const participants = elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+  const participants = elementRegistry.filter((el) => el.type === BPMN_PARTICIPANT);
   if (participants.length < 2) return;
 
   // Classify pools: expanded have flow-element children, collapsed do not

@@ -74,6 +74,7 @@ const REFERENCES = [
   '08-collaboration-collapsed',
   '09-complex-workflow',
   '10-pool-with-lanes',
+  '11-event-subprocess',
 ];
 
 // ── Test fixtures ──────────────────────────────────────────────────────────

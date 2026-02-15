@@ -49,6 +49,15 @@ export function isLayoutableShape(el: BpmnElement): boolean {
     !isLane(el.type) &&
     el.type !== 'label' &&
     el.type !== 'bpmn:Participant' &&
-    el.type !== 'bpmn:BoundaryEvent'
+    el.type !== 'bpmn:BoundaryEvent' &&
+    !isEventSubprocess(el)
   );
+}
+
+/**
+ * Check if an element is an event subprocess (SubProcess triggered by event).
+ * Event subprocesses are handled separately in layout.
+ */
+export function isEventSubprocess(el: BpmnElement): boolean {
+  return el.type === 'bpmn:SubProcess' && el.businessObject?.triggeredByEvent === true;
 }

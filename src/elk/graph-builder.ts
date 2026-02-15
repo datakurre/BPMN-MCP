@@ -7,6 +7,7 @@ import type { BpmnElement } from '../bpmn-types';
 import {
   ELK_LAYOUT_OPTIONS,
   CONTAINER_PADDING,
+  EVENT_SUBPROCESS_PADDING,
   PARTICIPANT_PADDING,
   PARTICIPANT_WITH_LANES_PADDING,
   DIVERSE_Y_THRESHOLD,
@@ -64,6 +65,8 @@ function collectAndSortChildShapes(
       !isArtifact(el.type) &&
       !isLane(el.type) &&
       el.type !== 'bpmn:BoundaryEvent' &&
+      // Exclude event subprocesses from main layout — they'll be positioned separately
+      !(el.type === 'bpmn:SubProcess' && el.businessObject?.triggeredByEvent === true) &&
       !(excludeIds && excludeIds.has(el.id))
   );
 
@@ -143,7 +146,7 @@ function buildChildNodes(
  * Build a compound ELK node (participant or expanded subprocess) by
  * recursing into buildContainerGraph.
  */
-function buildCompoundNode(
+export function buildCompoundNode(
   allElements: BpmnElement[],
   shape: BpmnElement,
   excludeIds?: Set<string>
@@ -156,7 +159,10 @@ function buildCompoundNode(
     const hasLanes = allElements.some((el) => el.parent === shape && isLane(el.type));
     padding = hasLanes ? PARTICIPANT_WITH_LANES_PADDING : PARTICIPANT_PADDING;
   } else {
-    padding = CONTAINER_PADDING;
+    // Use reduced padding for event subprocesses (triggeredByEvent=true)
+    const isEventSubprocess =
+      shape.type === 'bpmn:SubProcess' && shape.businessObject?.triggeredByEvent === true;
+    padding = isEventSubprocess ? EVENT_SUBPROCESS_PADDING : CONTAINER_PADDING;
   }
 
   return {

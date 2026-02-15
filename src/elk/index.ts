@@ -52,6 +52,7 @@ import { buildContainerGraph } from './graph-builder';
 import {
   applyElkPositions,
   resizeCompoundNodes,
+  positionEventSubprocesses,
   centreElementsInPools,
   enforceExpandedPoolGap,
   reorderCollapsedPoolsBelow,
@@ -171,7 +172,8 @@ function resolveLayoutOptions(options?: ElkLayoutOptions): {
 
   // Happy-path emphasis: prioritise default/first-connected branch
   layoutOptions['elk.layered.crossingMinimization.thoroughness'] = ELK_CROSSING_THOROUGHNESS;
-  layoutOptions['elk.layered.considerModelOrder.strategy'] = 'NODES_AND_EDGES';
+  // Only consider model order when we have diverse Y positions (imported layouts).
+  // For simple linear flows (hasDiverseY=false), let ELK optimize freely.
 
   return { layoutOptions, effectiveLayerSpacing };
 }
@@ -197,9 +199,11 @@ interface LayoutContext {
 // ── Pipeline step functions ─────────────────────────────────────────────────
 
 /** Apply ELK-computed node positions and resize compound nodes. */
-function applyNodePositions(ctx: LayoutContext): void {
+async function applyNodePositions(ctx: LayoutContext): Promise<void> {
   applyElkPositions(ctx.elementRegistry, ctx.modeling, ctx.result, ctx.offsetX, ctx.offsetY);
   resizeCompoundNodes(ctx.elementRegistry, ctx.modeling, ctx.result);
+  // Position event subprocesses below main process (they were excluded from ELK graph)
+  await positionEventSubprocesses(ctx.elementRegistry, ctx.modeling);
 }
 
 /** Restore boundary event data and reposition boundary events. */
@@ -384,6 +388,14 @@ export async function elkLayout(
 
   const allElements: BpmnElement[] = elementRegistry.getAll();
 
+  // Check if we have event subprocesses that will be excluded and repositioned
+  const hasEventSubprocesses = allElements.some(
+    (el) =>
+      el.parent === rootElement &&
+      el.type === 'bpmn:SubProcess' &&
+      el.businessObject?.triggeredByEvent === true
+  );
+
   // Identify boundary-only leaf targets — excluded from ELK graph to prevent
   // proxy edges from creating extra layers that distort horizontal spacing.
   const boundaryLeafTargetIds = identifyBoundaryLeafTargets(allElements, rootElement);
@@ -398,7 +410,7 @@ export async function elkLayout(
 
   const { layoutOptions, effectiveLayerSpacing } = resolveLayoutOptions(options);
 
-  if (hasDiverseY) {
+  if (hasDiverseY && !hasEventSubprocesses) {
     layoutOptions['elk.layered.crossingMinimization.forceNodeModelOrder'] = 'true';
   }
 
@@ -430,7 +442,7 @@ export async function elkLayout(
   };
 
   // Execute layout pipeline
-  applyNodePositions(ctx);
+  await applyNodePositions(ctx);
   fixBoundaryEvents(ctx);
   snapAndAlignLayers(ctx);
   gridSnapAndResolveOverlaps(ctx);
