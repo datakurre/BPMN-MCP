@@ -15,6 +15,7 @@ import {
   syncXml,
   validateArgs,
   getService,
+  createFormalExpression,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
@@ -52,9 +53,7 @@ function buildStandardLoop(
 ): any {
   const loopChar = moddle.create('bpmn:StandardLoopCharacteristics', {});
   if (options.loopCondition) {
-    loopChar.loopCondition = moddle.create('bpmn:FormalExpression', {
-      body: options.loopCondition,
-    });
+    loopChar.loopCondition = createFormalExpression(moddle, options.loopCondition);
   }
   if (options.loopMaximum !== undefined) {
     loopChar.loopMaximum = options.loopMaximum;
@@ -77,14 +76,10 @@ function buildMultiInstanceLoop(
     isSequential,
   });
   if (options.loopCardinality) {
-    loopChar.loopCardinality = moddle.create('bpmn:FormalExpression', {
-      body: options.loopCardinality,
-    });
+    loopChar.loopCardinality = createFormalExpression(moddle, options.loopCardinality);
   }
   if (options.completionCondition) {
-    loopChar.completionCondition = moddle.create('bpmn:FormalExpression', {
-      body: options.completionCondition,
-    });
+    loopChar.completionCondition = createFormalExpression(moddle, options.completionCondition);
   }
   if (options.collection) loopChar.collection = options.collection;
   if (options.elementVariable) loopChar.elementVariable = options.elementVariable;

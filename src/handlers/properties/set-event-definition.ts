@@ -16,6 +16,7 @@ import {
   resolveOrCreateEscalation,
   validateArgs,
   getService,
+  createFormalExpression,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
@@ -54,7 +55,7 @@ function buildTimerAttrs(moddle: any, defProps: Record<string, any>): Record<str
   }
   const attrs: Record<string, any> = {};
   for (const key of timerKeys) {
-    attrs[key] = moddle.create('bpmn:FormalExpression', { body: defProps[key] });
+    attrs[key] = createFormalExpression(moddle, defProps[key]);
   }
   return attrs;
 }

@@ -3,7 +3,8 @@
  * Moddle / extension-element utilities for BPMN element manipulation.
  *
  * Provides helpers for managing extensionElements containers, creating
- * business objects with specific IDs, and fixing connection BO IDs.
+ * business objects with specific IDs, fixing connection BO IDs, and
+ * creating BPMN FormalExpression elements.
  */
 
 import { getService } from '../bpmn-types';
@@ -40,6 +41,24 @@ export function upsertExtensionElement(
   extensionElements.values.push(newValue);
 
   modeling.updateProperties(element, { extensionElements });
+}
+
+// ── BPMN moddle element creation helpers ───────────────────────────────────
+
+/**
+ * Create a BPMN FormalExpression with the given body text.
+ *
+ * Reduces duplication in handlers that need timer definitions, loop
+ * conditions, completion conditions, etc.
+ *
+ * @example
+ * ```typescript
+ * const loopCondition = createFormalExpression(moddle, '${count < 10}');
+ * loopChar.loopCondition = loopCondition;
+ * ```
+ */
+export function createFormalExpression(moddle: any, body: string): any {
+  return moddle.create('bpmn:FormalExpression', { body });
 }
 
 // ── Business-object / ID alignment helpers ─────────────────────────────────

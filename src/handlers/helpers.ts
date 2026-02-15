@@ -65,7 +65,12 @@ export {
 } from './diagram-access';
 
 // ── Moddle / extension-element utilities ───────────────────────────────────
-export { upsertExtensionElement, createBusinessObject, fixConnectionId } from './moddle-utils';
+export {
+  upsertExtensionElement,
+  createBusinessObject,
+  fixConnectionId,
+  createFormalExpression,
+} from './moddle-utils';
 
 // ── Root-element helpers ───────────────────────────────────────────────────
 export {

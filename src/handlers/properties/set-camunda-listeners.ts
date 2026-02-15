@@ -19,6 +19,7 @@ import {
   resolveOrCreateError,
   validateArgs,
   getService,
+  createFormalExpression,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 
@@ -109,21 +110,15 @@ function createListenerElement(
     const timerEl = moddle.create('bpmn:TimerEventDefinition', timerAttrs);
 
     if (timerDef.timeDuration) {
-      const formalExpr = moddle.create('bpmn:FormalExpression', {
-        body: timerDef.timeDuration,
-      });
+      const formalExpr = createFormalExpression(moddle, timerDef.timeDuration);
       formalExpr.$parent = timerEl;
       timerEl.timeDuration = formalExpr;
     } else if (timerDef.timeDate) {
-      const formalExpr = moddle.create('bpmn:FormalExpression', {
-        body: timerDef.timeDate,
-      });
+      const formalExpr = createFormalExpression(moddle, timerDef.timeDate);
       formalExpr.$parent = timerEl;
       timerEl.timeDate = formalExpr;
     } else if (timerDef.timeCycle) {
-      const formalExpr = moddle.create('bpmn:FormalExpression', {
-        body: timerDef.timeCycle,
-      });
+      const formalExpr = createFormalExpression(moddle, timerDef.timeCycle);
       formalExpr.$parent = timerEl;
       timerEl.timeCycle = formalExpr;
     }
