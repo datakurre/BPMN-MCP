@@ -62,7 +62,7 @@ For best results, follow this recommended workflow after structural changes:
 
 No separate "repair layout" tool is needed — chain these existing tools for fine-grained control.
 
-## Available Tools (32)
+## Available Tools (44)
 
 ### Core BPMN Tools
 
