@@ -61,7 +61,7 @@
       <bpmndi:BPMNShape id="Event_0tvw53g_di" bpmnElement="Event_0tvw53g">
         <dc:Bounds x="618" y="247" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="611.5" y="298" width="49" height="14" />
+          <dc:Bounds x="612" y="298" width="49" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1pufg4s_di" bpmnElement="Event_1w9t4mj">

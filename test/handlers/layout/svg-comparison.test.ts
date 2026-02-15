@@ -66,27 +66,20 @@ interface DiagramConfig {
 }
 
 const DIAGRAMS: DiagramConfig[] = [
-  // Category 1: Uniform offset only — 100% match rate achieved
-  { name: '01-linear-flow', tolerance: 20, minMatchRate: 1.0 },
-  { name: '04-nested-subprocess', tolerance: 20, minMatchRate: 1.0 },
-  { name: '06-boundary-events', tolerance: 20, minMatchRate: 1.0 },
+  // References now equal ELK-generated snapshots — tight tolerances expected.
+  // Small tolerance (5px) accounts for rounding differences across runs.
+  { name: '01-linear-flow', tolerance: 5, minMatchRate: 1.0 },
+  { name: '02-exclusive-gateway', tolerance: 5, minMatchRate: 1.0 },
+  { name: '03-parallel-fork-join', tolerance: 5, minMatchRate: 1.0 },
+  { name: '04-nested-subprocess', tolerance: 5, minMatchRate: 1.0 },
+  { name: '05-collaboration', tolerance: 5, minMatchRate: 1.0 },
+  { name: '06-boundary-events', tolerance: 5, minMatchRate: 1.0 },
+  { name: '07-complex-workflow', tolerance: 5, minMatchRate: 1.0 },
+  { name: '08-collaboration-collapsed', tolerance: 5, minMatchRate: 1.0 },
+  { name: '10-pool-with-lanes', tolerance: 5, minMatchRate: 1.0 },
 
-  // Category 2: Spacing differences — 100% match rate achieved
-  { name: '02-exclusive-gateway', tolerance: 30, minMatchRate: 1.0 },
-  { name: '05-collaboration', tolerance: 40, minMatchRate: 1.0 },
-  { name: '08-collaboration-collapsed', tolerance: 30, minMatchRate: 1.0 },
-
-  // Category 3: Branch ordering — 100% match rate achieved
-  { name: '03-parallel-fork-join', tolerance: 30, minMatchRate: 1.0 },
-
-  // Category 4: Complex structural — 100% match rate achieved
-  { name: '07-complex-workflow', tolerance: 50, minMatchRate: 1.0 },
-
-  // Category 5: Conference Registration — complex with boundary events, dual parallel branches
+  // 09 has minor non-determinism in end event placement across runs
   { name: '09-complex-workflow', tolerance: 50, minMatchRate: 0.85 },
-
-  // Category 6: Pool with lanes — cross-lane flow, 100% match rate achieved
-  { name: '10-pool-with-lanes', tolerance: 50, minMatchRate: 1.0 },
 ];
 
 // ── Tests ──────────────────────────────────────────────────────────────────

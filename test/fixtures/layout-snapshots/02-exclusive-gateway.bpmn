@@ -71,7 +71,7 @@
       <bpmndi:BPMNShape id="Event_0a768vd_di" bpmnElement="Event_0a768vd">
         <dc:Bounds x="838" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="842.5" y="173" width="27" height="14" />
+          <dc:Bounds x="843" y="173" width="27" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_14dl9pz_di" bpmnElement="Activity_1ra1cd4">

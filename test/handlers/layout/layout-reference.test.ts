@@ -9,12 +9,10 @@
  * - No element overlaps
  * - Branch rejection end event is on a different row
  *
+ * Reference BPMNs are ELK-generated (copied from layout-snapshots/).
  * The primary reference is 07-complex-workflow.bpmn which has mixed
  * exclusive + parallel gateways with a rejection branch — the most
  * comprehensive layout test pattern.
- *
- * These tests are expected-failing until the layout engine matches
- * the gold-standard reference positions.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
