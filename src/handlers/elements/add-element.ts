@@ -269,11 +269,11 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   if (assignToLaneId) {
     const targetLane = elementRegistry.get(assignToLaneId);
     if (targetLane?.businessObject) {
-      const refs: unknown[] =
-        (targetLane.businessObject.flowNodeRef as unknown[] | undefined) || [];
-      if (!targetLane.businessObject.flowNodeRef) {
-        targetLane.businessObject.flowNodeRef = refs;
+      const bo = targetLane.businessObject;
+      if (!bo.flowNodeRef) {
+        bo.flowNodeRef = [];
       }
+      const refs = bo.flowNodeRef;
       const elemBo = createdElement.businessObject;
       if (elemBo && !refs.includes(elemBo)) {
         refs.push(elemBo);

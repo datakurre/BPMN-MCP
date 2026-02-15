@@ -100,24 +100,26 @@ export async function handleSetCallActivityVariables(
   // Ensure extensionElements container exists
   let extensionElements = bo.extensionElements;
   if (!extensionElements) {
-    extensionElements = moddle.create('bpmn:ExtensionElements', { values: [] });
-    extensionElements.$parent = bo;
+    extensionElements = moddle.create('bpmn:ExtensionElements', {
+      values: [],
+    }) as unknown as typeof bo.extensionElements;
+    extensionElements!.$parent = bo;
   }
 
   // Remove existing camunda:in and camunda:out elements
-  extensionElements.values = (extensionElements.values || []).filter(
+  extensionElements!.values = (extensionElements!.values || []).filter(
     (v: any) => v.$type !== 'camunda:In' && v.$type !== 'camunda:Out'
   );
 
   // Create camunda:in and camunda:out elements
   for (const mapping of inMappings) {
-    extensionElements.values.push(
-      createMappingElement(moddle, 'camunda:In', mapping, extensionElements)
+    extensionElements!.values.push(
+      createMappingElement(moddle, 'camunda:In', mapping, extensionElements!)
     );
   }
   for (const mapping of outMappings) {
-    extensionElements.values.push(
-      createMappingElement(moddle, 'camunda:Out', mapping, extensionElements)
+    extensionElements!.values.push(
+      createMappingElement(moddle, 'camunda:Out', mapping, extensionElements!)
     );
   }
 

@@ -11,8 +11,15 @@
  */
 // @mutating
 
-import { type ToolResult } from '../../types';
-import { requireDiagram, jsonResult, syncXml, getVisibleElements, getService } from '../helpers';
+import { type ToolResult, type DiagramState } from '../../types';
+import {
+  requireDiagram,
+  jsonResult,
+  syncXml,
+  getVisibleElements,
+  getService,
+  isCollaboration,
+} from '../helpers';
 import { appendLintFeedback, resetMutationCounter } from '../../linter';
 import { adjustDiagramLabels, adjustFlowLabels, centerFlowLabels } from './labels/adjust-labels';
 import { elkLayout, elkLayoutSubset, applyDeterministicLayout } from '../../elk/api';
@@ -31,11 +38,6 @@ import {
   deduplicateDiInModeler,
 } from './layout-helpers';
 import { handleAutosizePoolsAndLanes } from '../collaboration/autosize-pools-and-lanes';
-
-/** Check whether the diagram contains any participant (pool) elements. */
-function hasParticipants(elementRegistry: any): boolean {
-  return elementRegistry.filter((el: any) => el.type === 'bpmn:Participant').length > 0;
-}
 
 export interface LayoutDiagramArgs {
   diagramId: string;
@@ -102,7 +104,7 @@ async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolResult> 
   storeDiagram(tempId, { modeler, xml: xml || '', name: `_dryrun_${diagramId}` });
 
   try {
-    const tempDiagram = { modeler, xml: xml || '' } as any;
+    const tempDiagram: DiagramState = { modeler, xml: xml || '' };
 
     // Record original positions
     const tempRegistry = getService(modeler, 'elementRegistry');
@@ -265,7 +267,7 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
   let poolExpansionApplied = false;
   const shouldAutosize =
     args.poolExpansion === true ||
-    (args.poolExpansion === undefined && hasParticipants(elementRegistry));
+    (args.poolExpansion === undefined && isCollaboration(elementRegistry));
   if (shouldAutosize) {
     const poolResult = await handleAutosizePoolsAndLanes({ diagramId });
     const poolData = JSON.parse(poolResult.content[0].text as string);

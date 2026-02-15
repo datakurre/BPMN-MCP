@@ -203,8 +203,10 @@ export async function handleSetCamundaListeners(
   // Ensure extensionElements container exists
   let extensionElements = bo.extensionElements;
   if (!extensionElements) {
-    extensionElements = moddle.create('bpmn:ExtensionElements', { values: [] });
-    extensionElements.$parent = bo;
+    extensionElements = moddle.create('bpmn:ExtensionElements', {
+      values: [],
+    }) as unknown as typeof bo.extensionElements;
+    extensionElements!.$parent = bo;
   }
 
   // Remove existing listeners of the types we're setting
@@ -212,7 +214,7 @@ export async function handleSetCamundaListeners(
   if (executionListeners.length > 0) typesToRemove.add('camunda:ExecutionListener');
   if (taskListeners.length > 0) typesToRemove.add('camunda:TaskListener');
   if (errorDefinitions.length > 0) typesToRemove.add('camunda:ErrorEventDefinition');
-  extensionElements.values = (extensionElements.values || []).filter(
+  extensionElements!.values = (extensionElements!.values || []).filter(
     (v: any) => !typesToRemove.has(v.$type)
   );
 
@@ -220,15 +222,15 @@ export async function handleSetCamundaListeners(
   for (const listener of executionListeners) {
     const el = createListenerElement(moddle, 'camunda:ExecutionListener', listener);
     el.$parent = extensionElements;
-    extensionElements.values.push(el);
+    extensionElements!.values.push(el);
   }
   for (const listener of taskListeners) {
     const el = createListenerElement(moddle, 'camunda:TaskListener', listener);
     el.$parent = extensionElements;
-    extensionElements.values.push(el);
+    extensionElements!.values.push(el);
   }
 
-  createErrorDefinitions(diagram, moddle, extensionElements, errorDefinitions);
+  createErrorDefinitions(diagram, moddle, extensionElements!, errorDefinitions);
   modeling.updateProperties(element, { extensionElements });
   await syncXml(diagram);
 

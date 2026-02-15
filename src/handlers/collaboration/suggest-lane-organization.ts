@@ -365,10 +365,13 @@ export async function handleSuggestLaneOrganization(
 
   // Collect current lane info (if any)
   const currentLanes: { name: string; elementCount: number }[] = [];
-  for (const ls of process.laneSets || []) {
+  const laneSets = (process.laneSets ?? []) as Array<{
+    lanes?: Array<{ name?: string; id?: string; flowNodeRef?: unknown[] }>;
+  }>;
+  for (const ls of laneSets) {
     for (const lane of ls.lanes || []) {
       currentLanes.push({
-        name: lane.name || lane.id,
+        name: lane.name || lane.id || '(unnamed)',
         elementCount: (lane.flowNodeRef || []).length,
       });
     }

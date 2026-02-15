@@ -209,8 +209,8 @@ function computeLaneTargetY(element: BpmnElement, lane: BpmnElement): number {
 function registerInLane(element: BpmnElement, lane: BpmnElement): void {
   const laneBo = lane.businessObject;
   if (!laneBo) return;
-  const refs = (laneBo.flowNodeRef as unknown[] | undefined) || [];
-  if (!laneBo.flowNodeRef) laneBo.flowNodeRef = refs;
+  if (!laneBo.flowNodeRef) laneBo.flowNodeRef = [];
+  const refs = laneBo.flowNodeRef;
   const elemBo = element.businessObject;
   if (elemBo && !refs.includes(elemBo)) refs.push(elemBo);
 }

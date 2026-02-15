@@ -110,7 +110,7 @@ function createPartnerPools(
   const modeling = getService(diagram.modeler, 'modeling');
   const elementFactory = getService(diagram.modeler, 'elementFactory');
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
-  const canvas = getService(diagram.modeler, 'canvas') as any;
+  const canvas = getService(diagram.modeler, 'canvas');
 
   const ids: string[] = [];
   let currentY = startY;
@@ -134,7 +134,7 @@ function createPartnerPools(
     );
     modeling.updateProperties(pCreated, { name: p.name });
     if (p.collapsed !== false && pCreated.di) {
-      (pCreated.di as any).isExpanded = false;
+      pCreated.di.isExpanded = false;
     }
 
     modeling.resizeShape(pCreated, {
@@ -187,7 +187,7 @@ function createMainParticipant(
   const modeling = getService(diagram.modeler, 'modeling');
   const elementFactory = getService(diagram.modeler, 'elementFactory');
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
-  const canvas = getService(diagram.modeler, 'canvas') as any;
+  const canvas = getService(diagram.modeler, 'canvas');
 
   const mainPoolId = generateDescriptiveId(elementRegistry, BPMN_PARTICIPANT, participantName);
   const shape = elementFactory.createShape({ type: BPMN_PARTICIPANT, id: mainPoolId });

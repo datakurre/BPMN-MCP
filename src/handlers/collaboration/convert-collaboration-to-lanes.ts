@@ -348,7 +348,7 @@ export async function handleConvertCollaborationToLanes(
   const diagram = requireDiagram(diagramId);
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const modeling = getService(diagram.modeler, 'modeling');
-  const canvas = getService(diagram.modeler, 'canvas') as any;
+  const canvas = getService(diagram.modeler, 'canvas');
   const rootBo = canvas.getRootElement()?.businessObject;
   const definitions = rootBo?.$parent ?? rootBo;
 

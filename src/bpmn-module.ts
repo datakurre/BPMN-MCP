@@ -16,8 +16,8 @@ export const bpmnModule: ToolModule = {
   name: 'bpmn',
   toolDefinitions: TOOL_DEFINITIONS,
 
-  dispatch(toolName: string, args: any): Promise<ToolResult> | undefined {
+  dispatch(toolName: string, args: Record<string, unknown>): Promise<ToolResult> | undefined {
     if (!toolNames.has(toolName)) return undefined;
-    return dispatchToolCall(toolName as any, args);
+    return dispatchToolCall(toolName, args);
   },
 };

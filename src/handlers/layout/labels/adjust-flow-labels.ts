@@ -20,6 +20,7 @@ import {
   detectFlowLabelOverlaps,
   hasAnyOverlap,
 } from './flow-label-nudge';
+import type { BpmnElement } from '../../../bpmn-types';
 import { getVisibleElements, syncXml, getService } from '../../helpers';
 
 /** Indexed shape rects: parallel arrays of Rects and their element IDs. */
@@ -43,18 +44,19 @@ export async function centerFlowLabels(diagram: DiagramState): Promise<number> {
   const allElements = getVisibleElements(elementRegistry);
 
   const labeledFlows = allElements.filter(
-    (el: any) =>
+    (el) =>
       (el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow') &&
       el.label &&
       el.businessObject?.name &&
-      el.waypoints?.length >= 2
+      el.waypoints &&
+      el.waypoints.length >= 2
   );
 
   let movedCount = 0;
 
   for (const flow of labeledFlows) {
-    const label = flow.label;
-    const waypoints = flow.waypoints;
+    const label = flow.label!;
+    const waypoints = flow.waypoints!;
 
     const midpoint = computeFlowMidpoint(waypoints);
 
@@ -92,7 +94,7 @@ export async function centerFlowLabels(diagram: DiagramState): Promise<number> {
 
     // Only move if displacement is significant (> 2px)
     if (Math.abs(moveX) > 2 || Math.abs(moveY) > 2) {
-      modeling.moveShape(label, { x: moveX, y: moveY });
+      modeling.moveShape(label as unknown as BpmnElement, { x: moveX, y: moveY });
       movedCount++;
     }
   }
@@ -130,7 +132,7 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
   let movedCount = 0;
 
   for (const flow of labeledFlows) {
-    const label = flow.label;
+    const label = flow.label!;
     const labelRect = getLabelRect(label);
 
     const shapes = getNonEndpointShapes(shapeIndex, flow.source?.id, flow.target?.id);
@@ -178,7 +180,7 @@ export async function adjustFlowLabels(diagram: DiagramState): Promise<number> {
       : findBestNudge(labelRect, -dy / len, dx / len, shapes, otherFlowLabels, otherSegments);
 
     if (bestNudge) {
-      modeling.moveShape(label, bestNudge);
+      modeling.moveShape(label as unknown as BpmnElement, bestNudge);
       flowLabelRects.set(flow.id, {
         x: labelRect.x + bestNudge.x,
         y: labelRect.y + bestNudge.y,

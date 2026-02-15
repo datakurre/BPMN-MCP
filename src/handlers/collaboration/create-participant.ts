@@ -101,7 +101,7 @@ function createPoolShape(diagram: any, id: string, name: string, args: CreatePar
   const modeling = getService(diagram.modeler, 'modeling');
   const elementFactory = getService(diagram.modeler, 'elementFactory');
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
-  const canvas = getService(diagram.modeler, 'canvas') as any;
+  const canvas = getService(diagram.modeler, 'canvas');
 
   // Use dynamic sizing when lanes are provided
   const laneCount = args.lanes && !args.collapsed ? args.lanes.length : 0;
@@ -129,7 +129,7 @@ function createPoolShape(diagram: any, id: string, name: string, args: CreatePar
   modeling.updateProperties(created, { name });
 
   if (args.collapsed && created.di) {
-    (created.di as any).isExpanded = false;
+    created.di.isExpanded = false;
   }
 
   modeling.resizeShape(created, {
@@ -144,7 +144,7 @@ function createPoolShape(diagram: any, id: string, name: string, args: CreatePar
   ensureProcessRef(moddle, canvasForRef, created, args.collapsed);
 
   if (args.processId && created.businessObject?.processRef) {
-    (created.businessObject.processRef as any).id = args.processId;
+    created.businessObject.processRef.id = args.processId;
   }
 
   return created;
@@ -205,7 +205,7 @@ export async function handleCreateParticipant(args: CreateParticipantArgs): Prom
   const result = jsonResult({
     success: true,
     participantId: created.id,
-    processId: (created.businessObject as any)?.processRef?.id,
+    processId: created.businessObject?.processRef?.id,
     collapsed: !!args.collapsed,
     ...(laneIds ? { laneIds } : {}),
     message: `Created participant "${participantName}" (${created.id})${args.processId ? ` with process ID "${args.processId}"` : ''}${laneIds ? ` with ${laneIds.length} lanes` : ''}`,

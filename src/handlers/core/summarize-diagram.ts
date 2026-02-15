@@ -16,6 +16,7 @@ import {
   isInfrastructureElement,
   isConnectionElement,
   getService,
+  getProcesses,
 } from '../helpers';
 
 export interface SummarizeDiagramArgs {
@@ -114,36 +115,36 @@ export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promis
   }
 
   // Process name
-  const processes = elementRegistry.filter((el: any) => el.type === 'bpmn:Process');
-  const processNames = processes.map((p: any) => p.businessObject?.name || p.id).filter(Boolean);
+  const processes = getProcesses(elementRegistry);
+  const processNames = processes.map((p) => p.businessObject?.name || p.id).filter(Boolean);
 
   // Participants (pools)
-  const participants = allElements.filter((el: any) => el.type === 'bpmn:Participant');
-  const participantInfo = participants.map((p: any) => ({
+  const participants = allElements.filter((el) => el.type === 'bpmn:Participant');
+  const participantInfo = participants.map((p) => ({
     id: p.id,
     name: p.businessObject?.name || '(unnamed)',
   }));
 
   // Lanes
-  const lanes = allElements.filter((el: any) => el.type === 'bpmn:Lane');
-  const laneInfo = lanes.map((l: any) => ({
+  const lanes = allElements.filter((el) => el.type === 'bpmn:Lane');
+  const laneInfo = lanes.map((l) => ({
     id: l.id,
     name: l.businessObject?.name || '(unnamed)',
   }));
 
   // Connections
-  const flows = allElements.filter((el: any) => isConnectionElement(el.type));
+  const flows = allElements.filter((el) => isConnectionElement(el.type));
 
   // Flow elements (tasks, events, gateways — excluding connections, pools, lanes)
-  const flowElements = allElements.filter((el: any) => !isInfrastructureElement(el.type));
+  const flowElements = allElements.filter((el) => !isInfrastructureElement(el.type));
 
   // Disconnected elements (no incoming or outgoing)
   const disconnected = flowElements.filter(isDisconnected);
 
   // Named elements
   const namedElements = flowElements
-    .filter((el: any) => el.businessObject?.name)
-    .map((el: any) => ({
+    .filter((el) => el.businessObject?.name)
+    .map((el) => ({
       id: el.id,
       type: el.type,
       name: el.businessObject.name,
@@ -167,7 +168,7 @@ export async function handleSummarizeDiagram(args: SummarizeDiagramArgs): Promis
     namedElements,
     ...(disconnected.length > 0
       ? {
-          disconnectedElements: disconnected.map((el: any) => ({
+          disconnectedElements: disconnected.map((el) => ({
             id: el.id,
             type: el.type,
             name: el.businessObject?.name || '(unnamed)',

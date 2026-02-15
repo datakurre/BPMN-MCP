@@ -5,7 +5,14 @@
  * to avoid code duplication.
  */
 
-import type { Canvas, ElementRegistry, Moddle } from '../../bpmn-types';
+import type {
+  BpmnElement,
+  BusinessObject,
+  Canvas,
+  ElementRegistry,
+  Moddle,
+} from '../../bpmn-types';
+import { getParticipants } from '../diagram-access';
 
 /**
  * Ensure an expanded participant has a processRef.
@@ -18,21 +25,24 @@ import type { Canvas, ElementRegistry, Moddle } from '../../bpmn-types';
 export function ensureProcessRef(
   moddle: Moddle,
   canvas: Canvas,
-  element: any,
+  element: BpmnElement,
   collapsed?: boolean
 ): void {
   const bo = element.businessObject;
   if (bo.processRef) return;
   if (collapsed) return;
 
-  const definitions = (canvas.getRootElement() as any)?.businessObject?.$parent;
+  const definitions = canvas.getRootElement()?.businessObject?.$parent as
+    | BusinessObject
+    | undefined;
   if (!definitions) return;
 
   const processId = `Process_${bo.id || element.id}`;
   const process = moddle.create('bpmn:Process', { id: processId, isExecutable: false });
-  (process as any).$parent = definitions;
-  if (!definitions.rootElements) definitions.rootElements = [];
-  definitions.rootElements.push(process);
+  process.$parent = definitions;
+  const rootElements = (definitions.rootElements ?? []) as BusinessObject[];
+  if (!definitions.rootElements) definitions.rootElements = rootElements;
+  rootElements.push(process);
   bo.processRef = process;
 }
 
@@ -47,12 +57,12 @@ export function findProcess(
   elementRegistry: ElementRegistry,
   canvas: Canvas,
   participantId?: string
-): any | null {
+): BusinessObject | null {
   if (participantId) {
     const p = elementRegistry.get(participantId);
-    if ((p as any)?.businessObject?.processRef) return (p as any).businessObject.processRef;
+    if (p?.businessObject?.processRef) return p.businessObject.processRef;
   }
-  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant') as any[];
-  if (participants.length > 0) return participants[0].businessObject?.processRef;
-  return (canvas.getRootElement() as any)?.businessObject ?? null;
+  const participants = getParticipants(elementRegistry);
+  if (participants.length > 0) return participants[0].businessObject?.processRef ?? null;
+  return canvas.getRootElement()?.businessObject ?? null;
 }

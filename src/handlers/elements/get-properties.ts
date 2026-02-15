@@ -334,7 +334,8 @@ export async function handleGetProperties(args: GetPropertiesArgs): Promise<Tool
 
   // For boundary events, include host element reference
   if (element.type === 'bpmn:BoundaryEvent') {
-    const hostId = element.host?.id || bo.attachedToRef?.id;
+    const attachedToRef = bo.attachedToRef as { id?: string } | undefined;
+    const hostId = element.host?.id || attachedToRef?.id;
     if (hostId) {
       result.attachedToRef = hostId;
     }

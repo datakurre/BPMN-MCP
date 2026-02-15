@@ -23,6 +23,14 @@ export interface BusinessObject {
   conditionExpression?: unknown;
   incoming?: BusinessObject[];
   outgoing?: BusinessObject[];
+  /** Process reference (Participant → bpmn:Process). */
+  processRef?: BusinessObject;
+  /** Lane → flow node references. */
+  flowNodeRef?: BusinessObject[];
+  /** Flow elements inside a process / subprocess. */
+  flowElements?: BusinessObject[];
+  /** Participants in a collaboration. */
+  participants?: BusinessObject[];
   /* Camunda-specific attributes (set via moddle descriptor) */
   assignee?: string;
   topic?: string;
@@ -96,9 +104,11 @@ export interface BpmnElement {
   isExpanded?: boolean;
   /** BPMN DI (diagram interchange) information. */
   di?: {
+    $parent?: unknown;
     bounds?: { x: number; y: number; width: number; height: number };
     label?: { bounds?: { x: number; y: number; width: number; height: number } };
     isExpanded?: boolean;
+    [key: string]: unknown;
   };
 }
 
@@ -158,9 +168,12 @@ export interface ElementRegistry {
   forEach(fn: (element: BpmnElement) => void): void;
 }
 
-/** The Canvas service — root element access. */
+/** The Canvas service — root element access and viewport control. */
 export interface Canvas {
   getRootElement(): BpmnElement;
+  setRootElement?(element: BpmnElement): void;
+  addMarker?(id: string, marker: string): void;
+  removeMarker?(id: string, marker: string): void;
 }
 
 /** The Moddle service — create BPMN model instances. */

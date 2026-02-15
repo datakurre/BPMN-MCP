@@ -5,7 +5,7 @@
 
 import { type ToolResult, type HintLevel } from '../../types';
 import { storeDiagram, generateDiagramId, createModeler } from '../../diagram-manager';
-import { jsonResult, getService } from '../helpers';
+import { jsonResult, getService, getProcesses } from '../helpers';
 
 /** Workflow context hint for guiding pool/lane usage. */
 export type WorkflowContext = 'single-organization' | 'multi-organization' | 'multi-system';
@@ -81,7 +81,7 @@ export async function handleCreateDiagram(args: CreateDiagramArgs): Promise<Tool
   if (args.name) {
     const elementRegistry = getService(modeler, 'elementRegistry');
     const modeling = getService(modeler, 'modeling');
-    const process = elementRegistry.filter((el: any) => el.type === 'bpmn:Process')[0];
+    const process = getProcesses(elementRegistry)[0];
     if (process) {
       modeling.updateProperties(process, {
         name: args.name,

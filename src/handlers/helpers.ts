@@ -55,6 +55,13 @@ export {
   isInfrastructureElement,
   buildElementCounts,
   buildConnectivityWarnings,
+  getParticipants,
+  getLanes,
+  getProcesses,
+  getSequenceFlows,
+  getMessageFlows,
+  getElementsByType,
+  isCollaboration,
 } from './diagram-access';
 
 // ── Moddle / extension-element utilities ───────────────────────────────────

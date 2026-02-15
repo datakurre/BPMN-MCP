@@ -6,6 +6,7 @@
  */
 
 import { type ToolResult } from '../types';
+import type { BpmnElement, ElementRegistry } from '../bpmn-types';
 import { getDiagram, getAllDiagrams } from '../diagram-manager';
 import { isPersistenceEnabled, persistDiagram } from '../persistence';
 import { diagramNotFoundError, elementNotFoundError } from '../errors';
@@ -20,7 +21,7 @@ export function requireDiagram(diagramId: string) {
 }
 
 /** Look up an element by ID, throwing an MCP error if not found. */
-export function requireElement(elementRegistry: any, elementId: string) {
+export function requireElement(elementRegistry: ElementRegistry, elementId: string): BpmnElement {
   const element = elementRegistry.get(elementId);
   if (!element) {
     throw elementNotFoundError(elementId);
@@ -61,16 +62,56 @@ export async function syncXml(diagram: ReturnType<typeof requireDiagram>) {
  *
  * This replaces the repeated inline filter that appeared in 5+ handler files.
  */
-export function getVisibleElements(elementRegistry: any): any[] {
+export function getVisibleElements(elementRegistry: ElementRegistry): BpmnElement[] {
   return elementRegistry.filter(
-    (el: any) =>
-      el.type &&
+    (el) =>
+      !!el.type &&
       el.type !== 'bpmn:Process' &&
       el.type !== 'bpmn:Collaboration' &&
       el.type !== 'label' &&
       !el.type.includes('BPMNDiagram') &&
       !el.type.includes('BPMNPlane')
   );
+}
+
+// ── Typed element-by-type helpers ──────────────────────────────────────────
+//
+// These replace the repeated `elementRegistry.filter((el: any) => el.type === '...')`
+// pattern that appeared in 15+ handler files.
+
+/** Return all bpmn:Participant elements. */
+export function getParticipants(elementRegistry: ElementRegistry): BpmnElement[] {
+  return elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+}
+
+/** Return all bpmn:Lane elements. */
+export function getLanes(elementRegistry: ElementRegistry): BpmnElement[] {
+  return elementRegistry.filter((el) => el.type === 'bpmn:Lane');
+}
+
+/** Return all bpmn:Process elements. */
+export function getProcesses(elementRegistry: ElementRegistry): BpmnElement[] {
+  return elementRegistry.filter((el) => el.type === 'bpmn:Process');
+}
+
+/** Return all bpmn:SequenceFlow elements. */
+export function getSequenceFlows(elementRegistry: ElementRegistry): BpmnElement[] {
+  return elementRegistry.filter((el) => el.type === 'bpmn:SequenceFlow');
+}
+
+/** Return all bpmn:MessageFlow elements. */
+export function getMessageFlows(elementRegistry: ElementRegistry): BpmnElement[] {
+  return elementRegistry.filter((el) => el.type === 'bpmn:MessageFlow');
+}
+
+/** Return all elements of a specific BPMN type. */
+export function getElementsByType(elementRegistry: ElementRegistry, type: string): BpmnElement[] {
+  return elementRegistry.filter((el) => el.type === type);
+}
+
+/** Check whether a diagram is a collaboration (has at least one participant). */
+export function isCollaboration(elementRegistry: ElementRegistry): boolean {
+  return elementRegistry.filter((el) => el.type === 'bpmn:Participant').length > 0;
 }
 
 // ── Element type classification ────────────────────────────────────────────

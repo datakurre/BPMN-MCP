@@ -235,9 +235,9 @@ export async function handleValidateLaneOrganization(
     });
   }
 
-  const flowElements: any[] = process.flowElements || [];
+  const flowElements: any[] = (process.flowElements as any[]) || [];
   const { flowNodes, sequenceFlows } = partitionFlowElements(flowElements);
-  const laneSets = process.laneSets || [];
+  const laneSets = (process.laneSets as any[]) || [];
   const lanes = getAllLanes(laneSets);
   const laneMap = buildLaneMap(laneSets);
 

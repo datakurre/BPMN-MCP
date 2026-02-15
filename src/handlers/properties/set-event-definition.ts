@@ -167,7 +167,7 @@ function applySignalInMappings(
       'bpmn:SignalEventDefinition',
     ]);
   }
-  const extElements = moddle.create('bpmn:ExtensionElements', { values: [] }) as any;
+  const extElements = moddle.create('bpmn:ExtensionElements', { values: [] });
   extElements.$parent = eventDef;
   for (const mapping of inMappings) {
     const attrs: Record<string, any> = {};
@@ -181,9 +181,9 @@ function applySignalInMappings(
     if (mapping.local) attrs.local = true;
     const inEl = moddle.create('camunda:In', attrs);
     inEl.$parent = extElements;
-    extElements.values.push(inEl);
+    (extElements.values as unknown[]).push(inEl);
   }
-  (eventDef as any).extensionElements = extElements;
+  eventDef.extensionElements = extElements;
 }
 
 /** Build event definition attributes from type-specific properties. */

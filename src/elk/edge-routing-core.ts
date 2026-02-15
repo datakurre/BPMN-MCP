@@ -5,7 +5,7 @@
  * with fallback routing for connections ELK didn't handle.
  */
 
-import type { ElkNode, ElkExtendedEdge, ElkEdgeSection } from 'elkjs';
+import type { ElkNode, ElkEdgeSection } from 'elkjs';
 import type { ElementRegistry, Modeling } from '../bpmn-types';
 import { isConnection } from './helpers';
 import { deduplicateWaypoints } from './edge-routing-helpers';
@@ -23,7 +23,7 @@ function collectElkEdges(
   const map = new Map<string, { sections: ElkEdgeSection[]; offsetX: number; offsetY: number }>();
 
   // Edges at this level
-  const edges = (elkNode as any).edges as ElkExtendedEdge[] | undefined;
+  const edges = elkNode.edges;
   if (edges) {
     for (const edge of edges) {
       if (edge.sections && edge.sections.length > 0) {

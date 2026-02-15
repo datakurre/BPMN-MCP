@@ -8,6 +8,7 @@
  */
 
 import { type DiagramState } from '../../../types';
+import type { BpmnElement } from '../../../bpmn-types';
 import {
   type Point,
   type Rect,
@@ -280,7 +281,7 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
     const labelCenterX = label.x + (label.width || 90) / 2;
     const dx = Math.round(elementCenterX - labelCenterX);
     if (Math.abs(dx) > 1) {
-      modeling.moveShape(label, { x: dx, y: 0 });
+      modeling.moveShape(label as unknown as BpmnElement, { x: dx, y: 0 });
       movedCount++;
     }
   }
@@ -380,7 +381,7 @@ export async function adjustElementLabel(
     const dx = bestCandidate.rect.x - label.x;
     const dy = bestCandidate.rect.y - label.y;
     if (dx !== 0 || dy !== 0) {
-      modeling.moveShape(label as any, { x: dx, y: dy });
+      modeling.moveShape(label as BpmnElement, { x: dx, y: dy });
       await syncXml(diagram);
       return true;
     }
