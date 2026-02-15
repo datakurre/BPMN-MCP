@@ -53,6 +53,7 @@ import {
   centreElementsInPools,
   enforceExpandedPoolGap,
   reorderCollapsedPoolsBelow,
+  compactPools,
 } from './position-application';
 import { repositionLanes, saveLaneNodeAssignments } from './lane-layout';
 import {
@@ -277,6 +278,7 @@ function finalisePoolsAndLanes(ctx: LayoutContext): void {
   centreElementsInPools(ctx.elementRegistry, ctx.modeling);
   enforceExpandedPoolGap(ctx.elementRegistry, ctx.modeling);
   repositionLanes(ctx.elementRegistry, ctx.modeling, ctx.laneSnapshots, ctx.options?.laneStrategy);
+  compactPools(ctx.elementRegistry, ctx.modeling);
   reorderCollapsedPoolsBelow(ctx.elementRegistry, ctx.modeling);
 }
 

@@ -16,6 +16,8 @@ import {
   INTER_POOL_GAP_EXTRA,
   RESIZE_SIGNIFICANCE_THRESHOLD,
   COLLAPSED_POOL_DEFAULT_HEIGHT,
+  POOL_COMPACT_RIGHT_PADDING,
+  POOL_LABEL_BAND,
 } from './constants';
 
 /**
@@ -190,6 +192,70 @@ export function enforceExpandedPoolGap(elementRegistry: ElementRegistry, modelin
         .map((p) => elementRegistry.get(p.id)!)
         .filter(Boolean);
       modeling.moveElements(toMove, { x: 0, y: dy });
+    }
+  }
+}
+
+/**
+ * Compact expanded pools to tightly fit their content.
+ *
+ * After ELK layout + grid snap + centring, pool width may be significantly
+ * larger than needed (ELK sizes compound nodes generously).  This pass
+ * measures the actual content bounding box within each expanded pool and
+ * shrinks the pool's right edge to hug the rightmost flow element with
+ * standard padding.  Only shrinks — never expands.
+ *
+ * Lanes (if present) are resized to match the new pool width.
+ */
+export function compactPools(elementRegistry: ElementRegistry, modeling: Modeling): void {
+  const participants = elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+  if (participants.length === 0) return;
+
+  for (const pool of participants) {
+    // Only compact expanded pools (those with flow-element children)
+    const children = elementRegistry.filter((el) => el.parent === pool && isLayoutableShape(el));
+    if (children.length === 0) continue;
+
+    // Compute content right edge
+    let contentMaxX = -Infinity;
+    for (const child of children) {
+      const right = child.x + (child.width || 0);
+      if (right > contentMaxX) contentMaxX = right;
+    }
+
+    // Desired pool right edge
+    const desiredRight = contentMaxX + POOL_COMPACT_RIGHT_PADDING;
+    const currentRight = pool.x + pool.width;
+
+    // Only compact (shrink), never expand
+    if (desiredRight >= currentRight - RESIZE_SIGNIFICANCE_THRESHOLD) continue;
+
+    const newWidth = Math.round(desiredRight - pool.x);
+    if (newWidth <= 0) continue;
+
+    modeling.resizeShape(pool, {
+      x: pool.x,
+      y: pool.y,
+      width: newWidth,
+      height: pool.height,
+    });
+
+    // Resize lanes to match the new pool width
+    const lanes = elementRegistry.filter((el) => el.type === 'bpmn:Lane' && el.parent === pool);
+    if (lanes.length > 0) {
+      const updatedPool = elementRegistry.get(pool.id)!;
+      const laneWidth = updatedPool.width - POOL_LABEL_BAND;
+      for (const lane of lanes) {
+        const currentLane = elementRegistry.get(lane.id)!;
+        if (Math.abs(currentLane.width - laneWidth) > RESIZE_SIGNIFICANCE_THRESHOLD) {
+          modeling.resizeShape(currentLane, {
+            x: currentLane.x,
+            y: currentLane.y,
+            width: laneWidth,
+            height: currentLane.height,
+          });
+        }
+      }
     }
   }
 }

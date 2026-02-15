@@ -362,6 +362,14 @@ export const RESIZE_SIGNIFICANCE_THRESHOLD = 5;
 /** Default height (px) for collapsed participant pools when not specified. */
 export const COLLAPSED_POOL_DEFAULT_HEIGHT = 60;
 
+/**
+ * Right-side padding (px) for post-layout pool width compaction.
+ * After ELK layout + grid snap, pools may be wider than necessary.
+ * This pass shrinks the pool's right edge to hug the rightmost
+ * flow element with this much breathing room.
+ */
+export const POOL_COMPACT_RIGHT_PADDING = 50;
+
 // ── Subprocess alignment constants ──────────────────────────────────────
 
 /**

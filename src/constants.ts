@@ -150,7 +150,7 @@ export const LABEL_SHAPE_PROXIMITY_MARGIN = 10;
 // ── Pool/lane sizing utilities ─────────────────────────────────────────────
 
 /** Minimum pool width in pixels. */
-export const MIN_POOL_WIDTH = 600;
+export const MIN_POOL_WIDTH = 350;
 
 /** Pixels per element for pool width estimation. */
 export const WIDTH_PER_ELEMENT = 150;

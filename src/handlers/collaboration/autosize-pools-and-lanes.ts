@@ -20,8 +20,8 @@ import { typeMismatchError } from '../../errors';
 import { appendLintFeedback } from '../../linter';
 import {
   MIN_POOL_WIDTH,
-  WIDTH_PER_ELEMENT,
   MIN_LANE_HEIGHT,
+  MIN_POOL_HEIGHT,
   MIN_POOL_ASPECT_RATIO,
   MAX_POOL_ASPECT_RATIO,
 } from '../../constants';
@@ -123,20 +123,14 @@ function computePoolBounds(
   pool: any,
   bbox: BBox,
   pad: number,
-  count: number,
+  _count: number,
   targetAspectRatio?: number
 ): PoolBounds {
-  const contentW = bbox.maxX - bbox.minX;
-  const estW = Math.max(
-    MIN_POOL_WIDTH,
-    contentW + pad * 2 + POOL_HEADER_PADDING,
-    count * WIDTH_PER_ELEMENT
-  );
   const padL = pad + POOL_HEADER_PADDING;
   const x = Math.min(pool.x, bbox.minX - padL);
   const y = Math.min(pool.y, bbox.minY - pad);
-  let width = Math.max(pool.width || MIN_POOL_WIDTH, estW, bbox.maxX - x + pad);
-  let height = Math.max(pool.height || 250, bbox.maxY - y + pad);
+  let width = Math.max(MIN_POOL_WIDTH, bbox.maxX - x + pad);
+  let height = Math.max(MIN_POOL_HEIGHT, bbox.maxY - y + pad);
 
   // Enforce aspect ratio when requested
   if (targetAspectRatio != null) {

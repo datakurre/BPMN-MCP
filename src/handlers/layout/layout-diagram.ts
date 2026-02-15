@@ -272,6 +272,9 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
     const poolResult = await handleAutosizePoolsAndLanes({ diagramId });
     const poolData = JSON.parse(poolResult.content[0].text as string);
     poolExpansionApplied = (poolData.resizedCount ?? 0) > 0;
+
+    // Re-align collapsed pools to match expanded pool width after autosize
+    alignCollapsedPoolsAfterAutosize(elementRegistry, getService(diagram.modeler, 'modeling'));
   }
 
   // Check DI integrity: warn about elements missing visual representation
@@ -292,6 +295,50 @@ export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<Tool
     poolExpansionApplied,
   });
   return appendLintFeedback(result, diagram);
+}
+
+/** Snap collapsed pools to match expanded pool horizontal extent after autosize. */
+function alignCollapsedPoolsAfterAutosize(elementRegistry: any, modeling: any): void {
+  const pools = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  if (pools.length < 2) return;
+
+  const expanded: any[] = [];
+  const collapsed: any[] = [];
+  for (const p of pools) {
+    const hasChildren =
+      elementRegistry.filter(
+        (el: any) =>
+          el.parent === p &&
+          !el.type.includes('Flow') &&
+          !el.type.includes('Lane') &&
+          el.type !== 'bpmn:Process' &&
+          el.type !== 'label'
+      ).length > 0;
+    if (hasChildren) expanded.push(p);
+    else collapsed.push(p);
+  }
+  if (expanded.length === 0 || collapsed.length === 0) return;
+
+  let minX = Infinity;
+  let maxRight = -Infinity;
+  for (const p of expanded) {
+    if (p.x < minX) minX = p.x;
+    if (p.x + (p.width || 0) > maxRight) maxRight = p.x + (p.width || 0);
+  }
+  const expandedWidth = maxRight - minX;
+  for (const pool of collapsed) {
+    const dx = Math.round(minX - pool.x);
+    if (Math.abs(dx) > 2) modeling.moveElements([pool], { x: dx, y: 0 });
+    const cur = elementRegistry.get(pool.id);
+    if (Math.abs((cur.width || 0) - expandedWidth) > 5) {
+      modeling.resizeShape(cur, {
+        x: cur.x,
+        y: cur.y,
+        width: expandedWidth,
+        height: cur.height || 60,
+      });
+    }
+  }
 }
 
 // Schema extracted to layout-diagram-schema.ts for readability.
