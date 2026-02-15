@@ -255,7 +255,7 @@ const addDecisionGatewayPattern: PromptDefinition = {
             `   - preserveHappyPath: true (keeps the "Yes" path straight)\n` +
             `   - simplifyRoutes: true (cleans up edge routing)\n` +
             `   - compactness: "spacious" (gives room for the loopback)\n` +
-            `5. **Label cleanup**: Run \`adjust_bpmn_labels\` to position flow labels clearly\n\n` +
+            `5. **Label cleanup**: Run \`layout_bpmn_diagram\` with labelsOnly: true to position flow labels clearly\n\n` +
             `**Layout geometry for decision gateway patterns:**\n` +
             `- The "Yes" path should go straight right (same Y as the gateway)\n` +
             (loopbackId
@@ -330,12 +330,12 @@ const createLaneBasedProcess: PromptDefinition = {
             `2. **Build the process flow**: Add all tasks, gateways, and events ` +
             `using \`add_bpmn_element\` and \`connect_bpmn_elements\`. ` +
             `Name every element with verb-object pattern.\n` +
-            `3. **Wrap in collaboration**: Use \`wrap_bpmn_process_in_collaboration\` with ` +
-            `participantName "${name}"\n` +
+            `3. **Wrap in collaboration**: Use \`create_bpmn_participant\` with ` +
+            `wrapExisting: true and name "${name}"\n` +
             `4. **Create lanes**: Use \`create_bpmn_lanes\` with the participant ID and lanes:\n` +
             roles.map((r) => `   - { name: "${r}" }`).join('\n') +
             `\n` +
-            `5. **Assign elements to lanes**: Use \`assign_bpmn_elements_to_lane\` to place ` +
+            `5. **Assign elements to lanes**: Use \`redistribute_bpmn_elements_across_lanes\` with strategy: "manual" to place ` +
             `each task in the appropriate lane based on which role performs it. ` +
             `Assign start/end events to the role that initiates/completes the process.\n` +
             `6. **Configure tasks**: Set \`camunda:candidateGroups\` on UserTasks ` +

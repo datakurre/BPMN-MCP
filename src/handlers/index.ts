@@ -21,7 +21,7 @@ import { ERR_INTERNAL } from '../errors';
 
 import { handleCreateDiagram, TOOL_DEFINITION as CREATE_DIAGRAM_DEF } from './core/create-diagram';
 import { handleDeleteDiagram, TOOL_DEFINITION as DELETE_DIAGRAM_DEF } from './core/delete-diagram';
-import { handleCloneDiagram, TOOL_DEFINITION as CLONE_DIAGRAM_DEF } from './core/clone-diagram';
+import { handleCloneDiagram } from './core/clone-diagram';
 import { handleListDiagrams, TOOL_DEFINITION as LIST_DIAGRAMS_DEF } from './core/list-diagrams';
 import { handleSummarizeDiagram } from './core/summarize-diagram';
 import { handleImportXml, TOOL_DEFINITION as IMPORT_XML_DEF } from './core/import-xml';
@@ -37,7 +37,7 @@ import {
   handleRedoChange,
   TOOL_DEFINITION as BPMN_HISTORY_DEF,
 } from './core/bpmn-history';
-import { handleDiffDiagrams, TOOL_DEFINITION as DIFF_DIAGRAMS_DEF } from './core/diff-diagrams';
+import { handleDiffDiagrams } from './core/diff-diagrams';
 import {
   handleListProcessVariables,
   TOOL_DEFINITION as LIST_PROCESS_VARIABLES_DEF,
@@ -61,28 +61,19 @@ import {
   handleMoveToLane,
   TOOL_DEFINITION as MOVE_ELEMENT_DEF,
 } from './elements/move-element';
-import {
-  handleDuplicateElement,
-  TOOL_DEFINITION as DUPLICATE_ELEMENT_DEF,
-} from './elements/duplicate-element';
+import { handleDuplicateElement } from './elements/duplicate-element';
 import { handleInsertElement } from './elements/insert-element';
 import {
   handleReplaceElement,
   TOOL_DEFINITION as REPLACE_ELEMENT_DEF,
 } from './elements/replace-element';
-import {
-  handleAddElementChain,
-  TOOL_DEFINITION as ADD_ELEMENT_CHAIN_DEF,
-} from './elements/add-element-chain';
+import { handleAddElementChain } from './elements/add-element-chain';
 import { handleListElements, TOOL_DEFINITION as LIST_ELEMENTS_DEF } from './elements/list-elements';
 import {
   handleGetProperties,
   TOOL_DEFINITION as GET_PROPERTIES_DEF,
 } from './elements/get-properties';
-import {
-  handleSetConnectionWaypoints,
-  TOOL_DEFINITION as SET_CONNECTION_WAYPOINTS_DEF,
-} from './elements/set-connection-waypoints';
+import { handleSetConnectionWaypoints } from './elements/set-connection-waypoints';
 
 // ── Properties: property setters ───────────────────────────────────────────
 
@@ -106,7 +97,7 @@ import {
   handleSetLoopCharacteristics,
   TOOL_DEFINITION as SET_LOOP_CHARACTERISTICS_DEF,
 } from './properties/set-loop-characteristics';
-import { handleSetScript, TOOL_DEFINITION as SET_SCRIPT_DEF } from './properties/set-script';
+import { handleSetScript } from './properties/set-script';
 import {
   handleSetCamundaListeners,
   TOOL_DEFINITION as SET_CAMUNDA_LISTENERS_DEF,
@@ -126,10 +117,7 @@ import {
   handleAlignElements,
   TOOL_DEFINITION as ALIGN_ELEMENTS_DEF,
 } from './layout/align-elements';
-import {
-  handleAdjustLabels,
-  TOOL_DEFINITION as ADJUST_LABELS_DEF,
-} from './layout/labels/adjust-labels-handler';
+import { handleAdjustLabels } from './layout/labels/adjust-labels-handler';
 
 // ── Collaboration: pools, root elements ────────────────────────────────────
 
@@ -142,48 +130,28 @@ import {
   handleCreateLanes,
   TOOL_DEFINITION as CREATE_LANES_DEF,
 } from './collaboration/create-lanes';
-import {
-  handleAssignElementsToLane,
-  TOOL_DEFINITION as ASSIGN_ELEMENTS_TO_LANE_DEF,
-} from './collaboration/assign-elements-to-lane';
-import {
-  handleWrapProcessInCollaboration,
-  TOOL_DEFINITION as WRAP_PROCESS_IN_COLLABORATION_DEF,
-} from './collaboration/wrap-process-in-collaboration';
+import { handleAssignElementsToLane } from './collaboration/assign-elements-to-lane';
+import { handleWrapProcessInCollaboration } from './collaboration/wrap-process-in-collaboration';
 import { handleSplitParticipantIntoLanes } from './collaboration/split-participant-into-lanes';
 import {
   handleCreateParticipant,
   TOOL_DEFINITION as CREATE_PARTICIPANT_DEF,
 } from './collaboration/create-participant';
-import {
-  handleHandoffToLane,
-  TOOL_DEFINITION as HANDOFF_TO_LANE_DEF,
-} from './collaboration/handoff-to-lane';
-import {
-  handleSuggestLaneOrganization,
-  TOOL_DEFINITION as SUGGEST_LANE_ORGANIZATION_DEF,
-} from './collaboration/suggest-lane-organization';
-import {
-  handleValidateLaneOrganization,
-  TOOL_DEFINITION as VALIDATE_LANE_ORGANIZATION_DEF,
-} from './collaboration/validate-lane-organization';
-import {
-  handleConvertCollaborationToLanes,
-  TOOL_DEFINITION as CONVERT_COLLABORATION_TO_LANES_DEF,
-} from './collaboration/convert-collaboration-to-lanes';
+import { handleHandoffToLane } from './collaboration/handoff-to-lane';
+import { handleSuggestLaneOrganization } from './collaboration/suggest-lane-organization';
+import { handleValidateLaneOrganization } from './collaboration/validate-lane-organization';
+import { handleConvertCollaborationToLanes } from './collaboration/convert-collaboration-to-lanes';
 import { handleResizePoolToFit } from './collaboration/resize-pool-to-fit';
+import { handleSuggestPoolVsLanes } from './collaboration/suggest-pool-vs-lanes';
 import {
-  handleSuggestPoolVsLanes,
-  TOOL_DEFINITION as SUGGEST_POOL_VS_LANES_DEF,
-} from './collaboration/suggest-pool-vs-lanes';
+  handleAnalyzeLanes,
+  TOOL_DEFINITION as ANALYZE_LANES_DEF,
+} from './collaboration/analyze-lanes';
 import {
   handleRedistributeElementsAcrossLanes,
   TOOL_DEFINITION as REDISTRIBUTE_ELEMENTS_ACROSS_LANES_DEF,
 } from './collaboration/redistribute-elements-across-lanes';
-import {
-  handleAutosizePoolsAndLanes,
-  TOOL_DEFINITION as AUTOSIZE_POOLS_AND_LANES_DEF,
-} from './collaboration/autosize-pools-and-lanes';
+import { handleAutosizePoolsAndLanes } from './collaboration/autosize-pools-and-lanes';
 import { handleOptimizeLaneAssignments } from './collaboration/optimize-lane-assignments';
 
 // ── Unified tool registry ──────────────────────────────────────────────────
@@ -209,7 +177,6 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: IMPORT_XML_DEF, handler: handleImportXml },
   { definition: DELETE_DIAGRAM_DEF, handler: handleDeleteDiagram },
   { definition: LIST_DIAGRAMS_DEF, handler: handleListDiagrams },
-  { definition: CLONE_DIAGRAM_DEF, handler: handleCloneDiagram },
   { definition: VALIDATE_DEF, handler: handleValidate },
   { definition: ALIGN_ELEMENTS_DEF, handler: handleAlignElements },
   { definition: SET_INPUT_OUTPUT_DEF, handler: handleSetInputOutput },
@@ -217,33 +184,20 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: SET_FORM_DATA_DEF, handler: handleSetFormData },
   { definition: LAYOUT_DIAGRAM_DEF, handler: handleLayoutDiagram },
   { definition: SET_LOOP_CHARACTERISTICS_DEF, handler: handleSetLoopCharacteristics },
-  { definition: ADJUST_LABELS_DEF, handler: handleAdjustLabels },
-  { definition: SET_SCRIPT_DEF, handler: handleSetScript },
   { definition: BPMN_HISTORY_DEF, handler: handleBpmnHistory },
-  { definition: DIFF_DIAGRAMS_DEF, handler: handleDiffDiagrams },
   { definition: BATCH_OPERATIONS_DEF, handler: handleBatchOperations },
   { definition: SET_CAMUNDA_LISTENERS_DEF, handler: handleSetCamundaListeners },
   { definition: SET_CALL_ACTIVITY_VARIABLES_DEF, handler: handleSetCallActivityVariables },
   { definition: MANAGE_ROOT_ELEMENTS_DEF, handler: handleManageRootElements },
   { definition: CREATE_LANES_DEF, handler: handleCreateLanes },
-  { definition: ASSIGN_ELEMENTS_TO_LANE_DEF, handler: handleAssignElementsToLane },
-  { definition: WRAP_PROCESS_IN_COLLABORATION_DEF, handler: handleWrapProcessInCollaboration },
   { definition: CREATE_PARTICIPANT_DEF, handler: handleCreateParticipant },
-  { definition: HANDOFF_TO_LANE_DEF, handler: handleHandoffToLane },
-  { definition: SUGGEST_LANE_ORGANIZATION_DEF, handler: handleSuggestLaneOrganization },
-  { definition: VALIDATE_LANE_ORGANIZATION_DEF, handler: handleValidateLaneOrganization },
-  { definition: CONVERT_COLLABORATION_TO_LANES_DEF, handler: handleConvertCollaborationToLanes },
-  { definition: SUGGEST_POOL_VS_LANES_DEF, handler: handleSuggestPoolVsLanes },
+  { definition: ANALYZE_LANES_DEF, handler: handleAnalyzeLanes },
   {
     definition: REDISTRIBUTE_ELEMENTS_ACROSS_LANES_DEF,
     handler: handleRedistributeElementsAcrossLanes,
   },
-  { definition: AUTOSIZE_POOLS_AND_LANES_DEF, handler: handleAutosizePoolsAndLanes },
-  { definition: DUPLICATE_ELEMENT_DEF, handler: handleDuplicateElement },
   { definition: REPLACE_ELEMENT_DEF, handler: handleReplaceElement },
-  { definition: ADD_ELEMENT_CHAIN_DEF, handler: handleAddElementChain },
   { definition: LIST_PROCESS_VARIABLES_DEF, handler: handleListProcessVariables },
-  { definition: SET_CONNECTION_WAYPOINTS_DEF, handler: handleSetConnectionWaypoints },
 ];
 
 // ── Auto-derived exports ───────────────────────────────────────────────────
@@ -332,4 +286,5 @@ export {
   handleSummarizeDiagram,
   handleListProcessVariables,
   handleSetConnectionWaypoints,
+  handleAnalyzeLanes,
 };

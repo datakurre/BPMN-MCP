@@ -41,8 +41,8 @@ export function buildRedistributeResult(
               description: 'Re-layout diagram after lane redistribution',
             },
             {
-              tool: 'validate_bpmn_lane_organization',
-              description: 'Check if the new lane organization is coherent',
+              tool: 'analyze_bpmn_lanes',
+              description: 'Check if the new lane organization is coherent (mode: validate)',
             },
           ]
         : [],

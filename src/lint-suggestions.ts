@@ -91,13 +91,13 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
   'bpmn-mcp/lane-missing-start-or-end':
     'Assign start and end events to appropriate lanes using move_bpmn_element with laneId',
   'bpmn-mcp/pool-size-insufficient':
-    'Use autosize_bpmn_pools_and_lanes with participantId to auto-resize the pool{elementRef}, or use move_bpmn_element with width/height to manually resize',
+    'Use layout_bpmn_diagram with autosizeOnly: true and participantId to auto-resize the pool{elementRef}, or use move_bpmn_element with width/height to manually resize',
   'bpmn-mcp/message-flow-necessity':
     'If the connected pools represent roles within the same organization, consider using a single pool with lanes and sequence flows instead of message flows{elementRef}',
   'bpmn-mcp/unaligned-message-events':
     'Align message flow endpoints vertically (same X coordinate) using move_bpmn_element{elementRef} to create straight vertical message flows',
   'bpmn-mcp/inconsistent-assignee-grouping':
-    'Group elements with the same assignee/candidateGroups into a single lane using assign_bpmn_elements_to_lane or move_bpmn_element with laneId',
+    'Group elements with the same assignee/candidateGroups into a single lane using redistribute_bpmn_elements_across_lanes (strategy: manual) or move_bpmn_element with laneId',
   'bpmn-mcp/service-task-missing-implementation':
     'Use set_bpmn_element_properties to set camunda:class, camunda:delegateExpression, camunda:expression, or camunda:type="external" with camunda:topic{elementRef}',
   'bpmn-mcp/timer-missing-definition':
@@ -119,19 +119,19 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
   'bpmn-mcp/lane-overcrowding':
     'Redistribute elements across lanes using move_bpmn_element with laneId, or split the lane into more specific roles using create_bpmn_lanes',
   'bpmn-mcp/prefer-lanes-over-pools':
-    'Consider converting separate pools into lanes within a single pool. Use suggest_bpmn_pool_vs_lanes to analyze, then convert_bpmn_collaboration_to_lanes to convert',
+    'Consider converting separate pools into lanes within a single pool. Use analyze_bpmn_lanes (mode: pool-vs-lanes) to analyze, then create_bpmn_lanes (with mergeFrom) to convert',
   'bpmn-mcp/role-mismatch-with-lane':
     'Use set_bpmn_element_properties to update camunda:assignee or camunda:candidateGroups to match the lane role, or move the element to the correct lane with move_bpmn_element{elementRef}',
   'bpmn-mcp/lane-candidate-detection':
-    'Consider adding lanes to organize tasks by role — use create_bpmn_lanes followed by assign_bpmn_elements_to_lane',
+    'Consider adding lanes to organize tasks by role — use create_bpmn_lanes followed by redistribute_bpmn_elements_across_lanes (strategy: manual)',
   'bpmn-mcp/lane-without-assignments':
-    'Assign elements to the lane using assign_bpmn_elements_to_lane, or remove the empty lane with delete_bpmn_element{elementRef}',
+    'Assign elements to the lane using redistribute_bpmn_elements_across_lanes (strategy: manual), or remove the empty lane with delete_bpmn_element{elementRef}',
   'bpmn-mcp/long-message-flow-path':
     'Reposition the message flow endpoints closer together using move_bpmn_element, or run layout_bpmn_diagram to re-arrange pools',
   'bpmn-mcp/collaboration-pattern-mismatch':
     'Review the collaboration structure. In Camunda 7 / Operaton, use one expanded executable pool with collapsed partner pools for external systems',
   'bpmn-mcp/detect-single-organization-collaboration':
-    'Convert to a single pool with lanes using convert_bpmn_collaboration_to_lanes. Roles within the same organization should use lanes, not separate pools',
+    'Convert to a single pool with lanes using create_bpmn_lanes (with mergeFrom). Roles within the same organization should use lanes, not separate pools',
   'bpmn-mcp/message-flow-crossing-excessive':
     'Reorder participants or reposition elements to reduce message flow crossings. Use move_bpmn_element or layout_bpmn_diagram',
   'bpmn-mcp/missing-di-shape':

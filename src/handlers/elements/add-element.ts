@@ -17,6 +17,7 @@ import {
 import { STANDARD_BPMN_GAP, getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
 import { handleInsertElement } from './insert-element';
+import { handleDuplicateElement } from './duplicate-element';
 import {
   shiftDownstreamElements,
   snapToLane,
@@ -77,6 +78,12 @@ export interface AddElementArgs {
   signalRef?: { id: string; name?: string };
   /** Boundary event shorthand: escalation reference for EscalationEventDefinition. */
   escalationRef?: { id: string; name?: string; escalationCode?: string };
+  /** Duplicate an existing element: copies its type, name, and camunda properties. */
+  copyFrom?: string;
+  /** Offset for copyFrom duplication (default: 50). */
+  copyOffsetX?: number;
+  /** Offset for copyFrom duplication (default: 50). */
+  copyOffsetY?: number;
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
@@ -85,6 +92,16 @@ export interface AddElementArgs {
 export async function handleAddElement(args: AddElementArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementType']);
   validateElementType(args.elementType, ALLOWED_ELEMENT_TYPES);
+
+  // ── copyFrom: delegate to duplicate handler ────────────────────────────
+  if (args.copyFrom) {
+    return handleDuplicateElement({
+      diagramId: args.diagramId,
+      elementId: args.copyFrom,
+      offsetX: args.copyOffsetX,
+      offsetY: args.copyOffsetY,
+    });
+  }
 
   // ── Validate incompatible argument combinations ────────────────────────
   if (args.elementType === 'bpmn:BoundaryEvent' && !args.hostElementId) {

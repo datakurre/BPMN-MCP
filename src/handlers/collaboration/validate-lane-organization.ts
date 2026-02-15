@@ -115,7 +115,7 @@ function checkLanePopulation(laneDetails: LaneDetail[], issues: LaneIssue[]): vo
         message: `Lane "${detail.laneName}" is empty. Remove it or assign elements to it.`,
         elementIds: [detail.laneId],
         suggestion:
-          'Use delete_bpmn_element to remove the empty lane, or assign_bpmn_elements_to_lane to populate it.',
+          'Use delete_bpmn_element to remove the empty lane, or redistribute_bpmn_elements_across_lanes (strategy: manual) to populate it.',
       });
     } else if (detail.elementCount <= 1) {
       issues.push({
@@ -124,7 +124,7 @@ function checkLanePopulation(laneDetails: LaneDetail[], issues: LaneIssue[]): vo
         message: `Lane "${detail.laneName}" contains only ${detail.elementCount} element(s). Consider merging with another lane.`,
         elementIds: [detail.laneId],
         suggestion:
-          "Consider using assign_bpmn_elements_to_lane to merge this lane's elements into a related lane.",
+          "Consider using redistribute_bpmn_elements_across_lanes (strategy: manual) to merge this lane's elements into a related lane.",
       });
     }
   }
@@ -139,7 +139,8 @@ function checkUnassigned(flowNodes: any[], laneMap: Map<string, any>, issues: La
       code: 'elements-not-in-lane',
       message: `${unassigned.length} flow node(s) are not assigned to any lane: ${unassigned.map((e: any) => e.name || e.id).join(', ')}`,
       elementIds: unassigned.map((e: any) => e.id),
-      suggestion: 'Use assign_bpmn_elements_to_lane to assign these elements to appropriate lanes.',
+      suggestion:
+        'Use redistribute_bpmn_elements_across_lanes (strategy: manual) to assign these elements to appropriate lanes.',
     });
   }
 }
@@ -194,7 +195,7 @@ function findZigzag(node: any, nodeLane: any, laneMap: Map<string, any>): LaneIs
         code: 'zigzag-flow',
         message: `Zigzag flow: ${pName} → ${nName} (${nodeLane.name || nodeLane.id}) → ${sName}. Consider moving "${nName}" to lane "${predLane.name || predLane.id}".`,
         elementIds: [node.id],
-        suggestion: `Use assign_bpmn_elements_to_lane to move "${nName}" to lane "${predLane.name || predLane.id}".`,
+        suggestion: `Use redistribute_bpmn_elements_across_lanes (strategy: manual) to move "${nName}" to lane "${predLane.name || predLane.id}".`,
       };
     }
     break;
@@ -250,8 +251,8 @@ export async function handleValidateLaneOrganization(
         {
           severity: 'info',
           code: 'no-lanes',
-          message: `Process has ${flowNodes.length} flow node(s) but no lanes defined. Use suggest_bpmn_lane_organization to plan a lane structure.`,
-          suggestion: 'suggest_bpmn_lane_organization',
+          message: `Process has ${flowNodes.length} flow node(s) but no lanes defined. Use analyze_bpmn_lanes (mode: suggest) to plan a lane structure.`,
+          suggestion: 'analyze_bpmn_lanes (mode: suggest)',
         },
       ],
       coherenceScore: 100,
@@ -275,7 +276,7 @@ export async function handleValidateLaneOrganization(
       code: 'low-coherence',
       message: `Lane coherence is only ${coherence}% (${crossLane} of ${total} flows cross lane boundaries). Consider reorganizing tasks.`,
       suggestion:
-        'Use suggest_bpmn_lane_organization to get recommendations for better lane assignments.',
+        'Use analyze_bpmn_lanes (mode: suggest) to get recommendations for better lane assignments.',
     });
   }
 

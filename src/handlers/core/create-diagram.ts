@@ -4,7 +4,12 @@
 // @mutating
 
 import { type ToolResult, type HintLevel } from '../../types';
-import { storeDiagram, generateDiagramId, createModeler } from '../../diagram-manager';
+import {
+  storeDiagram,
+  generateDiagramId,
+  createModeler,
+  createModelerFromXml,
+} from '../../diagram-manager';
 import { jsonResult, getService, getProcesses } from '../helpers';
 
 /** Workflow context hint for guiding pool/lane usage. */
@@ -21,6 +26,11 @@ export interface CreateDiagramArgs {
    * - 'multi-system': requires collaboration with message flows between systems
    */
   workflowContext?: WorkflowContext;
+  /**
+   * Clone an existing diagram instead of creating a blank one.
+   * Provide the diagram ID to clone from.
+   */
+  cloneFrom?: string;
 }
 
 /** Convert a human name into a valid BPMN process id (XML NCName). */
@@ -73,6 +83,27 @@ const WORKFLOW_CONTEXT_GUIDANCE: Record<
 };
 
 export async function handleCreateDiagram(args: CreateDiagramArgs): Promise<ToolResult> {
+  // Clone mode: duplicate an existing diagram
+  if (args.cloneFrom) {
+    const { requireDiagram } = await import('../helpers');
+    const source = requireDiagram(args.cloneFrom);
+    const { xml } = await source.modeler.saveXML({ format: true });
+    const newDiagramId = generateDiagramId();
+    const modeler = await createModelerFromXml(xml || '');
+    storeDiagram(newDiagramId, {
+      modeler,
+      xml: xml || '',
+      name: args.name || source.name,
+    });
+    return jsonResult({
+      success: true,
+      diagramId: newDiagramId,
+      clonedFrom: args.cloneFrom,
+      name: args.name || source.name,
+      message: `Cloned diagram ${args.cloneFrom} → ${newDiagramId}`,
+    });
+  }
+
   const diagramId = generateDiagramId();
   const modeler = await createModeler();
   const { xml } = await modeler.saveXML({ format: true });
@@ -177,6 +208,12 @@ export const TOOL_DEFINITION = {
           "for distinct organizations. 'multi-system' requires collaboration " +
           'with message flows between technical systems. Adds structural guidance ' +
           'to the response to help choose the right modeling approach.',
+      },
+      cloneFrom: {
+        type: 'string',
+        description:
+          'Clone an existing diagram instead of creating a blank one. ' +
+          'Provide the diagram ID to clone from. Returns a new diagram ID.',
       },
     },
   },

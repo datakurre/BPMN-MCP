@@ -193,6 +193,21 @@ export const TOOL_DEFINITION = {
         description:
           'For EscalationEventDefinition: creates or references a bpmn:Escalation root element.',
       },
+      copyFrom: {
+        type: 'string',
+        description:
+          'Duplicate an existing element: pass the source element ID. Copies its type, name (with " (copy)" suffix), ' +
+          'and camunda properties, placing the copy at an offset from the original. Connections are not copied. ' +
+          'When set, elementType is still required but used only for validation — the actual type is taken from the source.',
+      },
+      copyOffsetX: {
+        type: 'number',
+        description: 'Horizontal offset from the original when using copyFrom (default: 50).',
+      },
+      copyOffsetY: {
+        type: 'number',
+        description: 'Vertical offset from the original when using copyFrom (default: 50).',
+      },
     },
     required: ['diagramId', 'elementType'],
     allOf: [

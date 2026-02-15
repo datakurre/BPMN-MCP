@@ -133,7 +133,7 @@ describe('suggest_bpmn_pool_vs_lanes – executable pools', () => {
     expect(allTasksIndicator).toBeDefined();
 
     // Suggestion should mention converting to lanes
-    expect(result.suggestion).toMatch(/convert.*lanes/i);
+    expect(result.suggestion).toMatch(/lanes/i);
   });
 
   test('does not warn when one pool has no tasks (external system)', async () => {

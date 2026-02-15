@@ -5,7 +5,7 @@ describe('tool-definitions', () => {
   const toolNames = TOOL_DEFINITIONS.map((t) => t.name);
 
   test('exports the expected number of tools', () => {
-    expect(TOOL_DEFINITIONS.length).toBe(44);
+    expect(TOOL_DEFINITIONS.length).toBe(30);
   });
 
   test.each([
@@ -21,7 +21,6 @@ describe('tool-definitions', () => {
     'import_bpmn_xml',
     'delete_bpmn_diagram',
     'list_bpmn_diagrams',
-    'clone_bpmn_diagram',
     'validate_bpmn_diagram',
     'align_bpmn_elements',
     'set_bpmn_input_output_mapping',
@@ -29,28 +28,17 @@ describe('tool-definitions', () => {
     'set_bpmn_form_data',
     'layout_bpmn_diagram',
     'set_bpmn_loop_characteristics',
-    'adjust_bpmn_labels',
-    'set_bpmn_script',
     'bpmn_history',
-    'diff_bpmn_diagrams',
     'batch_bpmn_operations',
     'set_bpmn_camunda_listeners',
     'set_bpmn_call_activity_variables',
     'manage_bpmn_root_elements',
     'create_bpmn_lanes',
-    'assign_bpmn_elements_to_lane',
-    'wrap_bpmn_process_in_collaboration',
-    'duplicate_bpmn_element',
-    'replace_bpmn_element',
-    'add_bpmn_element_chain',
     'create_bpmn_participant',
-    'handoff_bpmn_to_lane',
-    'suggest_bpmn_lane_organization',
-    'validate_bpmn_lane_organization',
-    'convert_bpmn_collaboration_to_lanes',
-    'suggest_bpmn_pool_vs_lanes',
+    'analyze_bpmn_lanes',
+    'redistribute_bpmn_elements_across_lanes',
+    'replace_bpmn_element',
     'list_bpmn_process_variables',
-    'set_bpmn_connection_waypoints',
   ])("includes tool '%s'", (name) => {
     expect(toolNames).toContain(name);
   });

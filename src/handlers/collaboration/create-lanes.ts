@@ -30,6 +30,7 @@ import {
   buildByTypeLaneDefs,
   buildCreateLanesNextSteps,
 } from './by-type-distribution';
+import { handleConvertCollaborationToLanes } from './convert-collaboration-to-lanes';
 
 export interface CreateLanesArgs {
   diagramId: string;
@@ -57,6 +58,14 @@ export interface CreateLanesArgs {
    * - 'manual': use explicit elementIds in each lane definition.
    */
   distributeStrategy?: 'by-type' | 'manual';
+  /**
+   * Convert a multi-pool collaboration into lanes. Provide the ID of the main pool
+   * to keep; other expanded pools become lanes within it. Elements are moved and
+   * message flows are converted to sequence flows.
+   */
+  mergeFrom?: string;
+  /** When true (default), runs layout after mergeFrom conversion. */
+  layout?: boolean;
 }
 
 /** Minimum lane height in pixels. */
@@ -285,6 +294,16 @@ function buildCreateLanesResult(
 
 export async function handleCreateLanes(args: CreateLanesArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'participantId']);
+
+  // MergeFrom mode: convert collaboration pools into lanes
+  if (args.mergeFrom) {
+    return handleConvertCollaborationToLanes({
+      diagramId: args.diagramId,
+      mainParticipantId: args.mergeFrom,
+      layout: args.layout,
+    });
+  }
+
   const { diagramId, participantId, autoDistribute = false, distributeStrategy } = args;
 
   const diagram = requireDiagram(diagramId);
@@ -304,7 +323,7 @@ export async function handleCreateLanes(args: CreateLanesArgs): Promise<ToolResu
     const existingNames = existingLanes.map((l: any) => l.businessObject?.name || l.id).join(', ');
     throw new Error(
       `Participant "${participantId}" already has ${existingLanes.length} lane(s): ${existingNames}. ` +
-        'Use assign_bpmn_elements_to_lane to modify lane assignments, or delete existing lanes first.'
+        'Use redistribute_bpmn_elements_across_lanes (strategy: manual) to modify lane assignments, or delete existing lanes first.'
     );
   }
 
@@ -350,69 +369,5 @@ export async function handleCreateLanes(args: CreateLanesArgs): Promise<ToolResu
   return appendLintFeedback(result, diagram);
 }
 
-export const TOOL_DEFINITION = {
-  name: 'create_bpmn_lanes',
-  description:
-    'Create lanes (swimlanes) within a participant pool. Creates a bpmn:LaneSet with ' +
-    'the specified lanes, dividing the pool height evenly (or using explicit heights). ' +
-    'Lanes represent roles or departments within a single organization/process. ' +
-    'Use lanes for role separation within one pool; use separate pools (participants) ' +
-    'for separate organizations with message flows. Requires at least 2 lanes when ' +
-    'defined manually. Alternatively, use distributeStrategy to auto-generate lanes: ' +
-    '"by-type" groups elements into Human Tasks vs Automated Tasks lanes; "manual" uses ' +
-    'elementIds in each lane definition to assign elements explicitly.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      diagramId: { type: 'string', description: 'The diagram ID' },
-      participantId: {
-        type: 'string',
-        description: 'The ID of the participant (pool) to add lanes to',
-      },
-      lanes: {
-        type: 'array',
-        description:
-          'Lane definitions (at least 2). Optional when distributeStrategy is "by-type" ' +
-          '(lanes are auto-generated from element types).',
-        items: {
-          type: 'object',
-          properties: {
-            name: { type: 'string', description: 'Lane name (typically a role or department)' },
-            height: {
-              type: 'number',
-              description:
-                'Optional lane height in pixels. If omitted, the pool height is divided evenly among lanes without explicit heights.',
-            },
-            elementIds: {
-              type: 'array',
-              items: { type: 'string' },
-              description:
-                'Element IDs to assign to this lane (used with distributeStrategy "manual").',
-            },
-          },
-          required: ['name'],
-        },
-        minItems: 2,
-      },
-      autoDistribute: {
-        type: 'boolean',
-        description:
-          'When true, automatically assigns existing elements in the participant to the ' +
-          'created lanes based on matching lane names to element roles (camunda:assignee ' +
-          'or camunda:candidateGroups, case-insensitive). Elements without role matches ' +
-          'fall back to type-based grouping (human tasks vs automated tasks). ' +
-          'Flow-control elements (gateways, events) are assigned to their most-connected ' +
-          "neighbor's lane. Run layout_bpmn_diagram afterwards for clean positioning.",
-      },
-      distributeStrategy: {
-        type: 'string',
-        enum: ['by-type', 'manual'],
-        description:
-          'Auto-generate and distribute elements to lanes. "by-type": auto-creates lanes ' +
-          'based on element types (Human Tasks, Automated Tasks). "manual": uses elementIds ' +
-          'in each lane definition to assign elements. When omitted, lanes are created without distribution.',
-      },
-    },
-    required: ['diagramId', 'participantId'],
-  },
-} as const;
+// Schema extracted to create-lanes-schema.ts for readability.
+export { TOOL_DEFINITION } from './create-lanes-schema';

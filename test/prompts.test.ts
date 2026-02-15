@@ -104,7 +104,7 @@ describe('getPrompt', () => {
     expect(result.messages[0].content.text).toContain('Technical Support');
     expect(result.messages[0].content.text).toContain('lanes');
     expect(result.messages[0].content.text).toContain('create_bpmn_lanes');
-    expect(result.messages[0].content.text).toContain('assign_bpmn_elements_to_lane');
+    expect(result.messages[0].content.text).toContain('redistribute_bpmn_elements_across_lanes');
   });
 
   test('uses defaults for missing arguments', () => {

@@ -27,15 +27,20 @@ import {
   validateAndRedistribute,
   buildRedistributeResult,
 } from './validate-and-redistribute';
+import { handleAssignElementsToLane } from './assign-elements-to-lane';
 
 export interface RedistributeElementsAcrossLanesArgs {
   diagramId: string;
   participantId?: string;
-  strategy?: 'role-based' | 'balance' | 'minimize-crossings';
+  strategy?: 'role-based' | 'balance' | 'minimize-crossings' | 'manual';
   reposition?: boolean;
   dryRun?: boolean;
   /** When true, runs validation before and after redistribution (merged optimize flow). */
   validate?: boolean;
+  /** Target lane ID for manual strategy. */
+  laneId?: string;
+  /** Element IDs to assign (manual strategy). */
+  elementIds?: string[];
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -274,6 +279,24 @@ function collectMoves(
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
+/** Handle manual strategy: direct lane assignment (merged from assign_bpmn_elements_to_lane). */
+function handleManualStrategy(args: RedistributeElementsAcrossLanesArgs): Promise<ToolResult> {
+  if (!args.laneId || !args.elementIds || args.elementIds.length === 0) {
+    return Promise.resolve(
+      jsonResult({
+        success: false,
+        message: "Manual strategy requires 'laneId' and 'elementIds' parameters.",
+      })
+    );
+  }
+  return handleAssignElementsToLane({
+    diagramId: args.diagramId,
+    laneId: args.laneId,
+    elementIds: args.elementIds,
+    reposition: args.reposition !== false,
+  });
+}
+
 export async function handleRedistributeElementsAcrossLanes(
   args: RedistributeElementsAcrossLanesArgs
 ): Promise<ToolResult> {
@@ -285,6 +308,8 @@ export async function handleRedistributeElementsAcrossLanes(
     dryRun = false,
     validate = false,
   } = args;
+
+  if (strategy === 'manual') return handleManualStrategy(args);
 
   const diagram = requireDiagram(diagramId);
   const reg = getService(diagram.modeler, 'elementRegistry');
@@ -353,54 +378,5 @@ export async function handleRedistributeElementsAcrossLanes(
   return dryRun ? result : appendLintFeedback(result, diagram);
 }
 
-// ── Tool definition ────────────────────────────────────────────────────────
-
-export const TOOL_DEFINITION = {
-  name: 'redistribute_bpmn_elements_across_lanes',
-  description:
-    'Rebalance element placement across existing lanes in a pool. Analyzes assignee/role patterns, ' +
-    'flow-neighbor connections, and lane capacity to produce a better distribution. ' +
-    'Use when lanes become overcrowded or when elements are not optimally assigned after initial creation. ' +
-    'Set validate=true to run lane validation before and after redistribution, reporting before/after ' +
-    'coherence metrics and skipping changes when organization is already good (the optimize flow). ' +
-    'Supports dry-run mode to preview changes before applying them.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      diagramId: { type: 'string', description: 'The diagram ID' },
-      participantId: {
-        type: 'string',
-        description:
-          'The ID of the participant (pool) whose lanes to rebalance. ' +
-          'When omitted, auto-detects the first participant with at least 2 lanes.',
-      },
-      strategy: {
-        type: 'string',
-        enum: ['role-based', 'balance', 'minimize-crossings'],
-        description:
-          "Redistribution strategy: 'role-based' (default) matches assignee/candidateGroups to lane names; " +
-          "'balance' spreads elements evenly while respecting roles; " +
-          "'minimize-crossings' minimizes cross-lane sequence flows.",
-      },
-      reposition: {
-        type: 'boolean',
-        description:
-          'When true (default), repositions elements vertically into their new lane bounds. ' +
-          'Set to false to only update lane membership without moving elements.',
-      },
-      dryRun: {
-        type: 'boolean',
-        description: 'When true, returns the redistribution plan without applying any changes.',
-      },
-      validate: {
-        type: 'boolean',
-        description:
-          'When true, runs lane validation before and after redistribution. ' +
-          'Skips changes if organization is already good (coherence ≥ 70%). ' +
-          'Reports before/after coherence metrics showing the improvement. ' +
-          'Uses minimize-crossings strategy by default in validate mode.',
-      },
-    },
-    required: ['diagramId'],
-  },
-} as const;
+// Schema extracted to redistribute-elements-schema.ts for readability.
+export { TOOL_DEFINITION } from './redistribute-elements-schema';

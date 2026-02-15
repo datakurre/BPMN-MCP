@@ -33,6 +33,8 @@ export interface MoveElementArgs {
   width?: number;
   /** New height in pixels for resize. */
   height?: number;
+  /** Custom waypoints for connection routing (sequence flows, message flows). */
+  waypoints?: Array<{ x: number; y: number }>;
 }
 
 /** Apply absolute move, returning the final position. */
@@ -75,7 +77,13 @@ function applyResize(
 
 export async function handleMoveElement(args: MoveElementArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementId']);
-  const { diagramId, elementId, x, y, laneId, width, height } = args;
+  const { diagramId, elementId, x, y, laneId, width, height, waypoints } = args;
+
+  // Waypoints mode: set connection routing
+  if (waypoints) {
+    const { handleSetConnectionWaypoints } = await import('./set-connection-waypoints');
+    return handleSetConnectionWaypoints({ diagramId, connectionId: elementId, waypoints });
+  }
 
   const hasMove = x !== undefined || y !== undefined;
   const hasResize = width !== undefined || height !== undefined;
@@ -307,9 +315,10 @@ export { handleMoveElement as handleMoveToLane };
 export const TOOL_DEFINITION = {
   name: 'move_bpmn_element',
   description:
-    'Move, resize, or reassign an element to a lane. Supports any combination: ' +
+    'Move, resize, reassign an element to a lane, or set connection waypoints. Supports any combination: ' +
     'x/y to move to absolute coordinates, width/height to resize (top-left preserved), ' +
-    'laneId to move into a lane with auto-centering. At least one operation must be specified.',
+    'laneId to move into a lane with auto-centering, waypoints to set custom routing for connections ' +
+    '(sequence flows, message flows, associations). At least one operation must be specified.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -338,6 +347,21 @@ export const TOOL_DEFINITION = {
         type: 'string',
         description:
           'ID of the target lane to move the element into. When provided, x/y are ignored and the element is auto-centered in the lane.',
+      },
+      waypoints: {
+        type: 'array',
+        description:
+          'Custom waypoints for connection routing. Only applicable to connections (sequence flows, message flows, associations). ' +
+          'Must include at least 2 points (start and end). For orthogonal routing, use 4+ waypoints.',
+        items: {
+          type: 'object',
+          properties: {
+            x: { type: 'number', description: 'X coordinate' },
+            y: { type: 'number', description: 'Y coordinate' },
+          },
+          required: ['x', 'y'],
+        },
+        minItems: 2,
       },
     },
     required: ['diagramId', 'elementId'],

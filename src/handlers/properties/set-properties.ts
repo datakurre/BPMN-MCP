@@ -23,6 +23,7 @@ import {
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { buildPropertyHints } from '../hints';
+import { handleScriptProperties } from './set-script-properties';
 
 export interface SetPropertiesArgs {
   diagramId: string;
@@ -324,6 +325,9 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
   // Handle `camunda:properties` — creates camunda:Properties extension element
   handleProperties(element, camundaProps, diagram);
 
+  // Handle script-related properties (scriptFormat, script, camunda:resource) on ScriptTasks
+  handleScriptProperties(element, standardProps, camundaProps, diagram);
+
   // Handle `documentation` — creates/updates bpmn:documentation child element
   if ('documentation' in standardProps) {
     const moddle = getService(diagram.modeler, 'moddle');
@@ -369,10 +373,12 @@ export async function handleSetProperties(args: SetPropertiesArgs): Promise<Tool
   return appendLintFeedback(result, diagram);
 }
 
+const EXAMPLE_DIAGRAM_ID = '<diagram-id>';
+
 export const TOOL_DEFINITION = {
   name: 'set_bpmn_element_properties',
   description:
-    "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable, documentation) and Camunda extensions (e.g. camunda:assignee, camunda:candidateUsers, camunda:candidateGroups, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:expression, camunda:asyncBefore, camunda:asyncAfter, camunda:topic, camunda:type). UserTask-specific: camunda:dueDate, camunda:followUpDate, camunda:priority. Process-specific: camunda:historyTimeToLive, camunda:candidateStarterGroups, camunda:candidateStarterUsers, camunda:versionTag, camunda:isStartableInTasklist. CallActivity: camunda:calledElementBinding, camunda:calledElementVersion, camunda:calledElementVersionTag. BusinessRuleTask (DMN): camunda:decisionRef, camunda:decisionRefBinding, camunda:mapDecisionResult. StartEvent: camunda:initiator. Camunda Forms (7.15+): camunda:formRef, camunda:formRefBinding, camunda:formRefVersion (for UserTask and StartEvent). Supports camunda:retryTimeCycle to create a camunda:FailedJobRetryTimeCycle extension element (e.g. 'R3/PT10M'). Supports camunda:connector to create a camunda:Connector extension element (e.g. { connectorId: 'http-connector', inputOutput: { inputParameters: [{ name: 'url', value: 'https://...' }] } }). Supports camunda:field for field injection on ServiceTask/SendTask/BusinessRuleTask (array of { name, stringValue?, string?, expression? }). Supports camunda:properties for generic key-value properties on any element (object of { key: value } pairs). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). Supports `isExpanded` on SubProcess elements — properly toggles between expanded (inline children) and collapsed (drilldown plane) via element replacement. For loop characteristics, use the dedicated set_loop_characteristics tool.",
+    "Set BPMN or Camunda extension properties on an element. Supports standard properties (name, isExecutable, documentation) and Camunda extensions (e.g. camunda:assignee, camunda:candidateUsers, camunda:candidateGroups, camunda:formKey, camunda:class, camunda:delegateExpression, camunda:expression, camunda:asyncBefore, camunda:asyncAfter, camunda:topic, camunda:type). UserTask-specific: camunda:dueDate, camunda:followUpDate, camunda:priority. Process-specific: camunda:historyTimeToLive, camunda:candidateStarterGroups, camunda:candidateStarterUsers, camunda:versionTag, camunda:isStartableInTasklist. CallActivity: camunda:calledElementBinding, camunda:calledElementVersion, camunda:calledElementVersionTag. BusinessRuleTask (DMN): camunda:decisionRef, camunda:decisionRefBinding, camunda:mapDecisionResult. StartEvent: camunda:initiator. Camunda Forms (7.15+): camunda:formRef, camunda:formRefBinding, camunda:formRefVersion (for UserTask and StartEvent). **ScriptTask:** Set scriptFormat and script (inline body) or camunda:resource (external file) together with optional camunda:resultVariable — replaces the former set_bpmn_script tool. Supports camunda:retryTimeCycle to create a camunda:FailedJobRetryTimeCycle extension element (e.g. 'R3/PT10M'). Supports camunda:connector to create a camunda:Connector extension element (e.g. { connectorId: 'http-connector', inputOutput: { inputParameters: [{ name: 'url', value: 'https://...' }] } }). Supports camunda:field for field injection on ServiceTask/SendTask/BusinessRuleTask (array of { name, stringValue?, string?, expression? }). Supports camunda:properties for generic key-value properties on any element (object of { key: value } pairs). Supports `default` attribute on exclusive/inclusive gateways (pass a sequence flow ID to mark it as the default flow). Supports `conditionExpression` on sequence flows (pass a string expression e.g. '${approved == true}'). Supports `isExpanded` on SubProcess elements — properly toggles between expanded (inline children) and collapsed (drilldown plane) via element replacement. For loop characteristics, use the dedicated set_loop_characteristics tool.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -393,7 +399,7 @@ export const TOOL_DEFINITION = {
       {
         title: 'Configure an external service task',
         value: {
-          diagramId: '<diagram-id>',
+          diagramId: EXAMPLE_DIAGRAM_ID,
           elementId: 'ServiceTask_ProcessPayment',
           properties: {
             'camunda:type': 'external',
@@ -404,7 +410,7 @@ export const TOOL_DEFINITION = {
       {
         title: 'Assign a user task to a candidate group',
         value: {
-          diagramId: '<diagram-id>',
+          diagramId: EXAMPLE_DIAGRAM_ID,
           elementId: 'UserTask_ReviewOrder',
           properties: {
             'camunda:candidateGroups': 'managers',
@@ -415,7 +421,7 @@ export const TOOL_DEFINITION = {
       {
         title: 'Set a condition on a sequence flow',
         value: {
-          diagramId: '<diagram-id>',
+          diagramId: EXAMPLE_DIAGRAM_ID,
           elementId: 'Flow_Approved',
           properties: {
             name: 'Yes',
@@ -426,10 +432,22 @@ export const TOOL_DEFINITION = {
       {
         title: 'Set the default flow on an exclusive gateway',
         value: {
-          diagramId: '<diagram-id>',
+          diagramId: EXAMPLE_DIAGRAM_ID,
           elementId: 'Gateway_OrderValid',
           properties: {
             default: 'Flow_Approved',
+          },
+        },
+      },
+      {
+        title: 'Set inline Groovy script on a ScriptTask',
+        value: {
+          diagramId: EXAMPLE_DIAGRAM_ID,
+          elementId: 'ScriptTask_CalcTotal',
+          properties: {
+            scriptFormat: 'groovy',
+            script: 'def total = orderItems.sum { it.price * it.quantity }\ntotal',
+            'camunda:resultVariable': 'orderTotal',
           },
         },
       },

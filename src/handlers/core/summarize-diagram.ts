@@ -60,7 +60,7 @@ function buildStructureRecommendation(
       if (assignees.size >= 2) {
         return (
           `Found ${assignees.size} distinct assignees (${[...assignees].join(', ')}) across ` +
-          `${userTasks.length} user tasks without lanes. Consider using suggest_bpmn_lane_organization ` +
+          `${userTasks.length} user tasks without lanes. Consider using analyze_bpmn_lanes (mode: suggest) ` +
           'and create_bpmn_lanes to organize tasks by role.'
         );
       }
@@ -68,7 +68,7 @@ function buildStructureRecommendation(
         return (
           `Found ${userTasks.length} user/manual tasks without lanes. ` +
           'Consider adding camunda:assignee to tasks and organizing into lanes, ' +
-          'or use suggest_bpmn_lane_organization for a type-based lane suggestion.'
+          'or use analyze_bpmn_lanes (mode: suggest) for a type-based lane suggestion.'
         );
       }
     }

@@ -280,7 +280,7 @@ function computeRecommendation(sameScore: number, sepScore: number) {
       `${sameScore} indicator(s) suggest same-organization roles vs ${sepScore} for separate systems.`
     );
     reasoning.push(
-      'Consider converting to a single pool with lanes using convert_bpmn_collaboration_to_lanes.'
+      'Consider converting to a single pool with lanes using create_bpmn_lanes (with mergeFrom).'
     );
   } else if (sepScore > sameScore) {
     recommendation = 'collaboration';
@@ -337,7 +337,7 @@ export async function handleSuggestPoolVsLanes(args: SuggestPoolVsLanesArgs): Pr
 
   const suggestion =
     recommendation === 'lanes'
-      ? 'Use convert_bpmn_collaboration_to_lanes to merge pools into a single pool with lanes.'
+      ? 'Use create_bpmn_lanes (with mergeFrom) to merge pools into a single pool with lanes.'
       : recommendation === 'collaboration'
         ? 'Keep the collaboration structure. Ensure non-executable pools are collapsed (Camunda 7 pattern).'
         : 'Review manually. Consider which participants represent external systems (→ collapsed pools) ' +

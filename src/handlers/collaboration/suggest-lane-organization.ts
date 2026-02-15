@@ -325,7 +325,7 @@ function buildRecommendation(
   }
   const stats = `${coherence}% coherence (${intraLane} intra-lane vs ${crossLane} cross-lane flows)`;
   if (coherence >= 70) {
-    return `Suggested organization achieves ${stats}. This is a good lane structure. Use create_bpmn_lanes and assign_bpmn_elements_to_lane to apply.`;
+    return `Suggested organization achieves ${stats}. This is a good lane structure. Use create_bpmn_lanes and redistribute_bpmn_elements_across_lanes (strategy: manual) to apply.`;
   }
   return `Suggested organization achieves ${stats}. Consider organizing by business role (e.g. "Requester", "Approver", "System") rather than task type for better flow coherence.`;
 }

@@ -164,8 +164,8 @@ export function buildCreateLanesNextSteps(
       description: 'Move existing elements into lanes using the laneId parameter',
     },
     {
-      tool: 'assign_bpmn_elements_to_lane',
-      description: 'Bulk-assign multiple existing elements to a lane',
+      tool: 'redistribute_bpmn_elements_across_lanes',
+      description: 'Bulk-assign multiple existing elements to a lane (strategy: manual)',
     }
   );
   return steps;

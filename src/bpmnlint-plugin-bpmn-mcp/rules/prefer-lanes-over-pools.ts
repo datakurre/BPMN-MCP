@@ -61,7 +61,7 @@ export default function preferLanesOverPools() {
         'connected by message flows. If these represent roles within the same organization ' +
         '(e.g. "Customer" and "Support Agent"), consider using lanes within a single pool instead. ' +
         'Lanes model role separation within one process; pools model separate organizations or systems. ' +
-        'Use create_bpmn_lanes to add lanes, or wrap_bpmn_process_in_collaboration with collapsed pools ' +
+        'Use create_bpmn_lanes to add lanes, or create_bpmn_participant (with wrapExisting and collapsed pools) ' +
         'for external system endpoints.'
     );
   }

@@ -71,7 +71,7 @@ export default function multipleExpandedPools() {
         `${executablePools.length} expanded pools are marked isExecutable (${execNames}). ` +
           'In Camunda 7 / Operaton, only one pool can be deployed and executed. ' +
           'If these represent roles within the same organization, convert to lanes within a single pool ' +
-          'using convert_bpmn_collaboration_to_lanes. Otherwise, make non-executable pools collapsed ' +
+          'using create_bpmn_lanes (with mergeFrom). Otherwise, make non-executable pools collapsed ' +
           '(set collapsed: true).'
       );
     } else {

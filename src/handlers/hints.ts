@@ -59,8 +59,8 @@ const TYPE_HINTS: Array<{ match: (type: string) => boolean; hints: Hint[] }> = [
     match: (t) => t === 'bpmn:ScriptTask',
     hints: [
       {
-        tool: 'set_bpmn_script',
-        description: 'Set inline script (groovy, javascript, etc.) and optional resultVariable',
+        tool: 'set_bpmn_element_properties',
+        description: 'Set scriptFormat, script (inline body), and optional camunda:resultVariable',
       },
     ],
   },

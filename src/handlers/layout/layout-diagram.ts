@@ -75,6 +75,16 @@ export interface LayoutDiagramArgs {
    * Set to false to explicitly disable.
    */
   poolExpansion?: boolean;
+  /**
+   * When true, only adjust labels without performing full layout.
+   * Useful for fixing label overlaps without changing element positions.
+   */
+  labelsOnly?: boolean;
+  /**
+   * When true, only resize pools and lanes to fit their elements.
+   * No ELK layout is performed. Equivalent to the former autosize_bpmn_pools_and_lanes tool.
+   */
+  autosizeOnly?: boolean;
 }
 
 /** Perform a dry-run layout: clone → layout → diff → discard clone. */
@@ -229,7 +239,35 @@ async function executeLayout(
   return { layoutResult: result, usedDeterministic: false };
 }
 
+/** Handle labels-only mode: just adjust labels without full layout. */
+async function handleLabelsOnlyMode(diagramId: string): Promise<ToolResult> {
+  const {
+    adjustDiagramLabels: adjDiag,
+    adjustFlowLabels: adjFlow,
+    centerFlowLabels: ctrFlow,
+  } = await import('./labels/adjust-labels');
+  const diagram = requireDiagram(diagramId);
+  const flowLabelsCentered = await ctrFlow(diagram);
+  const elementLabelsMoved = await adjDiag(diagram);
+  const flowLabelsMoved = await adjFlow(diagram);
+  const totalMoved = flowLabelsCentered + elementLabelsMoved + flowLabelsMoved;
+  return jsonResult({
+    success: true,
+    flowLabelsCentered,
+    elementLabelsMoved,
+    flowLabelsMoved,
+    totalMoved,
+    message:
+      totalMoved > 0
+        ? `Adjusted ${totalMoved} label(s) to reduce overlap (${elementLabelsMoved} element, ${flowLabelsMoved} flow)`
+        : 'No label adjustments needed \u2014 all labels are well-positioned',
+  });
+}
+
 export async function handleLayoutDiagram(args: LayoutDiagramArgs): Promise<ToolResult> {
+  if (args.labelsOnly) return handleLabelsOnlyMode(args.diagramId);
+  if (args.autosizeOnly) return handleAutosizePoolsAndLanes({ diagramId: args.diagramId });
+
   if (args.dryRun) return handleDryRunLayout(args);
 
   const { diagramId, scopeElementId } = args;

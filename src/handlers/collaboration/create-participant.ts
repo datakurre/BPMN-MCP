@@ -24,6 +24,7 @@ import { ELEMENT_SIZES, calculateOptimalPoolSize } from '../../constants';
 import { handleCreateLanes } from './create-lanes';
 import { ensureProcessRef } from './collaboration-utils';
 import { handleCreateCollaboration } from './create-collaboration';
+import { handleWrapProcessInCollaboration } from './wrap-process-in-collaboration';
 
 /** Height of a collapsed participant pool. */
 const COLLAPSED_POOL_HEIGHT = 60;
@@ -61,6 +62,13 @@ export interface CreateParticipantArgs {
     y?: number;
     lanes?: Array<{ name: string; height?: number }>;
   }>;
+  /**
+   * When true, wraps the existing process into a participant pool instead of
+   * creating an empty participant. Equivalent to the former wrap_bpmn_process_in_collaboration tool.
+   */
+  wrapExisting?: boolean;
+  /** Optional additional collapsed (partner) pools when wrapExisting is true. */
+  additionalParticipants?: Array<{ name: string; collapsed?: boolean }>;
 }
 
 /**
@@ -174,6 +182,15 @@ async function tryCreateLanes(
 export async function handleCreateParticipant(args: CreateParticipantArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId']);
 
+  // Wrap-existing mode: wrap the existing process in a participant pool
+  if (args.wrapExisting && args.name) {
+    return handleWrapProcessInCollaboration({
+      diagramId: args.diagramId,
+      participantName: args.name,
+      additionalParticipants: args.additionalParticipants,
+    });
+  }
+
   // Multi-pool mode: delegate to create-collaboration handler
   if (args.participants && args.participants.length >= 2) {
     return handleCreateCollaboration({
@@ -230,9 +247,11 @@ export async function handleCreateParticipant(args: CreateParticipantArgs): Prom
 export const TOOL_DEFINITION = {
   name: 'create_bpmn_participant',
   description:
-    'Create participant(s) (pools) in a BPMN diagram. Supports two modes:\n' +
+    'Create participant(s) (pools) in a BPMN diagram. Supports multiple modes:\n' +
     '**Single pool** (name): Creates one participant. If the diagram is a plain process, ' +
     'it will be converted to a collaboration automatically.\n' +
+    '**Wrap existing** (name + wrapExisting: true): Wraps the current process flow nodes into a participant ' +
+    'pool without duplicating elements. Optionally creates additional collapsed partner pools.\n' +
     '**Multi-pool collaboration** (participants array): Creates multiple participants at once ' +
     '(minimum 2). **Camunda 7 / Operaton pattern:** Only one pool can be deployed and executed — ' +
     'additional pools must be **collapsed** (set collapsed: true) and serve only to document ' +
@@ -267,6 +286,30 @@ export const TOOL_DEFINITION = {
       y: {
         type: 'number',
         description: 'Y coordinate (default: auto-positioned below existing participants)',
+      },
+      wrapExisting: {
+        type: 'boolean',
+        description:
+          'When true, wraps the existing process flow nodes into a participant pool ' +
+          'without duplicating elements. Use this to convert a plain process into a collaboration. ' +
+          'Requires name to be set.',
+      },
+      additionalParticipants: {
+        type: 'array',
+        description:
+          'Additional collapsed partner pools to create when using wrapExisting mode. ' +
+          'Each entry creates a collapsed pool below the main pool.',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Partner pool name' },
+            collapsed: {
+              type: 'boolean',
+              description: 'If true (default), creates a collapsed pool.',
+            },
+          },
+          required: ['name'],
+        },
       },
       lanes: {
         type: 'array',

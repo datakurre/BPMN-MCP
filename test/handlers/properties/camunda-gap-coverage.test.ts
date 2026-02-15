@@ -347,7 +347,7 @@ describe('tool-discovery hints', () => {
       })
     );
     expect(res.nextSteps).toBeDefined();
-    expect(res.nextSteps.some((h: any) => h.tool === 'set_bpmn_script')).toBe(true);
+    expect(res.nextSteps.some((h: any) => h.tool === 'set_bpmn_element_properties')).toBe(true);
   });
 
   test('add_bpmn_element returns nextSteps for CallActivity', async () => {
