@@ -94,21 +94,21 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="NotifyCustomer_di" bpmnElement="NotifyCustomer">
-        <dc:Bounds x="458" y="200" width="100" height="80" />
+        <dc:Bounds x="378" y="205" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndCancelled_di" bpmnElement="EndCancelled">
-        <dc:Bounds x="618" y="222" width="36" height="36" />
+        <dc:Bounds x="528" y="227" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="612" y="258" width="49" height="27" />
+          <dc:Bounds x="522" y="263" width="49" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SendConfirmation_di" bpmnElement="SendConfirmation">
-        <dc:Bounds x="458" y="80" width="100" height="80" />
+        <dc:Bounds x="618" y="80" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
-        <dc:Bounds x="618" y="102" width="36" height="36" />
+        <dc:Bounds x="874" y="102" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="606" y="138" width="60" height="14" />
+          <dc:Bounds x="862" y="138" width="60" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Sub_BookTrip_di" bpmnElement="Sub_BookTrip">
@@ -121,12 +121,12 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">
-        <di:waypoint x="228" y="145" />
-        <di:waypoint x="288" y="145" />
+        <di:waypoint x="228" y="120" />
+        <di:waypoint x="288" y="120" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow2_di" bpmnElement="Flow2">
         <di:waypoint x="388" y="120" />
-        <di:waypoint x="458" y="120" />
+        <di:waypoint x="618" y="120" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="FlowErr_di" bpmnElement="FlowErr">
         <di:waypoint x="338" y="178" />
@@ -142,27 +142,28 @@
         <di:waypoint x="315" y="145" />
         <di:waypoint x="315" y="255" />
         <di:waypoint x="338" y="255" />
-        <di:waypoint x="338" y="240" />
-        <di:waypoint x="458" y="240" />
+        <di:waypoint x="338" y="245" />
+        <di:waypoint x="378" y="245" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="FlowNotify_di" bpmnElement="FlowNotify">
-        <di:waypoint x="558" y="240" />
-        <di:waypoint x="465" y="240" />
-        <di:waypoint x="465" y="255" />
-        <di:waypoint x="595" y="255" />
-        <di:waypoint x="595" y="240" />
-        <di:waypoint x="465" y="240" />
-        <di:waypoint x="465" y="255" />
-        <di:waypoint x="595" y="255" />
-        <di:waypoint x="595" y="240" />
-        <di:waypoint x="465" y="240" />
-        <di:waypoint x="465" y="255" />
-        <di:waypoint x="618" y="255" />
-        <di:waypoint x="618" y="240" />
+        <di:waypoint x="478" y="245" />
+        <di:waypoint x="465" y="245" />
+        <di:waypoint x="465" y="145" />
+        <di:waypoint x="595" y="145" />
+        <di:waypoint x="595" y="245" />
+        <di:waypoint x="465" y="245" />
+        <di:waypoint x="465" y="145" />
+        <di:waypoint x="595" y="145" />
+        <di:waypoint x="595" y="245" />
+        <di:waypoint x="465" y="245" />
+        <di:waypoint x="465" y="145" />
+        <di:waypoint x="595" y="145" />
+        <di:waypoint x="595" y="245" />
+        <di:waypoint x="528" y="245" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow3_di" bpmnElement="Flow3">
-        <di:waypoint x="558" y="120" />
-        <di:waypoint x="618" y="120" />
+        <di:waypoint x="718" y="120" />
+        <di:waypoint x="874" y="120" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
@@ -216,9 +217,18 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SF2_di" bpmnElement="SF2">
         <di:waypoint x="430" y="200" />
-        <di:waypoint x="430" y="185" />
-        <di:waypoint x="573" y="185" />
-        <di:waypoint x="573" y="200" />
+        <di:waypoint x="363" y="200" />
+        <di:waypoint x="363" y="190" />
+        <di:waypoint x="493" y="190" />
+        <di:waypoint x="493" y="200" />
+        <di:waypoint x="363" y="200" />
+        <di:waypoint x="363" y="190" />
+        <di:waypoint x="493" y="190" />
+        <di:waypoint x="493" y="200" />
+        <di:waypoint x="363" y="200" />
+        <di:waypoint x="363" y="190" />
+        <di:waypoint x="493" y="190" />
+        <di:waypoint x="493" y="200" />
         <di:waypoint x="480" y="200" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SF3_di" bpmnElement="SF3">
@@ -256,33 +266,33 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Assoc_Hotel_di" bpmnElement="Assoc_Hotel">
         <di:waypoint x="480" y="232" />
-        <di:waypoint x="480" y="185" />
-        <di:waypoint x="443" y="185" />
-        <di:waypoint x="443" y="295" />
-        <di:waypoint x="480" y="295" />
-        <di:waypoint x="480" y="185" />
-        <di:waypoint x="443" y="185" />
-        <di:waypoint x="443" y="295" />
-        <di:waypoint x="480" y="295" />
-        <di:waypoint x="480" y="185" />
-        <di:waypoint x="443" y="185" />
-        <di:waypoint x="443" y="480" />
+        <di:waypoint x="480" y="190" />
+        <di:waypoint x="493" y="190" />
+        <di:waypoint x="493" y="300" />
+        <di:waypoint x="480" y="300" />
+        <di:waypoint x="480" y="190" />
+        <di:waypoint x="493" y="190" />
+        <di:waypoint x="493" y="300" />
+        <di:waypoint x="480" y="300" />
+        <di:waypoint x="480" y="190" />
+        <di:waypoint x="493" y="190" />
+        <di:waypoint x="493" y="480" />
         <di:waypoint x="480" y="480" />
         <di:waypoint x="280" y="480" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Assoc_Car_di" bpmnElement="Assoc_Car">
         <di:waypoint x="630" y="232" />
-        <di:waypoint x="630" y="207" />
-        <di:waypoint x="603" y="207" />
-        <di:waypoint x="603" y="273" />
-        <di:waypoint x="630" y="273" />
-        <di:waypoint x="630" y="207" />
-        <di:waypoint x="603" y="207" />
-        <di:waypoint x="603" y="273" />
-        <di:waypoint x="630" y="273" />
-        <di:waypoint x="630" y="207" />
-        <di:waypoint x="603" y="207" />
-        <di:waypoint x="603" y="620" />
+        <di:waypoint x="630" y="65" />
+        <di:waypoint x="603" y="65" />
+        <di:waypoint x="603" y="232" />
+        <di:waypoint x="630" y="232" />
+        <di:waypoint x="630" y="65" />
+        <di:waypoint x="603" y="65" />
+        <di:waypoint x="603" y="232" />
+        <di:waypoint x="630" y="232" />
+        <di:waypoint x="630" y="145" />
+        <di:waypoint x="615" y="145" />
+        <di:waypoint x="615" y="620" />
         <di:waypoint x="630" y="620" />
         <di:waypoint x="280" y="620" />
       </bpmndi:BPMNEdge>

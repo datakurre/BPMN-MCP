@@ -69,7 +69,7 @@ import {
   repositionBoundaryEvents,
   saveBoundaryEventData,
   restoreBoundaryEventData,
-  identifyBoundaryLeafTargets,
+  identifyBoundaryExceptionChains,
   repositionBoundaryEventTargets,
   alignOffPathEndEventsToSecondRow,
   pushBoundaryTargetsBelowHappyPath,
@@ -414,9 +414,10 @@ export async function elkLayout(
       el.businessObject?.triggeredByEvent === true
   );
 
-  // Identify boundary-only leaf targets — excluded from ELK graph to prevent
-  // proxy edges from creating extra layers that distort horizontal spacing.
-  const boundaryLeafTargetIds = identifyBoundaryLeafTargets(allElements, rootElement);
+  // Identify boundary exception chains — excluded from ELK graph to prevent
+  // proxy edges from creating extra layers that distort horizontal spacing
+  // and cause boundary flows to cross through unrelated elements.
+  const boundaryLeafTargetIds = identifyBoundaryExceptionChains(allElements, rootElement);
 
   const { children, edges, hasDiverseY } = buildContainerGraph(
     allElements,
