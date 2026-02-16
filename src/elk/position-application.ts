@@ -18,6 +18,7 @@ import {
   COLLAPSED_POOL_DEFAULT_HEIGHT,
   POOL_COMPACT_RIGHT_PADDING,
   POOL_LABEL_BAND,
+  ORIGIN_OFFSET_Y,
 } from './constants';
 import { buildCompoundNode } from './graph-builder';
 import { applyElkEdgeRoutes } from './edge-routing';
@@ -481,5 +482,62 @@ export function reorderCollapsedPoolsBelow(
     // Advance nextY for multiple collapsed pools
     const updatedPool = elementRegistry.get(pool.id)!;
     nextY = updatedPool.y + (updatedPool.height || 0) + POOL_GAP;
+  }
+}
+
+/**
+ * Normalise the Y origin of the diagram so the topmost flow element
+ * starts at ORIGIN_OFFSET_Y.
+ *
+ * Multiple post-processing passes (alignHappyPath, gridSnapPass,
+ * resolveOverlaps) accumulate Y-shifts after ELK's initial placement.
+ * This final pass re-anchors the diagram to the expected baseline.
+ *
+ * Only applies to plain processes (no participants).  Collaborations
+ * with participant pools are already properly anchored by
+ * centreElementsInPools and enforceExpandedPoolGap.
+ */
+export function normaliseOrigin(elementRegistry: ElementRegistry, modeling: Modeling): void {
+  const participants = elementRegistry.filter((el) => el.type === BPMN_PARTICIPANT);
+
+  // Skip collaborations — moving participants in headless mode can trigger
+  // bpmn-js internal ordering errors.  Pool positioning is already handled
+  // by centreElementsInPools, enforceExpandedPoolGap, and compactPools.
+  if (participants.length > 0) return;
+
+  // Plain process: find the topmost flow element
+  const allElements: BpmnElement[] = elementRegistry.getAll();
+
+  // Get the root process element
+  const rootProcess = allElements.find(
+    (el) => el.type === BPMN_PROCESS || el.type === 'bpmn:Collaboration'
+  );
+
+  // Only consider direct children of the root (not nested in subprocesses)
+  const flowElements = elementRegistry.filter(
+    (el) => isLayoutableShape(el) && (!rootProcess || el.parent === rootProcess)
+  );
+  if (flowElements.length === 0) return;
+
+  let topY = Infinity;
+  for (const el of flowElements) {
+    if (el.y < topY) topY = el.y;
+  }
+
+  const delta = ORIGIN_OFFSET_Y - topY;
+  if (Math.abs(delta) > 2) {
+    try {
+      modeling.moveElements(flowElements, { x: 0, y: delta });
+    } catch {
+      // Fallback: direct position update when modeling.moveElements crashes
+      for (const el of flowElements) {
+        el.x += 0;
+        el.y += delta;
+        if (el.di?.bounds) {
+          el.di.bounds.x = el.x;
+          el.di.bounds.y = el.y;
+        }
+      }
+    }
   }
 }

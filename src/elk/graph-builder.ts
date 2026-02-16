@@ -116,7 +116,13 @@ function buildChildNodes(
         el.type !== 'bpmn:BoundaryEvent'
     );
 
-    if (hasChildren) {
+    // Only treat as a compound node if it has children AND is not a
+    // collapsed subprocess.  Collapsed subprocesses have children on a
+    // separate drill-down plane but should be laid out as simple nodes.
+    const isCompound =
+      hasChildren && (shape.type !== 'bpmn:SubProcess' || shape.isExpanded !== false);
+
+    if (isCompound) {
       children.push(buildCompoundNode(allElements, shape, excludeIds));
     } else {
       const node: ElkNode = {
@@ -207,6 +213,12 @@ function buildEdges(
     const bTargetY = b.target!.y + (b.target!.height || 0) * CENTER_FACTOR;
     return aTargetY - bTargetY;
   });
+
+  // Re-order edges from the same gateway so the happy-path (non-default,
+  // positive-labelled) edge comes first in model order.  ELK's LAYER_SWEEP
+  // uses model order to assign vertical positions — first edge target tends
+  // to stay on the main row.
+  reorderGatewayEdgesForHappyPath(internalConns, childShapes);
 
   const backEdgeIds = detectBackEdges(internalConns, nodeIds);
 
@@ -515,4 +527,83 @@ function detectBackEdges(connections: BpmnElement[], nodeIds: Set<string>): Set<
   }
 
   return backEdges;
+}
+
+// ── Positive label regex (matches happy-path condition names) ───────────
+
+const POSITIVE_LABELS =
+  /^(yes|approved|ok|true|success|valid|accept|accepted|completed|done|correct|passed)$/i;
+
+/**
+ * Re-order edges from gateway sources so the happy-path edge (non-default,
+ * positive-labelled) comes first in model order.  ELK's LAYER_SWEEP uses
+ * model order to determine vertical positions — the first edge's target
+ * tends to stay on the main row.
+ *
+ * Mutates `internalConns` in-place.
+ */
+function reorderGatewayEdgesForHappyPath(
+  internalConns: BpmnElement[],
+  childShapes: BpmnElement[]
+): void {
+  // Collect gateway IDs (exclusive/inclusive) with their default flows
+  const gatewayDefaults = new Map<string, string>();
+  const gatewayIds = new Set<string>();
+  for (const shape of childShapes) {
+    if (shape.type === 'bpmn:ExclusiveGateway' || shape.type === 'bpmn:InclusiveGateway') {
+      gatewayIds.add(shape.id);
+      if (shape.businessObject?.default) {
+        gatewayDefaults.set(shape.id, shape.businessObject.default.id);
+      }
+    }
+  }
+
+  if (gatewayIds.size === 0) return;
+
+  // Group edges by gateway source
+  const groups = new Map<string, { start: number; end: number }>();
+  for (let i = 0; i < internalConns.length; i++) {
+    const srcId = internalConns[i].source!.id;
+    if (!gatewayIds.has(srcId)) continue;
+    const existing = groups.get(srcId);
+    if (existing) {
+      existing.end = i + 1;
+    } else {
+      groups.set(srcId, { start: i, end: i + 1 });
+    }
+  }
+
+  for (const [gwId, { start, end }] of groups) {
+    if (end - start < 2) continue;
+
+    const slice = internalConns.slice(start, end);
+    const defaultFlowId = gatewayDefaults.get(gwId);
+
+    // Sort: happy-path first (non-default, positive label), then others,
+    // default flow last.
+    slice.sort((a, b) => {
+      const aScore = edgeHappyScore(a, defaultFlowId);
+      const bScore = edgeHappyScore(b, defaultFlowId);
+      return aScore - bScore; // lower score = higher priority (comes first)
+    });
+
+    // Write back
+    for (let i = 0; i < slice.length; i++) {
+      internalConns[start + i] = slice[i];
+    }
+  }
+}
+
+/**
+ * Compute a sort score for a gateway outgoing edge.
+ * Lower = more likely happy path.
+ *  0 = positive-labelled and non-default
+ *  1 = non-default, non-positive
+ *  2 = default flow
+ */
+function edgeHappyScore(conn: BpmnElement, defaultFlowId?: string): number {
+  if (defaultFlowId && conn.id === defaultFlowId) return 2;
+  const name = conn.businessObject?.name?.trim();
+  if (name && POSITIVE_LABELS.test(name)) return 0;
+  return 1;
 }

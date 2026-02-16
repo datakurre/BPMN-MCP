@@ -57,6 +57,7 @@ import {
   enforceExpandedPoolGap,
   reorderCollapsedPoolsBelow,
   compactPools,
+  normaliseOrigin,
 } from './position-application';
 import {
   repositionLanes,
@@ -464,6 +465,8 @@ export async function elkLayout(
   });
   finalisePoolsAndLanes(ctx);
   finaliseBoundaryTargets(ctx);
+  // Normalise Y origin after all position adjustments
+  normaliseOrigin(ctx.elementRegistry, ctx.modeling);
   applyEdgeRoutes(ctx);
   repairAndSimplifyEdges(ctx);
 
@@ -475,6 +478,10 @@ export async function elkLayout(
 
   // Attempt to reduce edge crossings by nudging waypoints
   reduceCrossings(elementRegistry, modeling);
+
+  // TODO: avoidElementIntersections — needs a safe waypoint update mechanism
+  // that doesn't trigger bpmn-js label adjustment errors.  The current
+  // modeling.updateWaypoints call crashes on certain geometries.
 
   const crossingFlowsResult = detectCrossingFlows(elementRegistry);
   return {

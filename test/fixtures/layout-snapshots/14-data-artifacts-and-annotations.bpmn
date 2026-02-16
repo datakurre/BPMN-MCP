@@ -47,24 +47,6 @@
   </bpmn:category>
   <bpmndi:BPMNDiagram id="BPMNDiagram_Process_DataArtifacts">
     <bpmndi:BPMNPlane id="BPMNPlane_Process_DataArtifacts" bpmnElement="Process_DataArtifacts">
-      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
-        <dc:Bounds x="192" y="114" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="178" y="150" width="65" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="ReviewOrder_di" bpmnElement="ReviewOrder">
-        <dc:Bounds x="288" y="92" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="SaveOrder_di" bpmnElement="SaveOrder">
-        <dc:Bounds x="448" y="92" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_di" bpmnElement="End">
-        <dc:Bounds x="608" y="114" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="595" y="150" width="63" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="DataObj_Order_di" bpmnElement="DataObj_Order">
         <dc:Bounds x="192" y="280" width="36" height="50" />
         <bpmndi:BPMNLabel>
@@ -77,25 +59,31 @@
           <dc:Bounds x="231" y="330" width="84" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
+        <dc:Bounds x="192" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="178" y="138" width="65" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ReviewOrder_di" bpmnElement="ReviewOrder">
+        <dc:Bounds x="288" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SaveOrder_di" bpmnElement="SaveOrder">
+        <dc:Bounds x="448" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_di" bpmnElement="End">
+        <dc:Bounds x="608" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="595" y="138" width="63" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc1_di" bpmnElement="Assoc1">
-        <di:waypoint x="338" y="92" />
+        <di:waypoint x="338" y="80" />
         <di:waypoint x="338" y="12" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Assoc2_di" bpmnElement="Assoc2">
-        <di:waypoint x="498" y="92" />
+        <di:waypoint x="498" y="80" />
         <di:waypoint x="498" y="12" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">
-        <di:waypoint x="228" y="132" />
-        <di:waypoint x="288" y="132" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow2_di" bpmnElement="Flow2">
-        <di:waypoint x="388" y="132" />
-        <di:waypoint x="448" y="132" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow3_di" bpmnElement="Flow3">
-        <di:waypoint x="548" y="132" />
-        <di:waypoint x="608" y="132" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Note1_di" bpmnElement="Note1">
         <dc:Bounds x="288" y="-18" width="100" height="30" />
@@ -103,6 +91,18 @@
       <bpmndi:BPMNShape id="Note2_di" bpmnElement="Note2">
         <dc:Bounds x="448" y="-18" width="100" height="30" />
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">
+        <di:waypoint x="228" y="120" />
+        <di:waypoint x="288" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow2_di" bpmnElement="Flow2">
+        <di:waypoint x="388" y="120" />
+        <di:waypoint x="448" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow3_di" bpmnElement="Flow3">
+        <di:waypoint x="548" y="120" />
+        <di:waypoint x="608" y="120" />
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Group1_di" bpmnElement="Group1">
         <dc:Bounds x="318" y="280" width="300" height="200" />
         <bpmndi:BPMNLabel>

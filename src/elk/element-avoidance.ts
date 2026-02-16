@@ -1,0 +1,244 @@
+/**
+ * Post-layout element avoidance pass.
+ *
+ * After ELK layout and all edge routing passes, some sequence flow
+ * waypoints may still pass through unrelated element bounding boxes.
+ * This module detects and reroutes such intersections by adding
+ * detour waypoints around the obstructing element.
+ */
+
+import type { BpmnElement, ElementRegistry } from '../bpmn-types';
+import { type Point, type Rect, segmentIntersectsRect, cloneWaypoints } from '../geometry';
+import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
+
+/** Margin (px) around elements for avoidance routing. */
+const AVOIDANCE_MARGIN = 15;
+
+/** Maximum iterations to prevent infinite loops. */
+const MAX_ITERATIONS = 3;
+
+/**
+ * Avoid element intersections in connection waypoints.
+ *
+ * For each connection, tests every segment against all non-source/non-target
+ * shapes.  When an intersection is detected, reroutes the segment around the
+ * obstructing element using an H-V-H or V-H-V detour.
+ */
+export function avoidElementIntersections(elementRegistry: ElementRegistry): void {
+  const allElements: BpmnElement[] = elementRegistry.getAll();
+
+  // Collect all shapes that can obstruct flows
+  const shapes = allElements.filter(
+    (el) =>
+      !isConnection(el.type) &&
+      !isInfrastructure(el.type) &&
+      !isLane(el.type) &&
+      el.type !== 'label' &&
+      el.type !== 'bpmn:BoundaryEvent' &&
+      el.type !== 'bpmn:Participant' &&
+      el.width !== undefined &&
+      el.height !== undefined
+  );
+
+  // Collect all connections with waypoints
+  const connections = allElements.filter(
+    (el) => isConnection(el.type) && el.waypoints && el.waypoints.length >= 2
+  );
+
+  for (const conn of connections) {
+    const sourceId = conn.source?.id;
+    const targetId = conn.target?.id;
+    if (!sourceId || !targetId) continue;
+
+    // Collect boundary events attached to source/target (they overlap by design)
+    const attachedBoundaryIds = new Set<string>();
+    for (const el of allElements) {
+      if (el.type === 'bpmn:BoundaryEvent' && el.host) {
+        if (el.host.id === sourceId || el.host.id === targetId) {
+          attachedBoundaryIds.add(el.id);
+        }
+      }
+    }
+
+    // Filter shapes that could be obstructing this connection
+    const obstacles = shapes.filter(
+      (s) =>
+        s.id !== sourceId &&
+        s.id !== targetId &&
+        !attachedBoundaryIds.has(s.id) &&
+        !isArtifact(s.type)
+    );
+
+    if (obstacles.length === 0) continue;
+
+    let modified = false;
+    let wps = cloneWaypoints(conn.waypoints!);
+
+    for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+      let anyFixed = false;
+
+      for (let i = 0; i < wps.length - 1; i++) {
+        const p1 = wps[i];
+        const p2 = wps[i + 1];
+
+        for (const obstacle of obstacles) {
+          const rect: Rect = {
+            x: obstacle.x - AVOIDANCE_MARGIN,
+            y: obstacle.y - AVOIDANCE_MARGIN,
+            width: (obstacle.width || 0) + 2 * AVOIDANCE_MARGIN,
+            height: (obstacle.height || 0) + 2 * AVOIDANCE_MARGIN,
+          };
+
+          if (!segmentIntersectsRect(p1, p2, rect)) continue;
+
+          // Compute a detour around the obstacle
+          const detour = computeDetour(p1, p2, obstacle, AVOIDANCE_MARGIN, obstacles);
+          if (detour) {
+            // Replace the segment with the detour
+            wps.splice(i + 1, 0, ...detour);
+            anyFixed = true;
+            modified = true;
+            break; // restart segment scan
+          }
+        }
+
+        if (anyFixed) break; // restart from segment 0
+      }
+
+      if (!anyFixed) break;
+    }
+
+    if (modified) {
+      // Deduplicate consecutive identical waypoints
+      wps = deduplicateWps(wps);
+
+      // Direct waypoint update — bypass modeling.updateWaypoints to avoid
+      // bpmn-js label adjustment errors on geometrically difficult paths.
+      conn.waypoints = wps;
+      if (conn.di?.waypoint) {
+        conn.di.waypoint = wps.map((wp: Point) => ({
+          $type: 'dc:Point',
+          x: wp.x,
+          y: wp.y,
+        }));
+      }
+    }
+  }
+}
+
+/**
+ * Compute detour waypoints to route around an obstacle.
+ *
+ * For horizontal segments passing through an element, routes above or
+ * below.  For vertical segments, routes left or right.  Chooses the
+ * direction that minimises new intersections.
+ */
+function computeDetour(
+  p1: Point,
+  p2: Point,
+  obstacle: BpmnElement,
+  margin: number,
+  allObstacles: BpmnElement[]
+): Point[] | null {
+  const obX = obstacle.x;
+  const obY = obstacle.y;
+  const obW = obstacle.width || 0;
+  const obH = obstacle.height || 0;
+
+  const isHorizontal = Math.abs(p1.y - p2.y) < Math.abs(p1.x - p2.x);
+
+  if (isHorizontal) {
+    // Route above or below the obstacle
+    const aboveY = obY - margin;
+    const belowY = obY + obH + margin;
+    const entryX = Math.min(p1.x, p2.x, obX - margin);
+    const exitX = Math.max(p1.x, p2.x, obX + obW + margin);
+
+    // Choose direction with fewer new intersections (prefer above)
+    const aboveDetour: Point[] = [
+      { x: entryX, y: p1.y },
+      { x: entryX, y: aboveY },
+      { x: exitX, y: aboveY },
+      { x: exitX, y: p2.y },
+    ];
+
+    const belowDetour: Point[] = [
+      { x: entryX, y: p1.y },
+      { x: entryX, y: belowY },
+      { x: exitX, y: belowY },
+      { x: exitX, y: p2.y },
+    ];
+
+    const aboveIntersections = countDetourIntersections(aboveDetour, allObstacles, obstacle.id);
+    const belowIntersections = countDetourIntersections(belowDetour, allObstacles, obstacle.id);
+
+    return aboveIntersections <= belowIntersections ? aboveDetour : belowDetour;
+  } else {
+    // Route left or right of the obstacle
+    const leftX = obX - margin;
+    const rightX = obX + obW + margin;
+    const entryY = Math.min(p1.y, p2.y, obY - margin);
+    const exitY = Math.max(p1.y, p2.y, obY + obH + margin);
+
+    const leftDetour: Point[] = [
+      { x: p1.x, y: entryY },
+      { x: leftX, y: entryY },
+      { x: leftX, y: exitY },
+      { x: p2.x, y: exitY },
+    ];
+
+    const rightDetour: Point[] = [
+      { x: p1.x, y: entryY },
+      { x: rightX, y: entryY },
+      { x: rightX, y: exitY },
+      { x: p2.x, y: exitY },
+    ];
+
+    const leftIntersections = countDetourIntersections(leftDetour, allObstacles, obstacle.id);
+    const rightIntersections = countDetourIntersections(rightDetour, allObstacles, obstacle.id);
+
+    return leftIntersections <= rightIntersections ? leftDetour : rightDetour;
+  }
+}
+
+/**
+ * Count how many obstacles a detour path intersects (excluding the
+ * obstacle being avoided).
+ */
+function countDetourIntersections(
+  detour: Point[],
+  allObstacles: BpmnElement[],
+  excludeId: string
+): number {
+  let count = 0;
+  for (const obs of allObstacles) {
+    if (obs.id === excludeId) continue;
+    const rect: Rect = {
+      x: obs.x,
+      y: obs.y,
+      width: obs.width || 0,
+      height: obs.height || 0,
+    };
+    for (let i = 0; i < detour.length - 1; i++) {
+      if (segmentIntersectsRect(detour[i], detour[i + 1], rect)) {
+        count++;
+        break;
+      }
+    }
+  }
+  return count;
+}
+
+/** Remove consecutive duplicate waypoints. */
+function deduplicateWps(wps: Point[]): Point[] {
+  const result: Point[] = [wps[0]];
+  for (let i = 1; i < wps.length; i++) {
+    if (
+      Math.abs(wps[i].x - result[result.length - 1].x) > 0.5 ||
+      Math.abs(wps[i].y - result[result.length - 1].y) > 0.5
+    ) {
+      result.push(wps[i]);
+    }
+  }
+  return result;
+}

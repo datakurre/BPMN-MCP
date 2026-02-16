@@ -75,6 +75,12 @@ export function detectHappyPath(allElements: BpmnElement[]): Set<string> {
         // Prefer the first non-default flow (the conditioned branch)
         chosen = connections.find((c) => c.id !== defaultFlowId);
       }
+      // When no default flow is set on a gateway, prefer flows with
+      // positive condition labels ("Yes", "Approved", "OK", etc.)
+      // over unlabelled or negative-labelled flows.
+      if (!chosen && current.type?.includes('Gateway') && connections.length > 1) {
+        chosen = pickPositiveLabelledFlow(connections);
+      }
       if (!chosen) {
         chosen = connections[0];
       }
@@ -85,4 +91,27 @@ export function detectHappyPath(allElements: BpmnElement[]): Set<string> {
   }
 
   return happyEdgeIds;
+}
+
+// ── Condition label heuristics ──────────────────────────────────────────
+
+/**
+ * Positive condition labels that indicate the happy-path branch.
+ * Matched case-insensitively against flow names / labels.
+ */
+const POSITIVE_LABELS =
+  /^(yes|approved|ok|true|success|valid|accept|accepted|completed|done|correct|passed)$/i;
+
+/**
+ * Pick the outgoing flow whose label matches a positive condition name.
+ * Returns undefined if no flow has a recognisable positive label.
+ */
+function pickPositiveLabelledFlow(connections: BpmnElement[]): BpmnElement | undefined {
+  for (const c of connections) {
+    const name = c.businessObject?.name?.trim();
+    if (name && POSITIVE_LABELS.test(name)) {
+      return c;
+    }
+  }
+  return undefined;
 }
