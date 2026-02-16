@@ -38,6 +38,7 @@ import {
   deduplicateDiInModeler,
 } from './layout-helpers';
 import { handleAutosizePoolsAndLanes } from '../collaboration/autosize-pools-and-lanes';
+import { expandCollapsedSubprocesses } from './expand-subprocesses';
 
 export interface LayoutDiagramArgs {
   diagramId: string;
@@ -75,6 +76,14 @@ export interface LayoutDiagramArgs {
    * Set to false to explicitly disable.
    */
   poolExpansion?: boolean;
+  /**
+   * When true, expand collapsed subprocesses that have internal flow-node
+   * children before running layout.  This converts drill-down plane
+   * subprocesses to inline expanded subprocesses so ELK can lay out their
+   * children on the main plane.
+   * Default: false (preserve existing collapsed/expanded state).
+   */
+  expandSubprocesses?: boolean;
   /**
    * When true, only adjust labels without performing full layout.
    * Useful for fixing label overlaps without changing element positions.
@@ -359,6 +368,12 @@ export async function handleLayoutDiagram(
   const layoutArgs: LayoutDiagramArgs =
     elementIds !== args.elementIds ? { ...args, elementIds } : args;
 
+  // Optionally expand collapsed subprocesses before layout
+  let subprocessesExpanded = 0;
+  if (args.expandSubprocesses) {
+    subprocessesExpanded = expandCollapsedSubprocesses(diagram);
+  }
+
   // Repair missing DI shapes before layout so ELK can position all elements
   const repairs = await repairMissingDiShapes(diagram);
 
@@ -380,6 +395,7 @@ export async function handleLayoutDiagram(
     diWarnings: allDiWarnings,
     poolExpansionApplied: postResult.poolExpansionApplied,
     pinnedSkipped,
+    subprocessesExpanded,
   });
   return appendLintFeedback(result, diagram);
 }

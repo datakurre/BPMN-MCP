@@ -104,6 +104,14 @@ export const TOOL_DEFINITION = {
           'When true, only resize pools and lanes to fit their elements. ' +
           'No ELK layout is performed. Useful after adding or moving elements within pools.',
       },
+      expandSubprocesses: {
+        type: 'boolean',
+        description:
+          'When true, expand collapsed subprocesses that have internal flow-node ' +
+          'children before running layout. Converts drill-down plane subprocesses ' +
+          'to inline expanded subprocesses so ELK can lay out their children on ' +
+          'the main plane. Default: false (preserve existing collapsed/expanded state).',
+      },
     },
     required: ['diagramId'],
   },

@@ -195,6 +195,7 @@ export function buildLayoutResult(params: {
   diWarnings?: string[];
   poolExpansionApplied?: boolean;
   pinnedSkipped?: string[];
+  subprocessesExpanded?: number;
 }): ToolResult {
   const {
     diagramId,
@@ -208,6 +209,7 @@ export function buildLayoutResult(params: {
     diWarnings,
     poolExpansionApplied,
     pinnedSkipped,
+    subprocessesExpanded,
   } = params;
   const crossingCount = layoutResult.crossingFlows ?? 0;
   const crossingPairs = layoutResult.crossingFlowPairs ?? [];
@@ -248,6 +250,7 @@ export function buildLayoutResult(params: {
     message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''}${usedDeterministic ? ' (deterministic)' : ''} — ${elementCount} elements arranged`,
     ...(diWarnings && diWarnings.length > 0 ? { diWarnings } : {}),
     ...(poolExpansionApplied ? { poolExpansionApplied: true } : {}),
+    ...(subprocessesExpanded && subprocessesExpanded > 0 ? { subprocessesExpanded } : {}),
     ...(pinnedSkipped && pinnedSkipped.length > 0
       ? {
           pinnedSkipped,
