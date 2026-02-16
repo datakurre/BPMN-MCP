@@ -23,6 +23,26 @@ import { getVisibleElements, syncXml, getService } from '../../helpers';
 
 const BOUNDARY_EVENT_TYPE = 'bpmn:BoundaryEvent';
 
+/**
+ * Check whether an element is on the main diagram plane (not inside a
+ * collapsed subprocess drill-down plane).
+ *
+ * Collapsed subprocesses render their children on a separate internal
+ * plane whose root element has undefined x/y coordinates.  These
+ * children must be excluded from shape-rect collection to prevent
+ * phantom proximity penalties from shapes on a different visual plane.
+ */
+function isOnMainPlane(el: any): boolean {
+  let parent = el.parent;
+  while (parent) {
+    if (parent.x === undefined && parent.y === undefined && parent.type) {
+      return false;
+    }
+    parent = parent.parent;
+  }
+  return true;
+}
+
 /** Check whether an element type has an external label. */
 function hasExternalLabel(type: string): boolean {
   return (
@@ -240,10 +260,14 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
-  const connectionSegments = collectConnectionSegments(allElements);
+  // Filter to main plane elements only — exclude shapes from collapsed
+  // subprocess drill-down planes that live in a different visual context.
+  const mainPlaneElements = allElements.filter(isOnMainPlane);
+
+  const connectionSegments = collectConnectionSegments(mainPlaneElements);
 
   // Collect all shape rects (non-connections, non-labels) for overlap checking
-  const shapeRects: Rect[] = allElements
+  const shapeRects: Rect[] = mainPlaneElements
     .filter(
       (el: any) =>
         el.type &&
@@ -258,7 +282,7 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
     .map((el: any) => ({ x: el.x, y: el.y, width: el.width, height: el.height }));
 
   // Collect all elements with external labels
-  const labelBearers = allElements.filter(
+  const labelBearers = mainPlaneElements.filter(
     (el: any) => hasExternalLabel(el.type) && el.label && el.businessObject?.name
   );
 
@@ -281,7 +305,9 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
     // to apply a heavier overlap penalty (their outgoing flows exit
     // downward, right where the default 'bottom' label would be).
     const ownFlows =
-      el.type === BOUNDARY_EVENT_TYPE ? collectOwnFlowSegments(el.id, allElements) : undefined;
+      el.type === BOUNDARY_EVENT_TYPE
+        ? collectOwnFlowSegments(el.id, mainPlaneElements)
+        : undefined;
     const newRect = tryRepositionLabel(
       el,
       shapeRects,
@@ -343,10 +369,11 @@ export async function adjustElementLabel(
   }
 
   const allElements = getVisibleElements(elementRegistry);
-  const connectionSegments = collectConnectionSegments(allElements);
+  const mainPlaneElements = allElements.filter(isOnMainPlane);
+  const connectionSegments = collectConnectionSegments(mainPlaneElements);
 
   // Collect nearby shape rects for overlap checking
-  const shapeRects: Rect[] = allElements
+  const shapeRects: Rect[] = mainPlaneElements
     .filter(
       (other: any) =>
         other.id !== elementId &&
@@ -362,7 +389,7 @@ export async function adjustElementLabel(
     .map((other: any) => ({ x: other.x, y: other.y, width: other.width, height: other.height }));
 
   // Other labels
-  const otherLabelRects: Rect[] = allElements
+  const otherLabelRects: Rect[] = mainPlaneElements
     .filter((other: any) => other.id !== elementId && other.label && hasExternalLabel(other.type))
     .map((other: any) => getLabelRect(other.label));
 
@@ -374,7 +401,7 @@ export async function adjustElementLabel(
 
   // Own outgoing flow segments for boundary events
   const ownFlowSegments =
-    el.type === BOUNDARY_EVENT_TYPE ? collectOwnFlowSegments(el.id, allElements) : undefined;
+    el.type === BOUNDARY_EVENT_TYPE ? collectOwnFlowSegments(el.id, mainPlaneElements) : undefined;
 
   const label = el.label;
   const currentRect = getLabelRect(label);

@@ -55,7 +55,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="185" y="168" width="50" height="27" />
+          <dc:Bounds x="185" y="158" width="50" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ReviewTask_di" bpmnElement="ReviewTask">
@@ -73,7 +73,7 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="838" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="814" y="168" width="85" height="14" />
+          <dc:Bounds x="814" y="158" width="85" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ProcessApproval_di" bpmnElement="ProcessApproval">

@@ -78,7 +78,7 @@
       <bpmndi:BPMNShape id="EndOK_di" bpmnElement="EndOK">
         <dc:Bounds x="618" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="609" y="90" width="54" height="14" />
+          <dc:Bounds x="609" y="150" width="54" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EscalateTask_di" bpmnElement="EscalateTask">
@@ -90,13 +90,13 @@
       <bpmndi:BPMNShape id="EndEscalated_di" bpmnElement="EndEscalated">
         <dc:Bounds x="618" y="234" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="612" y="280" width="49" height="14" />
+          <dc:Bounds x="612" y="270" width="49" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndError_di" bpmnElement="EndError">
         <dc:Bounds x="618" y="354" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="599" y="400" width="75" height="14" />
+          <dc:Bounds x="599" y="390" width="75" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
@@ -111,13 +111,13 @@
       <bpmndi:BPMNShape id="TimerBoundary_di" bpmnElement="TimerBoundary">
         <dc:Bounds x="280" y="154" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="197" y="165" width="73" height="14" />
+          <dc:Bounds x="262" y="190" width="73" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ErrorBoundary_di" bpmnElement="ErrorBoundary">
         <dc:Bounds x="360" y="154" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="273" y="205" width="82" height="14" />
+          <dc:Bounds x="337" y="190" width="82" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">

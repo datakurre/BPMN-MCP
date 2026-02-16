@@ -111,7 +111,7 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="1426" y="92" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1417" y="138" width="54" height="14" />
+          <dc:Bounds x="1417" y="68" width="54" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SendReminder_di" bpmnElement="SendReminder">
@@ -120,7 +120,7 @@
       <bpmndi:BPMNShape id="EndReminder_di" bpmnElement="EndReminder">
         <dc:Bounds x="628" y="426" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="609" y="472" width="74" height="14" />
+          <dc:Bounds x="609" y="402" width="74" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="NotifyManager_di" bpmnElement="NotifyManager">
@@ -129,7 +129,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="306" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="171" y="352" width="79" height="14" />
+          <dc:Bounds x="171" y="342" width="79" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Task_Timer_di" bpmnElement="Task_Timer">
@@ -159,43 +159,43 @@
       <bpmndi:BPMNShape id="EndCancel_di" bpmnElement="EndCancel">
         <dc:Bounds x="1160" y="426" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1206" y="430.5" width="64" height="27" />
+          <dc:Bounds x="1146" y="472" width="64" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEscalated_di" bpmnElement="EndEscalated">
         <dc:Bounds x="1682" y="262" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1658" y="308" width="84" height="14" />
+          <dc:Bounds x="1658" y="298" width="84" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndAbort_di" bpmnElement="EndAbort">
         <dc:Bounds x="1112" y="431" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1110.5" y="407" width="39" height="14" />
+          <dc:Bounds x="1110" y="477" width="39" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BoundError_di" bpmnElement="BoundError">
         <dc:Bounds x="490" y="346" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="403" y="397" width="65" height="14" />
+          <dc:Bounds x="476" y="382" width="65" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BoundTimer_di" bpmnElement="BoundTimer">
         <dc:Bounds x="320" y="346" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="233" y="397" width="71" height="14" />
+          <dc:Bounds x="303" y="382" width="71" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BoundMessage_di" bpmnElement="BoundMessage">
         <dc:Bounds x="756" y="346" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="789" y="397" width="84" height="14" />
+          <dc:Bounds x="732" y="382" width="84" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BoundSignal_di" bpmnElement="BoundSignal">
         <dc:Bounds x="1022" y="346" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="935" y="397" width="60" height="14" />
+          <dc:Bounds x="1010" y="392" width="60" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BoundEscalation_di" bpmnElement="BoundEscalation">

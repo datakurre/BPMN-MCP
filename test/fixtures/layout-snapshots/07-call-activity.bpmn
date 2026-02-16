@@ -44,7 +44,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="171" y="160" width="79" height="14" />
+          <dc:Bounds x="171" y="150" width="79" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EnterData_di" bpmnElement="EnterData">
@@ -62,7 +62,7 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="928" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="908" y="160" width="76" height="14" />
+          <dc:Bounds x="908" y="150" width="76" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">

@@ -83,7 +83,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="170.5" y="90" width="79" height="14" />
+          <dc:Bounds x="171" y="150" width="79" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EnterData_di" bpmnElement="EnterData">
@@ -98,7 +98,7 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="768" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="759" y="160" width="54" height="14" />
+          <dc:Bounds x="759" y="150" width="54" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ErrorHandler_di" bpmnElement="ErrorHandler">
@@ -132,9 +132,6 @@
     <bpmndi:BPMNPlane bpmnElement="ErrorHandler">
       <bpmndi:BPMNShape id="ErrorStart_di" bpmnElement="ErrorStart">
         <dc:Bounds x="180" y="182" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="108" y="193" width="62" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ReviewError_di" bpmnElement="ReviewError">
         <dc:Bounds x="298" y="160" width="100" height="80" />
@@ -144,9 +141,6 @@
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ErrorEnd_di" bpmnElement="ErrorEnd">
         <dc:Bounds x="630" y="182" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="614" y="228" width="69" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="EFlow1_di" bpmnElement="EFlow1">
         <di:waypoint x="216" y="200" />
@@ -166,18 +160,12 @@
     <bpmndi:BPMNPlane bpmnElement="TimerHandler">
       <bpmndi:BPMNShape id="TimerStart_di" bpmnElement="TimerStart">
         <dc:Bounds x="180" y="182" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="170" y="158" width="56" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="CheckProgress_di" bpmnElement="CheckProgress">
         <dc:Bounds x="298" y="160" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="TimerEnd_di" bpmnElement="TimerEnd">
         <dc:Bounds x="480" y="182" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="526" y="193" width="61" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="TFlow1_di" bpmnElement="TFlow1">
         <di:waypoint x="216" y="200" />
@@ -193,18 +181,12 @@
     <bpmndi:BPMNPlane bpmnElement="CancelHandler">
       <bpmndi:BPMNShape id="CancelStart_di" bpmnElement="CancelStart">
         <dc:Bounds x="180" y="182" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="166" y="233" width="64" height="27" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Rollback_di" bpmnElement="Rollback">
         <dc:Bounds x="298" y="160" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="CancelEnd_di" bpmnElement="CancelEnd">
         <dc:Bounds x="480" y="182" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="474" y="228" width="49" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="CFlow1_di" bpmnElement="CFlow1">
         <di:waypoint x="216" y="200" />

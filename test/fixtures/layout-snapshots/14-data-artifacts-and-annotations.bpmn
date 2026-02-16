@@ -50,7 +50,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="178" y="160" width="65" height="14" />
+          <dc:Bounds x="178" y="150" width="65" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ReviewOrder_di" bpmnElement="ReviewOrder">
@@ -62,19 +62,19 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="608" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="595" y="160" width="63" height="14" />
+          <dc:Bounds x="595" y="150" width="63" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="DataObj_Order_di" bpmnElement="DataObj_Order">
         <dc:Bounds x="192" y="280" width="36" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="182.5" y="256" width="55" height="14" />
+          <dc:Bounds x="183" y="330" width="55" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="DataStore_Orders_di" bpmnElement="DataStore_Orders">
         <dc:Bounds x="248" y="280" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="231" y="245" width="84" height="14" />
+          <dc:Bounds x="231" y="330" width="84" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Assoc1_di" bpmnElement="Assoc1">

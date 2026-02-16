@@ -54,7 +54,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="181" y="168" width="59" height="14" />
+          <dc:Bounds x="181" y="158" width="59" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SendInquiry_di" bpmnElement="SendInquiry">
@@ -69,13 +69,13 @@
       <bpmndi:BPMNShape id="MsgCatch_di" bpmnElement="MsgCatch">
         <dc:Bounds x="558" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="549.5" y="85" width="53" height="27" />
+          <dc:Bounds x="550" y="158" width="53" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="TimerCatch_di" bpmnElement="TimerCatch">
         <dc:Bounds x="558" y="190" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="542" y="236" width="69" height="14" />
+          <dc:Bounds x="542" y="226" width="69" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ProcessResponse_di" bpmnElement="ProcessResponse">
@@ -87,13 +87,13 @@
       <bpmndi:BPMNShape id="EndOK_di" bpmnElement="EndOK">
         <dc:Bounds x="814" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="806" y="168" width="53" height="27" />
+          <dc:Bounds x="806" y="158" width="53" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndTimeout_di" bpmnElement="EndTimeout">
         <dc:Bounds x="814" y="252" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="806" y="298" width="52" height="14" />
+          <dc:Bounds x="806" y="288" width="52" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">

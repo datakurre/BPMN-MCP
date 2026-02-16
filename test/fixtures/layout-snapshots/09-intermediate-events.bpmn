@@ -68,7 +68,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="214" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="177" y="260" width="67" height="14" />
+          <dc:Bounds x="177" y="250" width="67" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="PrepareOrder_di" bpmnElement="PrepareOrder">
@@ -92,19 +92,19 @@
       <bpmndi:BPMNShape id="SignalThrow_di" bpmnElement="SignalThrow">
         <dc:Bounds x="896" y="214" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="871" y="260" width="87" height="14" />
+          <dc:Bounds x="871" y="250" width="87" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="LinkThrow_di" bpmnElement="LinkThrow">
         <dc:Bounds x="992" y="214" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="974" y="260" width="73" height="14" />
+          <dc:Bounds x="974" y="250" width="73" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="LinkCatch_di" bpmnElement="LinkCatch">
         <dc:Bounds x="192" y="128" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="174" y="174" width="72" height="14" />
+          <dc:Bounds x="174" y="104" width="72" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ShipOrder_di" bpmnElement="ShipOrder">
@@ -113,13 +113,13 @@
       <bpmndi:BPMNShape id="ConditionalWait_di" bpmnElement="ConditionalWait">
         <dc:Bounds x="448" y="128" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="435" y="174" width="62" height="27" />
+          <dc:Bounds x="435" y="164" width="62" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="544" y="128" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="526" y="174" width="72" height="14" />
+          <dc:Bounds x="526" y="164" width="72" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">

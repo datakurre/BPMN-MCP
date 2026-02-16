@@ -90,7 +90,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="127" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="171.5" y="90" width="77" height="27" />
+          <dc:Bounds x="172" y="163" width="77" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SendConfirmation_di" bpmnElement="SendConfirmation">
@@ -102,13 +102,13 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="618" y="127" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="606" y="103" width="60" height="14" />
+          <dc:Bounds x="606" y="163" width="60" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndCancelled_di" bpmnElement="EndCancelled">
         <dc:Bounds x="618" y="247" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="612" y="293" width="49" height="27" />
+          <dc:Bounds x="612" y="283" width="49" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Sub_BookTrip_di" bpmnElement="Sub_BookTrip">
@@ -117,7 +117,7 @@
       <bpmndi:BPMNShape id="BE_BookingError_di" bpmnElement="BE_BookingError">
         <dc:Bounds x="320" y="167" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="353" y="218" width="73" height="14" />
+          <dc:Bounds x="302" y="203" width="73" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">
@@ -171,21 +171,12 @@
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SubErrorEnd_di" bpmnElement="SubErrorEnd">
         <dc:Bounds x="962" y="322" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="946" y="368" width="68" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="CompensateAll_di" bpmnElement="CompensateAll">
         <dc:Bounds x="812" y="322" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="793" y="368" width="75" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BE_CarError_di" bpmnElement="BE_CarError">
         <dc:Bounds x="662" y="222" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="695" y="273" width="79" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BE_CompCar_di" bpmnElement="BE_CompCar">
         <dc:Bounds x="612" y="195.6" width="36" height="36" />

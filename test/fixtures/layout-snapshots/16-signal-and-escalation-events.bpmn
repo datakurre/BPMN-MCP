@@ -108,7 +108,7 @@
       <bpmndi:BPMNShape id="SignalStart_di" bpmnElement="SignalStart">
         <dc:Bounds x="192" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="165" y="98" width="90" height="14" />
+          <dc:Bounds x="165" y="158" width="90" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="CheckStock_di" bpmnElement="CheckStock">
@@ -126,7 +126,7 @@
       <bpmndi:BPMNShape id="ThrowSignal_di" bpmnElement="ThrowSignal">
         <dc:Bounds x="728" y="200" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="710" y="246" width="73" height="14" />
+          <dc:Bounds x="710" y="236" width="73" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="GW_Merge_di" bpmnElement="GW_Merge" isMarkerVisible="true">
@@ -135,13 +135,13 @@
       <bpmndi:BPMNShape id="ThrowEscalation_di" bpmnElement="ThrowEscalation">
         <dc:Bounds x="728" y="134" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="712.5" y="110" width="67" height="14" />
+          <dc:Bounds x="713" y="170" width="67" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="CatchSignal_di" bpmnElement="CatchSignal">
         <dc:Bounds x="1136" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1114.5" y="98" width="79" height="14" />
+          <dc:Bounds x="1115" y="158" width="79" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="HandleEscalation_di" bpmnElement="HandleEscalation">
@@ -153,7 +153,7 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="1364" y="122" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1358" y="168" width="48" height="14" />
+          <dc:Bounds x="1358" y="158" width="48" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Sub_Fulfillment_di" bpmnElement="Sub_Fulfillment">
@@ -162,7 +162,7 @@
       <bpmndi:BPMNShape id="BE_Escalation_di" bpmnElement="BE_Escalation">
         <dc:Bounds x="966" y="162" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="879" y="213" width="86" height="14" />
+          <dc:Bounds x="941" y="198" width="86" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow1_di" bpmnElement="Flow1">
@@ -245,14 +245,11 @@
       <bpmndi:BPMNShape id="SubEscEnd_di" bpmnElement="SubEscEnd">
         <dc:Bounds x="480" y="222" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="462" y="268" width="73" height="14" />
+          <dc:Bounds x="462" y="258" width="73" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BE_Timer_di" bpmnElement="BE_Timer">
         <dc:Bounds x="330" y="222" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="338.5" y="268" width="19" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="SF1_di" bpmnElement="SF1">
         <di:waypoint x="216" y="200" />

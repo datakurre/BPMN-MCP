@@ -59,7 +59,7 @@
       <bpmndi:BPMNShape id="Start_di" bpmnElement="Start">
         <dc:Bounds x="192" y="244" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="174" y="290" width="73" height="14" />
+          <dc:Bounds x="174" y="280" width="73" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ClassifyAlert_di" bpmnElement="ClassifyAlert">
@@ -83,7 +83,7 @@
       <bpmndi:BPMNShape id="End_di" bpmnElement="End">
         <dc:Bounds x="1008" y="244" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="993" y="290" width="67" height="14" />
+          <dc:Bounds x="993" y="280" width="67" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SendEmail_di" bpmnElement="SendEmail">
