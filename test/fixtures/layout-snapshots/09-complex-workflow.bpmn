@@ -324,16 +324,16 @@
           <dc:Bounds x="1845" y="160" width="62" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_PaymentError_di" bpmnElement="Event_PaymentError">
+        <dc:Bounds x="1610" y="154" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1533" y="184" width="71" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_PaymentErrorOccurred_di" bpmnElement="EndEvent_PaymentErrorOccurred">
         <dc:Bounds x="1700" y="239" width="36" height="36" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="1681" y="282" width="74" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EndEvent_RegistrationExpired_di" bpmnElement="EndEvent_RegistrationExpired">
-        <dc:Bounds x="1530" y="239" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1517" y="282" width="62" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_2Hours_di" bpmnElement="Event_2Hours">
@@ -342,10 +342,10 @@
           <dc:Bounds x="1399" y="184" width="37" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_PaymentError_di" bpmnElement="Event_PaymentError">
-        <dc:Bounds x="1610" y="154" width="36" height="36" />
+      <bpmndi:BPMNShape id="EndEvent_RegistrationExpired_di" bpmnElement="EndEvent_RegistrationExpired">
+        <dc:Bounds x="1530" y="239" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1533" y="184" width="71" height="14" />
+          <dc:Bounds x="1517" y="282" width="62" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0dg5vts_di" bpmnElement="Flow_RegistrationStarted_to_FillRegistrationForm">
@@ -434,15 +434,15 @@
           <dc:Bounds x="1818" y="140" width="15" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1jkljnk_di" bpmnElement="Flow_1jkljnk">
-        <di:waypoint x="1628" y="190" />
-        <di:waypoint x="1628" y="257" />
-        <di:waypoint x="1700" y="257" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0cl91ul_di" bpmnElement="Flow_0cl91ul">
         <di:waypoint x="1458" y="190" />
         <di:waypoint x="1458" y="257" />
         <di:waypoint x="1530" y="257" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1jkljnk_di" bpmnElement="Flow_1jkljnk">
+        <di:waypoint x="1628" y="190" />
+        <di:waypoint x="1628" y="257" />
+        <di:waypoint x="1700" y="257" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

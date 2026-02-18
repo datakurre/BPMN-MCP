@@ -40,6 +40,18 @@
           <dc:Bounds x="198" y="157" width="24" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1d7wnd9_di" bpmnElement="Event_1d7wnd9">
+        <dc:Bounds x="618" y="114" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="622" y="157" width="27" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0tvw53g_di" bpmnElement="Event_0tvw53g">
+        <dc:Bounds x="528" y="239" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="522" y="282" width="49" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_1goej4o_di" bpmnElement="Activity_1betloc">
         <dc:Bounds x="288" y="92" width="100" height="80" />
         <bpmndi:BPMNLabel />
@@ -48,21 +60,9 @@
         <dc:Bounds x="458" y="92" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1d7wnd9_di" bpmnElement="Event_1d7wnd9">
-        <dc:Bounds x="618" y="114" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="622" y="157" width="27" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0hdt98a_di" bpmnElement="Activity_1wslow0">
         <dc:Bounds x="378" y="217" width="100" height="80" />
         <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0tvw53g_di" bpmnElement="Event_0tvw53g">
-        <dc:Bounds x="528" y="239" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="522" y="282" width="49" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1pufg4s_di" bpmnElement="Event_1w9t4mj">
         <dc:Bounds x="320" y="154" width="36" height="36" />

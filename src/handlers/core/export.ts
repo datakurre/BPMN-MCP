@@ -227,23 +227,20 @@ async function performExport(diagram: any, format: string): Promise<ToolResult['
   const content: ToolResult['content'] = [];
 
   if (format === 'both') {
-    normalizePlaneElementOrder(diagram.modeler);
-    const { xml } = await diagram.modeler.saveXML({ format: true });
-    const xmlOutput = deduplicateDiElements(xml || '');
+    const { xml: rawXml } = await diagram.modeler.saveXML({ format: true });
+    const xmlOutput = deduplicateDiElements(normalizePlaneElementOrder(rawXml || ''));
     validateXmlOutput(xmlOutput);
     const { svg } = await diagram.modeler.saveSVG();
     const adjustedSvg = adjustSvgViewBox(svg || '', diagram);
     content.push({ type: 'text', text: xmlOutput });
     content.push({ type: 'text', text: adjustedSvg });
   } else if (format === 'svg') {
-    normalizePlaneElementOrder(diagram.modeler);
     const { svg } = await diagram.modeler.saveSVG();
     const adjustedSvg = adjustSvgViewBox(svg || '', diagram);
     content.push({ type: 'text', text: adjustedSvg });
   } else {
-    normalizePlaneElementOrder(diagram.modeler);
-    const { xml } = await diagram.modeler.saveXML({ format: true });
-    const xmlOutput = deduplicateDiElements(xml || '');
+    const { xml: rawXml } = await diagram.modeler.saveXML({ format: true });
+    const xmlOutput = deduplicateDiElements(normalizePlaneElementOrder(rawXml || ''));
     validateXmlOutput(xmlOutput);
     content.push({ type: 'text', text: xmlOutput });
   }
