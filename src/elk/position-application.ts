@@ -552,8 +552,13 @@ export function normaliseOrigin(elementRegistry: ElementRegistry, modeling: Mode
     if (el.y < topY) topY = el.y;
   }
 
+  // Only shift elements UP to NORMALISE_ORIGIN_Y (when ELK placed them too high).
+  // Never shift DOWN: if ELK gives a larger top margin (e.g. for boundary-event
+  // processes where it reserves extra space), that margin is intentional and
+  // correct.  Forcing elements down to 92 when they naturally sit at 105 breaks
+  // the boundary-event layout.
   const delta = NORMALISE_ORIGIN_Y - topY;
-  if (Math.abs(delta) > 2) {
+  if (delta > 2) {
     try {
       modeling.moveElements(flowElements, { x: 0, y: delta });
     } catch {
