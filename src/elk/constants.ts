@@ -165,9 +165,16 @@ export const COLLAPSED_POOL_GAP = 50;
 /**
  * Extra vertical spacing (px) added between participant pools in
  * collaboration diagrams.  ELK's default nodeNode spacing is too tight
- * for pools — the reference uses ≈60 px edge-to-edge between pools.
+ * for pools — the reference uses ≈58 px edge-to-edge between pools.
+ *
+ * Set to 68 (not 58) to compensate for a 10 px bpmn-js auto-resize side
+ * effect: when pool contents are moved by centreElementsInPools, bpmn-js
+ * silently expands the pool height by ~10 px in the serialised DI, so the
+ * elementRegistry height (used during gap enforcement) understates the
+ * final pool height.  The extra 10 px corrects for that offset so that
+ * the serialised gap matches the reference (~58 px).
  */
-export const INTER_POOL_GAP_EXTRA = 60;
+export const INTER_POOL_GAP_EXTRA = 68;
 
 // ── Edge routing ────────────────────────────────────────────────────────
 
