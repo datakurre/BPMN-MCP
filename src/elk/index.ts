@@ -473,9 +473,17 @@ export async function elkLayout(
   });
   finalisePoolsAndLanes(ctx);
   finaliseBoundaryTargets(ctx);
-  // Normalise Y origin after all position adjustments
-  normaliseOrigin(ctx.elementRegistry, ctx.modeling);
+  // Apply edge routes before normalising origin.
+  // Normalising origin AFTER edge route application ensures that
+  // modeling.moveElements shifts both element positions AND their
+  // already-placed waypoints together, keeping flows aligned with their
+  // source/target elements.  If normaliseOrigin ran first, elements would
+  // shift but waypoints (not yet applied from ELK) would be placed at the
+  // old (pre-shift) coordinates, causing flows to appear displaced.
   applyEdgeRoutes(ctx);
+  // Normalise Y origin after edge routes are placed so that the shift
+  // is applied uniformly to both elements and their waypoints.
+  normaliseOrigin(ctx.elementRegistry, ctx.modeling);
   repairAndSimplifyEdges(ctx);
 
   // Clamp intra-lane flow waypoints to stay within lane bounds
