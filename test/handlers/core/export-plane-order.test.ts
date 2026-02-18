@@ -149,6 +149,59 @@ describe('normalizePlaneElementOrder', () => {
     expect(planeSlice).toMatch(/\n\s*<\/bpmndi:BPMNPlane>/);
   });
 
+  test('inserts subprocess children after subprocess shape, outer shapes before outer edges', () => {
+    // Process def: Start_1, SubProcess_1 (contains SubStart_1, SubFlow_1, SubEnd_1), Flow_to_sub, End_1, Flow_to_end
+    const processDef = `    <bpmn:startEvent id="Start_1" />
+    <bpmn:subProcess id="SubProcess_1">
+      <bpmn:startEvent id="SubStart_1" />
+      <bpmn:sequenceFlow id="SubFlow_1" sourceRef="SubStart_1" targetRef="SubEnd_1" />
+      <bpmn:endEvent id="SubEnd_1" />
+    </bpmn:subProcess>
+    <bpmn:sequenceFlow id="Flow_to_sub" sourceRef="Start_1" targetRef="SubProcess_1" />
+    <bpmn:endEvent id="End_1" />
+    <bpmn:sequenceFlow id="Flow_to_end" sourceRef="SubProcess_1" targetRef="End_1" />`;
+
+    // Plane has edges before some shapes (bpmn-js disorder after moveElements)
+    const planeContent = `      <bpmndi:BPMNEdge id="Flow_to_sub_di" bpmnElement="Flow_to_sub">
+        <di:waypoint x="100" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="SubProcess_1_di" bpmnElement="SubProcess_1" isExpanded="true">
+        <dc:Bounds x="200" y="50" width="300" height="200" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubEnd_1_di" bpmnElement="SubEnd_1">
+        <dc:Bounds x="450" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubStart_1_di" bpmnElement="SubStart_1">
+        <dc:Bounds x="220" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SubFlow_1_di" bpmnElement="SubFlow_1">
+        <di:waypoint x="256" y="148" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Start_1_di" bpmnElement="Start_1">
+        <dc:Bounds x="50" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_to_end_di" bpmnElement="Flow_to_end">
+        <di:waypoint x="500" y="148" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="End_1_di" bpmnElement="End_1">
+        <dc:Bounds x="600" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>`;
+    const xml = makeXml(processDef, planeContent);
+    const result = normalizePlaneElementOrder(xml);
+
+    const pos = (id: string) => result.indexOf(`bpmnElement="${id}"`);
+
+    // Expected order: Start_1(shape), SubProcess_1(shape), SubStart_1(sub-shape),
+    // SubEnd_1(sub-shape), SubFlow_1(sub-edge), End_1(shape), Flow_to_sub(edge), Flow_to_end(edge)
+    expect(pos('Start_1')).toBeLessThan(pos('SubProcess_1'));
+    expect(pos('SubProcess_1')).toBeLessThan(pos('SubStart_1'));
+    expect(pos('SubStart_1')).toBeLessThan(pos('SubEnd_1'));
+    expect(pos('SubEnd_1')).toBeLessThan(pos('SubFlow_1'));
+    expect(pos('SubFlow_1')).toBeLessThan(pos('End_1'));
+    expect(pos('End_1')).toBeLessThan(pos('Flow_to_sub'));
+    expect(pos('Flow_to_sub')).toBeLessThan(pos('Flow_to_end'));
+  });
+
   test('returns original xml on parse error', () => {
     // Malformed XML should not throw — returns original
     const malformed = 'not valid xml at all <<<<>';
