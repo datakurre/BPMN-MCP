@@ -217,6 +217,12 @@ export function buildLayoutResult(params: {
   const sizingIssues = detectContainerSizingIssues(elementRegistry);
   const qualityMetrics = computeLayoutQualityMetrics(elementRegistry);
 
+  // C7: message flows crossing the scope boundary are not updated during scoped layout.
+  // Surface this as a scopeNote so callers know to re-route them manually if needed.
+  const scopeNote = scopeElementId
+    ? 'Message flows crossing the scope boundary were not re-routed. Run a full layout (without scopeElementId) or use set_bpmn_connection_waypoints to fix any displaced message flow waypoints.'
+    : undefined;
+
   return jsonResult({
     success: true,
     elementCount,
@@ -248,6 +254,7 @@ export function buildLayoutResult(params: {
       elementDensity: qualityMetrics.elementDensity,
     },
     message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''}${usedDeterministic ? ' (deterministic)' : ''} — ${elementCount} elements arranged`,
+    ...(scopeNote ? { scopeNote } : {}),
     ...(diWarnings && diWarnings.length > 0 ? { diWarnings } : {}),
     ...(poolExpansionApplied ? { poolExpansionApplied: true } : {}),
     ...(subprocessesExpanded && subprocessesExpanded > 0 ? { subprocessesExpanded } : {}),
