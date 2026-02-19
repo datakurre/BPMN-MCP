@@ -157,14 +157,16 @@ Stable, addressable read-context endpoints for AI callers to re-ground context m
 
 Reusable modeling workflows that guide AI callers through multi-tool patterns:
 
-| Prompt                       | Description                                                                              |
-| ---------------------------- | ---------------------------------------------------------------------------------------- |
-| `create-executable-process`  | Step-by-step guide to create a complete executable BPMN process for Operaton / Camunda 7 |
-| `convert-to-collaboration`   | Convert a single-pool process into a collaboration with multiple participants            |
-| `add-sla-timer-pattern`      | Add SLA timers using boundary events (interrupting or non-interrupting)                  |
-| `add-approval-pattern`       | Add an approval pattern with gateway, conditions, default flow, and form fields          |
-| `add-error-handling-pattern` | Add error handling with boundary events or event subprocesses                            |
-| `add-parallel-tasks-pattern` | Add parallel gateway pattern with concurrent branches and synchronization                |
+| Prompt                         | Description                                                                              |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| `create-executable-process`    | Step-by-step guide to create a complete executable BPMN process for Operaton / Camunda 7 |
+| `convert-to-collaboration`     | Convert a single-pool process into a collaboration with multiple participants            |
+| `add-sla-timer-pattern`        | Add SLA timers using boundary events (interrupting or non-interrupting)                  |
+| `add-approval-pattern`         | Add an approval pattern with gateway, conditions, default flow, and form fields          |
+| `add-error-handling-pattern`   | Add error handling with boundary events or event subprocesses                            |
+| `add-parallel-tasks-pattern`   | Add parallel gateway pattern with concurrent branches and synchronization                |
+| `add-decision-gateway-pattern` | Add an exclusive gateway with multiple conditional branches and a default flow           |
+| `create-lane-based-process`    | Create a swimlane-based process with role separation and handoffs between lanes          |
 
 ## Output Compatibility
 
