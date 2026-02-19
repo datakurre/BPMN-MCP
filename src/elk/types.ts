@@ -133,6 +133,15 @@ export interface BpmnElkOptions {
     | 'INTERACTIVE'
     | 'STRETCH_WIDTH'
     | 'MIN_WIDTH';
+  /**
+   * Pseudo-random seed for ELK's stochastic algorithms (C5).
+   * Setting a fixed seed makes LAYER_SWEEP crossing minimisation fully
+   * deterministic: same input always produces the same output regardless
+   * of JavaScript engine or call order.  A value of 0 (ELK default) causes
+   * ELK to seed from the system time, making results non-deterministic.
+   * We use '1' to guarantee reproducible layout across multiple runs.
+   */
+  'elk.randomSeed'?: string;
 }
 
 /**

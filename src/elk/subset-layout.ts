@@ -32,8 +32,10 @@ import {
   routeLoopbacksBelow,
   buildZShapeRoute,
 } from './edge-routing';
-import { snapAllConnectionsOrthogonal } from './snap-alignment';
+import { snapAllConnectionsOrthogonal, snapSameLayerElements } from './snap-alignment';
 import { detectCrossingFlows, reduceCrossings } from './crossing-detection';
+import { resolveOverlaps } from './overlap-resolution';
+import { repositionArtifacts } from './artifacts';
 import type { ElkLayoutOptions } from './types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -267,6 +269,12 @@ export async function elkLayoutSubset(
   // Apply positions
   applyElkPositions(elementRegistry, modeling, result, offsetX, offsetY);
 
+  // C3: Snap same-layer elements to a common Y before routing.
+  // In the full pipeline this runs after applyElkPositions; in subset layout
+  // it aligns elements within the subset to clean row positions, preventing
+  // small Y-offsets from producing diagonal edge segments.
+  snapSameLayerElements(elementRegistry, modeling, sharedContainer ?? undefined);
+
   // Apply edge routes for the subset connections
   applyElkEdgeRoutes(elementRegistry, modeling, result, offsetX, offsetY);
 
@@ -287,6 +295,17 @@ export async function elkLayoutSubset(
   removeMicroBends(elementRegistry, modeling);
   routeLoopbacksBelow(elementRegistry, modeling);
   snapAllConnectionsOrthogonal(elementRegistry, modeling);
+
+  // C3: Resolve overlaps created by the subset layout.
+  // After ELK positions and grid alignment, subset elements may overlap
+  // with each other or with their neighbors.  This pass pushes overlapping
+  // elements apart (same logic as the full pipeline's overlap resolution).
+  resolveOverlaps(elementRegistry, modeling, sharedContainer ?? undefined);
+
+  // C3: Reposition artifacts linked to subset elements.
+  // Data objects, data stores, and text annotations associated with moved
+  // elements need to be re-anchored to their new positions.
+  repositionArtifacts(elementRegistry, modeling);
 
   // Attempt to reduce edge crossings by nudging waypoints
   reduceCrossings(elementRegistry, modeling);

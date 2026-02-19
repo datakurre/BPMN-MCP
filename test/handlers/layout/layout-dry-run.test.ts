@@ -5,7 +5,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { handleLayoutDiagram } from '../../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
-
 describe('layout_bpmn_diagram dryRun', () => {
   beforeEach(() => {
     clearDiagrams();
@@ -96,6 +95,35 @@ describe('layout_bpmn_diagram dryRun', () => {
 
     const result = parseResult(await handleLayoutDiagram({ diagramId, dryRun: true }));
     expect(result.movedCount).toBeGreaterThan(0);
+  });
+
+  test('dryRun includes qualityMetrics (K3)', async () => {
+    // K3: dry-run result should include quality metrics so callers can assess
+    // the layout improvement without applying it.
+    const diagramId = await createDiagram('DryRun Quality');
+    const startId = await addElement(diagramId, 'bpmn:StartEvent', {
+      name: 'Start',
+      x: 100,
+      y: 100,
+    });
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Process',
+      x: 100,
+      y: 100,
+    });
+    const endId = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End', x: 100, y: 100 });
+    await connect(diagramId, startId, taskId);
+    await connect(diagramId, taskId, endId);
+
+    const result = parseResult(await handleLayoutDiagram({ diagramId, dryRun: true }));
+    expect(result.qualityMetrics).toBeDefined();
+    expect(typeof result.qualityMetrics.avgFlowLength).toBe('number');
+    expect(result.qualityMetrics.avgFlowLength).toBeGreaterThanOrEqual(0);
+    expect(typeof result.qualityMetrics.orthogonalFlowPercent).toBe('number');
+    expect(result.qualityMetrics.orthogonalFlowPercent).toBeGreaterThanOrEqual(0);
+    expect(result.qualityMetrics.orthogonalFlowPercent).toBeLessThanOrEqual(100);
+    expect(result.qualityMetrics.elementDensity).toBeDefined();
+    expect(result.qualityMetrics.elementDensity['total']).toBeGreaterThanOrEqual(3);
   });
 });
 

@@ -11,7 +11,7 @@
  */
 // @mutating
 
-import { type ToolResult, type DiagramState, type ToolContext } from '../../types';
+import { type ToolResult, type ToolContext } from '../../types';
 import {
   requireDiagram,
   jsonResult,
@@ -24,19 +24,14 @@ import { appendLintFeedback, resetMutationCounter } from '../../linter';
 import { adjustDiagramLabels, adjustFlowLabels, centerFlowLabels } from './labels/adjust-labels';
 import { elkLayout, elkLayoutSubset, applyDeterministicLayout } from '../../elk/api';
 import {
-  generateDiagramId,
-  storeDiagram,
-  deleteDiagram,
-  createModelerFromXml,
-} from '../../diagram-manager';
-import {
   applyPixelGridSnap,
-  computeDisplacementStats,
   checkDiIntegrity,
   buildLayoutResult,
   repairMissingDiShapes,
   deduplicateDiInModeler,
+  alignCollapsedPoolsAfterAutosize,
 } from './layout-helpers';
+import { handleDryRunLayout } from './layout-dryrun';
 import { handleAutosizePoolsAndLanes } from '../collaboration/autosize-pools-and-lanes';
 import { expandCollapsedSubprocesses } from './expand-subprocesses';
 
@@ -94,105 +89,6 @@ export interface LayoutDiagramArgs {
    * No ELK layout is performed. Equivalent to the former autosize_bpmn_pools_and_lanes tool.
    */
   autosizeOnly?: boolean;
-}
-
-/** Perform a dry-run layout: clone → layout → diff → discard clone. */
-async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolResult> {
-  const {
-    diagramId,
-    direction,
-    nodeSpacing,
-    layerSpacing,
-    scopeElementId,
-    preserveHappyPath,
-    compactness,
-    simplifyRoutes,
-    elementIds,
-  } = args;
-  const rawGridSnap = args.gridSnap;
-  const elkGridSnap = typeof rawGridSnap === 'boolean' ? rawGridSnap : undefined;
-  const pixelGridSnap = typeof rawGridSnap === 'number' ? rawGridSnap : undefined;
-  const diagram = requireDiagram(diagramId);
-
-  // Save current XML
-  const { xml } = await diagram.modeler.saveXML({ format: true });
-
-  // Create a temporary clone
-  const tempId = generateDiagramId();
-  const modeler = await createModelerFromXml(xml || '');
-  storeDiagram(tempId, { modeler, xml: xml || '', name: `_dryrun_${diagramId}` });
-
-  try {
-    const tempDiagram: DiagramState = { modeler, xml: xml || '' };
-
-    // Record original positions
-    const tempRegistry = getService(modeler, 'elementRegistry');
-    const originalPositions = new Map<string, { x: number; y: number }>();
-    for (const el of getVisibleElements(tempRegistry)) {
-      if (el.x !== undefined && el.y !== undefined) {
-        originalPositions.set(el.id, { x: el.x, y: el.y });
-      }
-    }
-
-    // Run layout on clone
-    let layoutResult: { crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> };
-
-    if (elementIds && elementIds.length > 0) {
-      layoutResult = await elkLayoutSubset(tempDiagram, elementIds, {
-        direction,
-        nodeSpacing,
-        layerSpacing,
-      });
-    } else {
-      layoutResult = await elkLayout(tempDiagram, {
-        direction,
-        nodeSpacing,
-        layerSpacing,
-        scopeElementId,
-        preserveHappyPath,
-        gridSnap: elkGridSnap,
-        compactness,
-        simplifyRoutes,
-      });
-    }
-
-    if (pixelGridSnap && pixelGridSnap > 0) {
-      applyPixelGridSnap(tempDiagram, pixelGridSnap);
-    }
-
-    // Compute displacement stats
-    const stats = computeDisplacementStats(originalPositions, tempRegistry);
-    const crossingCount = layoutResult.crossingFlows ?? 0;
-
-    const totalElements = getVisibleElements(tempRegistry).filter(
-      (el: any) =>
-        !el.type.includes('SequenceFlow') &&
-        !el.type.includes('MessageFlow') &&
-        !el.type.includes('Association')
-    ).length;
-
-    const isLargeChange = stats.movedCount > totalElements * 0.5 && stats.maxDisplacement > 200;
-
-    return jsonResult({
-      success: true,
-      dryRun: true,
-      totalElements,
-      movedCount: stats.movedCount,
-      maxDisplacement: stats.maxDisplacement,
-      avgDisplacement: stats.avgDisplacement,
-      ...(crossingCount > 0 ? { crossingFlows: crossingCount } : {}),
-      ...(isLargeChange
-        ? {
-            warning: `Layout would move ${stats.movedCount}/${totalElements} elements with max displacement of ${stats.maxDisplacement}px. Consider using scopeElementId or elementIds for a more targeted layout.`,
-          }
-        : {}),
-      topDisplacements: stats.displacements,
-      message: `Dry run: layout would move ${stats.movedCount}/${totalElements} elements (max ${stats.maxDisplacement}px, avg ${stats.avgDisplacement}px). Call without dryRun to apply.`,
-    });
-  } finally {
-    // Always clean up the temporary clone
-    deleteDiagram(tempId);
-  }
 }
 
 /** Run the appropriate layout algorithm based on strategy and args. */
@@ -401,48 +297,5 @@ export async function handleLayoutDiagram(
 }
 
 /** Snap collapsed pools to match expanded pool horizontal extent after autosize. */
-function alignCollapsedPoolsAfterAutosize(elementRegistry: any, modeling: any): void {
-  const pools = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
-  if (pools.length < 2) return;
-
-  const expanded: any[] = [];
-  const collapsed: any[] = [];
-  for (const p of pools) {
-    const hasChildren =
-      elementRegistry.filter(
-        (el: any) =>
-          el.parent === p &&
-          !el.type.includes('Flow') &&
-          !el.type.includes('Lane') &&
-          el.type !== 'bpmn:Process' &&
-          el.type !== 'label'
-      ).length > 0;
-    if (hasChildren) expanded.push(p);
-    else collapsed.push(p);
-  }
-  if (expanded.length === 0 || collapsed.length === 0) return;
-
-  let minX = Infinity;
-  let maxRight = -Infinity;
-  for (const p of expanded) {
-    if (p.x < minX) minX = p.x;
-    if (p.x + (p.width || 0) > maxRight) maxRight = p.x + (p.width || 0);
-  }
-  const expandedWidth = maxRight - minX;
-  for (const pool of collapsed) {
-    const dx = Math.round(minX - pool.x);
-    if (Math.abs(dx) > 2) modeling.moveElements([pool], { x: dx, y: 0 });
-    const cur = elementRegistry.get(pool.id);
-    if (Math.abs((cur.width || 0) - expandedWidth) > 5) {
-      modeling.resizeShape(cur, {
-        x: cur.x,
-        y: cur.y,
-        width: expandedWidth,
-        height: cur.height || 60,
-      });
-    }
-  }
-}
-
 // Schema extracted to layout-diagram-schema.ts for readability.
 export { TOOL_DEFINITION } from './layout-diagram-schema';

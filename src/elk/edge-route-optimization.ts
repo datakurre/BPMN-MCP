@@ -18,6 +18,7 @@ import {
   SAME_ROW_Y_TOLERANCE,
   COLLINEAR_DETOUR_OFFSET,
   LOOPBACK_BELOW_MARGIN,
+  LOOPBACK_ABOVE_MARGIN,
   LOOPBACK_HORIZONTAL_MARGIN,
 } from './constants';
 
@@ -273,6 +274,22 @@ export function separateOverlappingGatewayFlows(
  * Skips boundary event connections and message flows.
  * Should run after all other edge routing passes.
  */
+/**
+ * Route backward (loopback) sequence flows around the main path.
+ *
+ * **E8 — Bidirectional loopback routing:**
+ * The routing direction is chosen based on the relative Y positions of the
+ * source and target:
+ * - If the **target is above** the source (tgtCy < srcCy), the loopback is
+ *   routed **above** the topmost element in the scope.  This produces a
+ *   cleaner U-shape for flows that go "up-and-back" in the diagram.
+ * - Otherwise the loopback is routed **below** the bottommost element
+ *   (original behaviour), which is appropriate for same-row and
+ *   below-source targets.
+ *
+ * In collaboration diagrams the scope top/bottom is computed per-participant
+ * to avoid routing loopbacks outside a pool's visual boundaries.
+ */
 export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: Modeling): void {
   const BPMN_SEQUENCE_FLOW = 'bpmn:SequenceFlow';
   const BPMN_BOUNDARY_EVENT = 'bpmn:BoundaryEvent';
@@ -284,6 +301,10 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
   // within their own pool, not below ALL elements across all pools.
   const scopeBottoms = new Map<string, number>();
   const globalKey = '__global__';
+
+  // E8: Also compute the top boundary per scope so above-loopbacks stay
+  // inside their pool.
+  const scopeTops = new Map<string, number>();
 
   for (const el of allElements) {
     if (
@@ -310,15 +331,27 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
 
     const current = scopeBottoms.get(scopeId) ?? 0;
     if (bottom > current) scopeBottoms.set(scopeId, bottom);
+
+    // E8: track scope-top (minimum y of any flow element in the scope)
+    const top = el.y ?? 0;
+    const currentTop = scopeTops.get(scopeId) ?? Infinity;
+    if (top < currentTop) scopeTops.set(scopeId, top);
   }
 
   // Also maintain a global bottom for diagrams without participants
   let globalBottom = 0;
+  let globalTop = Infinity;
   for (const bottom of scopeBottoms.values()) {
     if (bottom > globalBottom) globalBottom = bottom;
   }
+  for (const top of scopeTops.values()) {
+    if (top < globalTop) globalTop = top;
+  }
   if (!scopeBottoms.has(globalKey)) {
     scopeBottoms.set(globalKey, globalBottom);
+  }
+  if (!scopeTops.has(globalKey)) {
+    scopeTops.set(globalKey, globalTop === Infinity ? 0 : globalTop);
   }
 
   if (globalBottom === 0) return;
@@ -363,6 +396,7 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
       parent = parent.parent;
     }
     const maxBottom = scopeBottoms.get(scopeId) ?? globalBottom;
+    const minTop = scopeTops.get(scopeId) ?? 0;
 
     // Skip connections that are already routed below the main path
     // (their waypoints go below the lowest element).
@@ -370,36 +404,67 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
     const currentMaxY = Math.max(...wps.map((wp: any) => wp.y));
     if (currentMaxY > maxBottom) continue;
 
-    // Compute the U-shape route below the main path
-    const belowY = Math.round(maxBottom + LOOPBACK_BELOW_MARGIN);
+    // E8: Choose routing direction based on the vertical relationship between
+    // source and target:
+    // - Target ABOVE source → route above the scope top (cleaner for up-and-back flows)
+    // - Target at same level or below → route below (original behaviour)
+    const routeAbove = tgtCy < srcCy - DIFFERENT_ROW_MIN_Y;
 
-    // Determine exit/entry points based on source/target positions
-    // Gateway sources: exit from bottom edge (centre X)
-    // Task/event sources: exit from right edge then go down
     const srcIsGateway = src.type?.includes('Gateway');
-
     let newWps: Array<{ x: number; y: number }>;
 
-    if (srcIsGateway) {
-      // Gateway: exit from bottom, go down, left, up into target
-      newWps = [
-        { x: srcCx, y: Math.round(srcBottom) },
-        { x: srcCx, y: belowY },
-        { x: tgtCx, y: belowY },
-        { x: tgtCx, y: Math.round(tgtBottom) },
-      ];
+    if (routeAbove) {
+      // Route above the topmost element in the scope
+      const aboveY = Math.round(minTop - LOOPBACK_ABOVE_MARGIN);
+
+      if (srcIsGateway) {
+        // Gateway: exit from top edge (centre X), loop above, enter target top
+        const srcTop = src.y;
+        const tgtTop = tgt.y;
+        newWps = [
+          { x: srcCx, y: Math.round(srcTop) },
+          { x: srcCx, y: aboveY },
+          { x: tgtCx, y: aboveY },
+          { x: tgtCx, y: Math.round(tgtTop) },
+        ];
+      } else {
+        // Non-gateway: exit right edge, go up, left, down into target
+        const exitX = Math.round(srcRight + LOOPBACK_HORIZONTAL_MARGIN);
+        const entryX = Math.round(tgtLeft - LOOPBACK_HORIZONTAL_MARGIN);
+        newWps = [
+          { x: Math.round(srcRight), y: srcCy },
+          { x: exitX, y: srcCy },
+          { x: exitX, y: aboveY },
+          { x: entryX, y: aboveY },
+          { x: entryX, y: tgtCy },
+          { x: Math.round(tgtLeft), y: tgtCy },
+        ];
+      }
     } else {
-      // Non-gateway: exit from right edge down, go left, up into target left
-      const exitX = Math.round(srcRight + LOOPBACK_HORIZONTAL_MARGIN);
-      const entryX = Math.round(tgtLeft - LOOPBACK_HORIZONTAL_MARGIN);
-      newWps = [
-        { x: Math.round(srcRight), y: srcCy },
-        { x: exitX, y: srcCy },
-        { x: exitX, y: belowY },
-        { x: entryX, y: belowY },
-        { x: entryX, y: tgtCy },
-        { x: Math.round(tgtLeft), y: tgtCy },
-      ];
+      // Route below the bottommost element in the scope (original behaviour)
+      const belowY = Math.round(maxBottom + LOOPBACK_BELOW_MARGIN);
+
+      if (srcIsGateway) {
+        // Gateway: exit from bottom, go down, left, up into target
+        newWps = [
+          { x: srcCx, y: Math.round(srcBottom) },
+          { x: srcCx, y: belowY },
+          { x: tgtCx, y: belowY },
+          { x: tgtCx, y: Math.round(tgtBottom) },
+        ];
+      } else {
+        // Non-gateway: exit from right edge down, go left, up into target left
+        const exitX = Math.round(srcRight + LOOPBACK_HORIZONTAL_MARGIN);
+        const entryX = Math.round(tgtLeft - LOOPBACK_HORIZONTAL_MARGIN);
+        newWps = [
+          { x: Math.round(srcRight), y: srcCy },
+          { x: exitX, y: srcCy },
+          { x: exitX, y: belowY },
+          { x: entryX, y: belowY },
+          { x: entryX, y: tgtCy },
+          { x: Math.round(tgtLeft), y: tgtCy },
+        ];
+      }
     }
 
     modeling.updateWaypoints(conn, deduplicateWaypoints(newWps));

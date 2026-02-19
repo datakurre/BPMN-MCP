@@ -41,6 +41,13 @@ export const ELK_LAYOUT_OPTIONS: BpmnElkOptions = {
   'elk.separateConnectedComponents': 'true',
   // Minimum gap (px) between independently-laid-out connected components.
   'elk.spacing.componentComponent': '50',
+  // C5: Fix the pseudo-random seed so that LAYER_SWEEP crossing minimisation
+  // is fully deterministic.  ELK's default seed value of 0 causes it to seed
+  // from the system time, making repeated layout calls on the same diagram
+  // produce slightly different results.  A fixed seed (1) guarantees identical
+  // output regardless of when or how many times layout is called — important
+  // for layout idempotency and reproducible test fixtures.
+  'elk.randomSeed': '1',
 };
 
 /**
@@ -397,6 +404,9 @@ export const COLLINEAR_DETOUR_OFFSET = 20;
 
 /** Vertical margin (px) below the lowest element for loopback routing. */
 export const LOOPBACK_BELOW_MARGIN = 30;
+
+/** Vertical margin (px) above the topmost element for above-loopback routing (E8). */
+export const LOOPBACK_ABOVE_MARGIN = 30;
 
 /** Horizontal margin (px) outside source/target for loopback vertical segments. */
 export const LOOPBACK_HORIZONTAL_MARGIN = 15;

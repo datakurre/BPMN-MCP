@@ -361,6 +361,28 @@ function applyEdgeRoutes(ctx: LayoutContext): void {
  * Repair disconnected edge endpoints, snap to element centres,
  * rebuild off-row gateway routes, simplify collinear waypoints,
  * and final orthogonal snap.
+ *
+ * ## B4 — Edge routing sub-step dependency order
+ *
+ * The 8 sub-steps below have strict ordering dependencies.  Reordering
+ * them will produce incorrect or degraded routes.
+ *
+ * ```
+ * fixDisconnectedEdges          — requires: element positions; provides: connected endpoints
+ * snapEndpointsToElementCentres — requires: connected endpoints; provides: centre-aligned endpoints
+ * rebuildOffRowGatewayRoutes    — requires: centre-aligned endpoints; provides: L/Z-bend routes
+ *                                 (depends on snapEndpointsToElementCentres to know correct Y)
+ * separateOverlappingGatewayFlows — requires: L/Z-bend routes; provides: non-overlapping collinear flows
+ * simplifyCollinearWaypoints    — requires: non-overlapping routes; provides: minimal-waypoint routes
+ *                                 (must run after separation so the merged segments are clean)
+ * removeMicroBends              — requires: simplified routes; provides: smooth orthogonal routes
+ *                                 (must run after simplification to catch new near-collinear triples)
+ * routeLoopbacksBelow           — requires: all positions finalised; provides: U-shape loopback routes
+ *                                 (must run last because it uses the scope bottom/top boundary which
+ *                                 changes if earlier steps move elements)
+ * snapAllConnectionsOrthogonal  — requires: all routes set; provides: strictly orthogonal waypoints
+ *                                 (final snap pass; must run after all routing to fix residual diagonals)
+ * ```
  */
 function repairAndSimplifyEdges(ctx: LayoutContext): void {
   fixDisconnectedEdges(ctx.elementRegistry, ctx.modeling);

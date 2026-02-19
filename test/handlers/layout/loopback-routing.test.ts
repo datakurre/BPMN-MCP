@@ -4,6 +4,9 @@
  * Verifies that backward (loopback) connections — where the target is
  * to the left of the source — are routed below the main process path
  * with a clean U-shape rather than cutting through the main flow.
+ *
+ * Also tests E8: bidirectional loopback routing — when the target is
+ * above the source, the loopback routes above the topmost element.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -115,5 +118,87 @@ describe('loopback routing below main path', () => {
 
     // The loopback should have at least 4 waypoints (U-shape)
     expect(loopConn.waypoints.length).toBeGreaterThanOrEqual(4);
+  });
+
+  test('E8: backward flow to upper-row element routes above main path', async () => {
+    // Build a diagram with a 2-lane pool where the backward flow goes from
+    // a bottom-lane element back to a top-lane element.  After layout the
+    // target (top lane) will have a smaller Y than the source (bottom lane),
+    // so the loopback should route ABOVE rather than below.
+    const { handleCreateParticipant, handleCreateLanes } = await import('../../../src/handlers');
+    const { parseResult: pr } = await import('../../helpers');
+
+    const diagramId = await createDiagram('E8 Above Loopback');
+
+    // Wrap in a pool with 2 lanes
+    const poolResult = pr(await handleCreateParticipant({ diagramId, name: 'Order Process' }));
+    const participantId = poolResult.participantId as string;
+
+    const laneResult = pr(
+      await handleCreateLanes({
+        diagramId,
+        participantId,
+        lanes: [{ name: 'Sales' }, { name: 'Fulfillment' }],
+      })
+    );
+    const topLaneId = laneResult.laneIds[0] as string;
+    const bottomLaneId = laneResult.laneIds[1] as string;
+
+    // Top lane: Start → Approve Order
+    const start = await addElement(diagramId, 'bpmn:StartEvent', {
+      name: 'Start',
+      laneId: topLaneId,
+    });
+    const approveTask = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Approve Order',
+      laneId: topLaneId,
+    });
+    // Bottom lane: Fulfil Order → End
+    const fulfilTask = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Fulfil Order',
+      laneId: bottomLaneId,
+    });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End', laneId: bottomLaneId });
+
+    await connect(diagramId, start, approveTask);
+    await connect(diagramId, approveTask, fulfilTask);
+    await connect(diagramId, fulfilTask, end);
+    // Backward flow: Fulfil → Approve (going left AND up across lane boundary)
+    const loopFlow = await connect(diagramId, fulfilTask, approveTask, { label: 'Reject' });
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    const loopConn = reg.get(loopFlow);
+    const approveEl = reg.get(approveTask);
+    const fulfilEl = reg.get(fulfilTask);
+
+    expect(loopConn).toBeDefined();
+    expect(loopConn.waypoints).toBeDefined();
+
+    // Only test routing direction when ELK actually places approve above fulfil
+    // (this is the expected layout for top-lane vs bottom-lane elements).
+    const approveCy = approveEl.y + (approveEl.height || 80) / 2;
+    const fulfilCy = fulfilEl.y + (fulfilEl.height || 80) / 2;
+
+    if (approveCy < fulfilCy - 15 && fulfilEl.x > approveEl.x) {
+      // Target (approve) is above source (fulfil) AND to the left — E8 should route above
+      const allShapes = reg.filter(
+        (el: any) =>
+          !el.type.includes('SequenceFlow') &&
+          !el.type.includes('MessageFlow') &&
+          el.type !== 'bpmn:Participant' &&
+          el.type !== 'bpmn:Lane' &&
+          el.type !== 'label' &&
+          el.y !== undefined
+      );
+      const mainPathTop = Math.min(...allShapes.map((el: any) => el.y ?? Infinity));
+      const loopMinY = Math.min(...loopConn.waypoints.map((wp: any) => wp.y));
+      // Above-routed loopback should have at least one waypoint above the topmost element
+      expect(loopMinY).toBeLessThanOrEqual(mainPathTop + 5);
+    } else {
+      // Layout did not produce the expected above-target scenario — verify shape only
+      expect(loopConn.waypoints.length).toBeGreaterThanOrEqual(4);
+    }
   });
 });
