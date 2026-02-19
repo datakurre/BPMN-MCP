@@ -73,7 +73,7 @@ export const PARTICIPANT_WITH_LANES_PADDING = '[top=80,left=80,bottom=80,right=4
  */
 export const ORIGIN_OFFSET_X = 180;
 export const ORIGIN_OFFSET_Y = 80;
-export const NORMALISE_ORIGIN_Y = 92;
+export const NORMALISE_ORIGIN_Y = 94;
 
 /**
  * Large displacement threshold (px) for normaliseOrigin().
