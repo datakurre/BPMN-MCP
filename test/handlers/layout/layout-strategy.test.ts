@@ -133,6 +133,75 @@ describe('layout_bpmn_diagram layoutStrategy', () => {
     }
   });
 
+  // ── C4(b): chain ending in parallel gateway merge ─────────────────────────
+
+  test('C4(b): deterministic layout works for parallel gateway split-merge', async () => {
+    // Diagram: Start → ParallelGateway (fork) → Task1 → ParallelGateway (join) → End
+    //                                         → Task2 → /
+    // detectSingleSplitMerge should recognise this as a trivial pattern.
+    // The fork gateway must NOT appear in the prefix list (C4(b) prefix bug fix):
+    // otherwise it gets moved twice — first as a prefix element, then as forkGateway.
+    const diagramId = await createDiagram();
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const fork = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Fork' });
+    const task1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Branch A' });
+    const task2 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Branch B' });
+    const join = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Join' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+
+    await connect(diagramId, start, fork);
+    await connect(diagramId, fork, task1);
+    await connect(diagramId, fork, task2);
+    await connect(diagramId, task1, join);
+    await connect(diagramId, task2, join);
+    await connect(diagramId, join, end);
+
+    const res = parseResult(
+      await handleLayoutDiagram({ diagramId, layoutStrategy: 'deterministic' })
+    );
+
+    expect(res.success).toBe(true);
+    // Should use deterministic layout (the single split-merge is a trivial pattern)
+    expect(res.layoutStrategy).toBe('deterministic');
+
+    const registry = getRegistry(diagramId);
+    const startEl = registry.get(start);
+    const forkEl = registry.get(fork);
+    const task1El = registry.get(task1);
+    const task2El = registry.get(task2);
+    const joinEl = registry.get(join);
+    const endEl = registry.get(end);
+
+    // Start → Fork → [branches] → Join → End should be strictly left-to-right
+    expect(forkEl.x).toBeGreaterThan(startEl.x);
+    expect(joinEl.x).toBeGreaterThan(forkEl.x);
+    expect(endEl.x).toBeGreaterThan(joinEl.x);
+
+    // Branch tasks should be to the right of the fork and to the left of the join
+    expect(task1El.x).toBeGreaterThan(forkEl.x);
+    expect(task2El.x).toBeGreaterThan(forkEl.x);
+    expect(task1El.x).toBeLessThan(joinEl.x);
+    expect(task2El.x).toBeLessThan(joinEl.x);
+
+    // Fork and join gateways (and start/end events) should be on the same Y as the main path.
+    // Branch tasks may be above/below each other but fork/join should share ~same Y.
+    const mainY = startEl.y + (startEl.height || 36) / 2; // centre Y of start
+    const forkCy = forkEl.y + (forkEl.height || 50) / 2;
+    const joinCy = joinEl.y + (joinEl.height || 50) / 2;
+    expect(Math.abs(forkCy - mainY)).toBeLessThan(50);
+    expect(Math.abs(joinCy - mainY)).toBeLessThan(50);
+
+    // The fork gateway must NOT have been positioned to the right of itself
+    // (which would indicate the C4(b) double-move bug). The fork should be
+    // closer to the start than the join.
+    const forkCx = forkEl.x + (forkEl.width || 50) / 2;
+    const joinCx = joinEl.x + (joinEl.width || 50) / 2;
+    const startCx = startEl.x + (startEl.width || 36) / 2;
+    const endCx = endEl.x + (endEl.width || 36) / 2;
+    expect(forkCx - startCx).toBeLessThan(joinCx - startCx); // fork before join
+    expect(joinCx - startCx).toBeLessThan(endCx - startCx); // join before end
+  });
+
   // ── C4(c): chain with intermediate events ──────────────────────────────────
 
   test('C4(c): deterministic layout works for a chain with intermediate events', async () => {

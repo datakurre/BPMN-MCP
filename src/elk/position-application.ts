@@ -376,6 +376,12 @@ export function compactPools(elementRegistry: ElementRegistry, modeling: Modelin
     // Only compact (shrink), never expand
     if (desiredRight >= currentRight - RESIZE_SIGNIFICANCE_THRESHOLD) continue;
 
+    // F5: Skip pool compaction entirely for column-mode pools (lanes arranged as columns).
+    // modeling.resizeShape(pool) triggers bpmn-js's ResizeLanes behavior which
+    // redistributes all lanes back to equal-width rows, destroying the column layout.
+    // The pool width was already set correctly by repositionLanesAsColumns.
+    if ((pool as any)._columnLanes) continue;
+
     const newWidth = Math.round(desiredRight - pool.x);
     if (newWidth <= 0) continue;
 
@@ -386,9 +392,12 @@ export function compactPools(elementRegistry: ElementRegistry, modeling: Modelin
       height: pool.height,
     });
 
-    // Resize lanes to match the new pool width
+    // Resize lanes to match the new pool width.
+    // Skip if the pool is in column mode (F5: _columnLanes flag set by
+    // repositionLanesAsColumns) — in that case lanes have distinct widths
+    // representing individual column widths, not the full pool width.
     const lanes = elementRegistry.filter((el) => el.type === 'bpmn:Lane' && el.parent === pool);
-    if (lanes.length > 0) {
+    if (lanes.length > 0 && !(pool as any)._columnLanes) {
       const updatedPool = elementRegistry.get(pool.id)!;
       const laneWidth = updatedPool.width - POOL_LABEL_BAND;
       for (const lane of lanes) {

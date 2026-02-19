@@ -205,6 +205,29 @@ function processPool(
   ar?: number
 ): PoolResult {
   const name = pool.businessObject?.name || pool.id;
+
+  // F5: Skip autosize entirely for column-mode pools.
+  // repositionLanesAsColumns already set the correct pool width and lane
+  // column positions via direct DI mutation (bypassing the command stack).
+  // Calling m.resizeShape(pool, nb) here would trigger bpmn-js's ResizeLanes
+  // behavior which redistributes all lanes back to equal-width horizontal rows,
+  // destroying the column layout.  Since repositionLanesAsColumns already
+  // computed and applied the correct pool dimensions, we can safely skip autosize.
+  if ((pool as any)._columnLanes) {
+    const children = getChildFlowNodes(reg, pool.id);
+    return {
+      participantId: pool.id,
+      participantName: name,
+      elementCount: children.length,
+      oldWidth: pool.width,
+      oldHeight: pool.height,
+      newWidth: pool.width,
+      newHeight: pool.height,
+      resized: false,
+      laneResizes: [],
+    };
+  }
+
   const children = getChildFlowNodes(reg, pool.id);
   const bbox = computeBBox(children);
   const empty: PoolResult = {

@@ -299,7 +299,13 @@ function alignHappyPathAndOffPathEvents(ctx: LayoutContext): void {
 function finalisePoolsAndLanes(ctx: LayoutContext): void {
   centreElementsInPools(ctx.elementRegistry, ctx.modeling);
   enforceExpandedPoolGap(ctx.elementRegistry, ctx.modeling);
-  repositionLanes(ctx.elementRegistry, ctx.modeling, ctx.laneSnapshots, ctx.options?.laneStrategy);
+  repositionLanes(
+    ctx.elementRegistry,
+    ctx.modeling,
+    ctx.laneSnapshots,
+    ctx.options?.laneStrategy,
+    ctx.options?.direction
+  );
   compactPools(ctx.elementRegistry, ctx.modeling);
   reorderCollapsedPoolsBelow(ctx.elementRegistry, ctx.modeling);
 }

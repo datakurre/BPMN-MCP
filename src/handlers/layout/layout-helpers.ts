@@ -215,7 +215,7 @@ export function buildLayoutResult(params: {
   const crossingPairs = layoutResult.crossingFlowPairs ?? [];
   const laneCrossingMetrics = computeLaneCrossingMetrics(elementRegistry);
   const sizingIssues = detectContainerSizingIssues(elementRegistry);
-  const qualityMetrics = computeLayoutQualityMetrics(elementRegistry);
+  const qm = computeLayoutQualityMetrics(elementRegistry);
 
   // C7: message flows crossing the scope boundary are not updated during scoped layout.
   // Surface this as a scopeNote so callers know to re-route them manually if needed.
@@ -248,11 +248,7 @@ export function buildLayoutResult(params: {
         }
       : {}),
     ...(sizingIssues.length > 0 ? { containerSizingIssues: sizingIssues } : {}),
-    qualityMetrics: {
-      avgFlowLength: qualityMetrics.avgFlowLength,
-      orthogonalFlowPercent: qualityMetrics.orthogonalFlowPercent,
-      elementDensity: qualityMetrics.elementDensity,
-    },
+    qualityMetrics: qm,
     message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''}${usedDeterministic ? ' (deterministic)' : ''} — ${elementCount} elements arranged`,
     ...(scopeNote ? { scopeNote } : {}),
     ...(diWarnings && diWarnings.length > 0 ? { diWarnings } : {}),

@@ -187,10 +187,15 @@ function detectSingleSplitMerge(graph: Map<string, FlowNode>): {
   while (current) {
     if (visited.has(current.element.id)) return null;
     visited.add(current.element.id);
-    prefix.push(current.element);
 
     if (current.outgoing.length === 0) return null; // no fork found
-    if (current.outgoing.length > 1) break; // found the fork
+    // Found the fork: break WITHOUT adding to prefix — forkGateway is stored separately.
+    // C4(b): The fork gateway must not be included in prefix to prevent it from
+    // being moved twice in applySplitMergeLayout (once as a prefix element and
+    // again as the forkGateway).  We mark it as visited and break.
+    if (current.outgoing.length > 1) break;
+
+    prefix.push(current.element); // linear segment — add to prefix
 
     const nextId = current.outgoing[0].target?.id;
     if (!nextId) return null;
@@ -267,7 +272,11 @@ function detectSingleSplitMerge(graph: Map<string, FlowNode>): {
     const next = graph.get(nextId);
     if (!next) break;
     if (next.incoming.length > 1 && next.element.id !== joinGatewayId) return null;
-    visited.add(next.element.id);
+    // C4(b): Do NOT pre-add next.element.id to visited here — the top-of-loop
+    // guard adds it on the next iteration.  Pre-adding causes a false cycle
+    // detection: the loop body adds it, sets current = next, and the very next
+    // iteration finds it in visited and returns null even though it's the first
+    // visit to that suffix element.
     suffix.push(next.element);
     current = next;
   }

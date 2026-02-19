@@ -140,6 +140,17 @@ export interface LayoutQualityMetrics {
   orthogonalFlowPercent: number;
   /** Number of flow nodes (tasks, events, gateways) per lane, or total if no lanes. */
   elementDensity: Record<string, number>;
+  /**
+   * Average number of bends (waypoint direction changes) per sequence flow (K1c).
+   * A 2-waypoint straight flow has 0 bends; each additional waypoint adds a bend.
+   */
+  avgBendCount: number;
+  /**
+   * Percentage of flow elements whose Y-centre is within 2px of at least one
+   * other element's Y-centre — indicating they are aligned in the same row (K1d).
+   * High values (≥80%) indicate a well-aligned, regular grid layout.
+   */
+  alignedElementPercent: number;
 }
 
 /**
@@ -158,6 +169,7 @@ export function computeLayoutQualityMetrics(elementRegistry: any): LayoutQuality
 
   let totalLength = 0;
   let orthogonalCount = 0;
+  let totalBends = 0;
 
   for (const flow of flows) {
     const wps: Array<{ x: number; y: number }> = flow.waypoints;
@@ -177,11 +189,14 @@ export function computeLayoutQualityMetrics(elementRegistry: any): LayoutQuality
 
     totalLength += flowLength;
     if (isOrthogonal) orthogonalCount++;
+    // Bends = number of direction changes = waypoints - 2 (minus start and end)
+    totalBends += Math.max(0, wps.length - 2);
   }
 
   const avgFlowLength = flows.length > 0 ? Math.round(totalLength / flows.length) : 0;
   const orthogonalFlowPercent =
     flows.length > 0 ? Math.round((orthogonalCount / flows.length) * 100) : 100;
+  const avgBendCount = flows.length > 0 ? Math.round((totalBends / flows.length) * 10) / 10 : 0;
 
   // --- Element density per lane (or total) ---
   const density: Record<string, number> = {};
@@ -209,5 +224,27 @@ export function computeLayoutQualityMetrics(elementRegistry: any): LayoutQuality
     density['total'] = flowNodes.length;
   }
 
-  return { avgFlowLength, orthogonalFlowPercent, elementDensity: density };
+  // --- Alignment regularity (K1d) ---
+  // Count flow nodes whose Y-centre matches at least one other node within 2px.
+  // High aligned % → elements sit on clean shared rows → regular grid layout.
+  const ALIGN_TOLERANCE = 2;
+  let alignedCount = 0;
+  const yCentres = flowNodes.map((n: any) => n.y + (n.height || 0) / 2);
+  for (let i = 0; i < flowNodes.length; i++) {
+    const cy = yCentres[i];
+    const hasNeighbour = yCentres.some(
+      (other: number, j: number) => j !== i && Math.abs(other - cy) <= ALIGN_TOLERANCE
+    );
+    if (hasNeighbour) alignedCount++;
+  }
+  const alignedElementPercent =
+    flowNodes.length > 0 ? Math.round((alignedCount / flowNodes.length) * 100) : 100;
+
+  return {
+    avgFlowLength,
+    orthogonalFlowPercent,
+    elementDensity: density,
+    avgBendCount,
+    alignedElementPercent,
+  };
 }

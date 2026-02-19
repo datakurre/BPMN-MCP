@@ -420,14 +420,20 @@ export const CROSS_LANE_BACKWARD_MARGIN = 40;
 
 // ── Lane layout constants ───────────────────────────────────────────────
 
-/** Minimum lane height (px) inside a participant pool. */
+/** Minimum lane height (px) inside a participant pool (horizontal lanes). */
 export const MIN_LANE_HEIGHT = 250;
+
+/** Minimum lane width (px) inside a participant pool (vertical columns, F5). */
+export const MIN_LANE_WIDTH = 200;
 
 /** Left label band width (px) inside a participant pool. */
 export const POOL_LABEL_BAND = 30;
 
 /** Vertical padding (px) above/below content within each lane band. */
 export const LANE_VERTICAL_PADDING = 30;
+
+/** Horizontal padding (px) left/right of content within each lane column (F5). */
+export const LANE_HORIZONTAL_PADDING = 30;
 
 // ── Overlap resolution constants ────────────────────────────────────────
 

@@ -26,8 +26,10 @@ export type LaneNodeAssignments = Map<string, Set<string>>;
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import {
   MIN_LANE_HEIGHT,
+  MIN_LANE_WIDTH,
   POOL_LABEL_BAND,
   LANE_VERTICAL_PADDING,
+  LANE_HORIZONTAL_PADDING,
   CROSS_LANE_BACKWARD_MARGIN,
   LOOPBACK_HORIZONTAL_MARGIN,
   DIFFERENT_ROW_MIN_Y,
@@ -57,6 +59,8 @@ function isLaneOrInfrastructure(type: string): boolean {
 interface LaneSnapshot {
   laneId: string;
   originalY: number;
+  /** Original X-position (for sorting left-to-right in vertical/DOWN layouts, F5). */
+  originalX: number;
   nodeIds: Set<string>;
 }
 
@@ -88,6 +92,7 @@ export function saveLaneNodeAssignments(elementRegistry: ElementRegistry): LaneS
     snapshots.push({
       laneId: lane.id,
       originalY: lane.y,
+      originalX: lane.x,
       nodeIds,
     });
   }
@@ -105,22 +110,44 @@ export function saveLaneNodeAssignments(elementRegistry: ElementRegistry): LaneS
  * into distinct vertical bands — one per lane — so the final layout
  * shows clear lane boundaries.
  *
+ * **F5 — direction-aware:** When `direction` is `'DOWN'` or `'UP'`, lanes
+ * are arranged as left-to-right columns instead of top-to-bottom rows.
+ * This matches the expected layout for vertical (top-to-bottom) processes
+ * where each swimlane represents a column of work.
+ *
  * @param savedAssignments  Lane snapshots from `saveLaneNodeAssignments()`,
  *   captured before layout.  If empty/undefined, falls back to reading
  *   the (possibly mutated) `flowNodeRef` from the business objects.
+ * @param laneStrategy  Optional lane order optimisation strategy.
+ * @param direction  ELK layout direction; 'DOWN'/'UP' activates column mode (F5).
  */
 export function repositionLanes(
   elementRegistry: ElementRegistry,
   modeling: Modeling,
   savedAssignments?: LaneSnapshot[],
-  laneStrategy?: 'preserve' | 'optimize'
+  laneStrategy?: 'preserve' | 'optimize',
+  direction?: string
 ): void {
   const participants = elementRegistry.filter((el) => el.type === 'bpmn:Participant');
+  const isVertical = direction === 'DOWN' || direction === 'UP';
 
   for (const pool of participants) {
     const lanes = elementRegistry.filter((el) => el.type === 'bpmn:Lane' && el.parent === pool);
 
     if (lanes.length === 0) continue;
+
+    // F5: For vertical (DOWN/UP) layouts, arrange lanes as left-to-right columns.
+    if (isVertical) {
+      repositionLanesAsColumns(
+        pool,
+        lanes,
+        elementRegistry,
+        modeling,
+        savedAssignments,
+        laneStrategy
+      );
+      continue;
+    }
 
     // Build lane → flow node IDs mapping.
     // Prefer saved assignments (captured before layout mutated flowNodeRef).
@@ -155,38 +182,17 @@ export function repositionLanes(
     const hasNodes = Array.from(laneNodeMap.values()).some((s) => s.size > 0);
     if (!hasNodes) continue;
 
-    // Detect flow nodes inside the pool that aren't assigned to any lane.
-    // This can happen when elements are added after lanes are created, or
-    // when a lane is deleted and its nodes become orphaned.
-    // Auto-assign orphaned nodes to the nearest lane (by Y-centre distance).
-    const allAssignedIds = new Set<string>();
-    for (const ids of laneNodeMap.values()) {
-      for (const id of ids) allAssignedIds.add(id);
-    }
-
-    const unassigned = elementRegistry.filter(
-      (el) => el.parent === pool && !isLaneOrInfrastructure(el.type) && !allAssignedIds.has(el.id)
-    );
-
-    if (unassigned.length > 0) {
-      // Auto-assign each orphan to the nearest lane by Y-centre distance
-      for (const orphan of unassigned) {
-        const orphanCy = orphan.y + (orphan.height || 0) / 2;
-        let bestLane: BpmnElement | null = null;
-        let bestDist = Infinity;
-        for (const lane of orderedLanes) {
-          const laneCy = lane.y + lane.height / 2;
-          const d = Math.abs(orphanCy - laneCy);
-          if (d < bestDist) {
-            bestDist = d;
-            bestLane = lane;
-          }
-        }
-        if (bestLane) {
-          const set = laneNodeMap.get(bestLane.id);
-          if (set) set.add(orphan.id);
-        }
-      }
+    // Auto-assign orphaned flow nodes to the nearest lane by Y-centre distance.
+    const assignedIdsRow = new Set([...laneNodeMap.values()].flatMap((s) => [...s]));
+    for (const orphan of elementRegistry.filter(
+      (el: BpmnElement) =>
+        el.parent === pool && !isLaneOrInfrastructure(el.type) && !assignedIdsRow.has(el.id)
+    )) {
+      const cy = orphan.y + (orphan.height || 0) / 2;
+      const best = orderedLanes.reduce((b, l) =>
+        Math.abs(l.y + l.height / 2 - cy) < Math.abs(b.y + b.height / 2 - cy) ? l : b
+      );
+      laneNodeMap.get(best.id)?.add(orphan.id);
     }
 
     // Optimize lane order to minimise cross-lane flows if requested
@@ -325,6 +331,191 @@ export function repositionLanes(
       }
     }
   }
+}
+
+/**
+ * F5 — Reposition lanes as left-to-right columns for vertical (DOWN/UP) layouts.
+ *
+ * When the ELK layout direction is DOWN or UP, swimlanes should appear as
+ * vertical columns side by side instead of horizontal rows stacked top-to-bottom.
+ * Each column receives elements from one lane, centred horizontally within the column.
+ *
+ * Column widths are computed from the X-span of each lane's content plus padding.
+ * The pool width is adjusted to accommodate the total column width + pool label band.
+ * The pool height is set to encompass the deepest column content.
+ */
+function repositionLanesAsColumns(
+  pool: BpmnElement,
+  lanes: BpmnElement[],
+  elementRegistry: ElementRegistry,
+  modeling: Modeling,
+  savedAssignments?: LaneSnapshot[],
+  laneStrategy?: 'preserve' | 'optimize'
+): void {
+  // Build lane → node assignment map
+  const laneNodeMap = new Map<string, Set<string>>();
+  let orderedLanes: BpmnElement[];
+
+  if (savedAssignments && savedAssignments.length > 0) {
+    const poolLaneIds = new Set(lanes.map((l) => l.id));
+    const poolSnapshots = savedAssignments.filter((s) => poolLaneIds.has(s.laneId));
+
+    const originalXMap = new Map<string, number>();
+    const originalYMap = new Map<string, number>();
+    for (const snap of poolSnapshots) {
+      laneNodeMap.set(snap.laneId, snap.nodeIds);
+      originalXMap.set(snap.laneId, snap.originalX);
+      originalYMap.set(snap.laneId, snap.originalY);
+    }
+
+    // Sort by original X-position (left-to-right column order).
+    // When lanes were originally stacked top-to-bottom (same X, different Y),
+    // fall back to originalY so the top lane becomes the left column and
+    // the bottom lane becomes the right column — preserving visual reading order.
+    orderedLanes = [...lanes].sort((a, b) => {
+      const xa = originalXMap.get(a.id) ?? a.x;
+      const xb = originalXMap.get(b.id) ?? b.x;
+      if (Math.abs(xa - xb) > 10) return xa - xb;
+      // Same X — sort by original Y (top row → left column)
+      const ya = originalYMap.get(a.id) ?? a.y;
+      const yb = originalYMap.get(b.id) ?? b.y;
+      return ya - yb;
+    });
+  } else {
+    const fallbackMap = buildLaneNodeMap(lanes, elementRegistry);
+    for (const [k, v] of fallbackMap) laneNodeMap.set(k, v);
+    orderedLanes = [...lanes].sort((a, b) => a.x - b.x);
+  }
+
+  const hasNodes = Array.from(laneNodeMap.values()).some((s) => s.size > 0);
+  if (!hasNodes) return;
+
+  // Auto-assign orphaned flow nodes to the nearest lane by X-centre distance.
+  const assignedIdsCol = new Set([...laneNodeMap.values()].flatMap((s) => [...s]));
+  for (const orphan of elementRegistry.filter(
+    (el: BpmnElement) =>
+      el.parent === pool && !isLaneOrInfrastructure(el.type) && !assignedIdsCol.has(el.id)
+  )) {
+    const cx = orphan.x + (orphan.width || 0) / 2;
+    const best = orderedLanes.reduce((b, l) =>
+      Math.abs(l.x + l.width / 2 - cx) < Math.abs(b.x + b.width / 2 - cx) ? l : b
+    );
+    laneNodeMap.get(best.id)?.add(orphan.id);
+  }
+
+  if (laneStrategy === 'optimize' && orderedLanes.length > 1) {
+    orderedLanes = optimizeLaneOrder(orderedLanes, laneNodeMap, elementRegistry);
+  }
+
+  // Compute column (band) widths — content X-span + padding, minimum MIN_LANE_WIDTH
+  const laneBandWidths = new Map<string, number>();
+  for (const lane of orderedLanes) {
+    const nodeIds = laneNodeMap.get(lane.id);
+    if (!nodeIds || nodeIds.size === 0) {
+      laneBandWidths.set(lane.id, MIN_LANE_WIDTH);
+      continue;
+    }
+    let minLeft = Infinity;
+    let maxRight = -Infinity;
+    for (const nodeId of nodeIds) {
+      const shape = elementRegistry.get(nodeId);
+      if (shape) {
+        const left = shape.x ?? 0;
+        const right = left + (shape.width || 0);
+        if (left < minLeft) minLeft = left;
+        if (right > maxRight) maxRight = right;
+      }
+    }
+    const contentW = minLeft === Infinity ? 0 : maxRight - minLeft;
+    laneBandWidths.set(lane.id, Math.max(contentW + LANE_HORIZONTAL_PADDING * 2, MIN_LANE_WIDTH));
+  }
+
+  const totalLaneWidth = Array.from(laneBandWidths.values()).reduce((a, b) => a + b, 0);
+  const newPoolWidth = totalLaneWidth + POOL_LABEL_BAND;
+
+  const poolX = pool.x;
+  const poolY = pool.y;
+  const poolHeight = pool.height;
+
+  // Compute X-band start positions for each lane column
+  const laneBandX = new Map<string, number>();
+  let currentBandX = poolX + POOL_LABEL_BAND;
+  for (const lane of orderedLanes) {
+    laneBandX.set(lane.id, currentBandX);
+    currentBandX += laneBandWidths.get(lane.id)!;
+  }
+
+  // Move flow nodes into their lane's X-band (centre horizontally)
+  for (const lane of orderedLanes) {
+    const nodeIds = laneNodeMap.get(lane.id);
+    if (!nodeIds || nodeIds.size === 0) continue;
+
+    const bandX = laneBandX.get(lane.id)!;
+    const bandW = laneBandWidths.get(lane.id)!;
+    const bandCentreX = bandX + bandW / 2;
+
+    const shapes: BpmnElement[] = [];
+    for (const nodeId of nodeIds) {
+      const shape = elementRegistry.get(nodeId);
+      if (shape) shapes.push(shape);
+    }
+    if (shapes.length === 0) continue;
+
+    const xCentres = shapes.map((s) => s.x + (s.width || 0) / 2);
+    xCentres.sort((a, b) => a - b);
+    const medianCentre = xCentres[Math.floor(xCentres.length / 2)];
+    const dx = Math.round(bandCentreX - medianCentre);
+
+    if (Math.abs(dx) > 1) {
+      modeling.moveElements(shapes, { x: dx, y: 0 });
+    }
+  }
+
+  // ⚠ F5 — Direct DI mutation for lane column positioning (J3 command-stack bypass).
+  //
+  // bpmn-js's ResizeLanes / LaneDropBehavior enforces that all lanes within a pool
+  // share the same x-position and width (horizontal-row model).  Calling
+  // modeling.resizeShape(lane, { x: targetX, width: targetW }) triggers these
+  // behaviors, which immediately redistribute lanes back to equal-width rows,
+  // destroying the column layout we just computed.
+  //
+  // Solution: bypass the command stack and mutate lane/pool positions directly,
+  // identically to how boundary events are repositioned in boundary-positioning.ts.
+  // This is safe here because:
+  //   (a) repositionLanesAsColumns is only called during a full layout pass, which
+  //       already bypasses the undo stack for element moves.
+  //   (b) The BPMN XML export reads from di.bounds, which we also update.
+  const laneHeight = Math.max(poolHeight, MIN_LANE_HEIGHT);
+
+  for (const lane of orderedLanes) {
+    const targetX = laneBandX.get(lane.id)!;
+    const targetW = laneBandWidths.get(lane.id)!;
+    const currentLane = elementRegistry.get(lane.id)!;
+
+    currentLane.x = targetX;
+    currentLane.y = poolY;
+    currentLane.width = targetW;
+    currentLane.height = laneHeight;
+
+    if (currentLane.di?.bounds) {
+      currentLane.di.bounds.x = targetX;
+      currentLane.di.bounds.y = poolY;
+      currentLane.di.bounds.width = targetW;
+      currentLane.di.bounds.height = laneHeight;
+    }
+  }
+
+  // Adjust pool width to encompass all columns (pool resize is safe since it
+  // doesn't trigger lane redistribution in the same way lane resizes do).
+  const updatedPool = elementRegistry.get(pool.id)!;
+  if (Math.abs(updatedPool.width - newPoolWidth) > 1) {
+    updatedPool.width = newPoolWidth;
+    if (updatedPool.di?.bounds) {
+      updatedPool.di.bounds.width = newPoolWidth;
+    }
+  }
+  // Mark pool as column-mode so downstream steps (compactPools) skip lane resizing.
+  (updatedPool as any)._columnLanes = true;
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────

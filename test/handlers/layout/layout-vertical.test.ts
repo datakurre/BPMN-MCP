@@ -7,7 +7,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleLayoutDiagram } from '../../../src/handlers';
+import { handleLayoutDiagram, handleCreateParticipant, handleAddElement, handleConnect } from '../../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
 
@@ -138,5 +138,108 @@ describe('layout direction DOWN', () => {
 
     // Branch tasks should be at approximately the same Y (same layer)
     expect(Math.abs(taskAEl.y - taskBEl.y)).toBeLessThan(50);
+  });
+
+  // ── F5: Vertical layout with lanes ─────────────────────────────────────────
+
+  test('F5: direction DOWN with two lanes arranges lanes as left-to-right columns', async () => {
+    // Create a single pool with two lanes and a simple flow in each lane.
+    // When laid out with direction DOWN, the lanes should become side-by-side columns.
+    const diagramId = await createDiagram('Vertical Lanes');
+
+    const poolResult = parseResult(
+      await handleCreateParticipant({
+        diagramId,
+        name: 'My Process',
+        lanes: [{ name: 'Lane A' }, { name: 'Lane B' }],
+      })
+    );
+
+    const participantId = poolResult.participantId;
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    // Find the lanes by name
+    const laneA = reg.filter(
+      (el: any) => el.type === 'bpmn:Lane' && el.businessObject?.name === 'Lane A'
+    )[0];
+    const laneB = reg.filter(
+      (el: any) => el.type === 'bpmn:Lane' && el.businessObject?.name === 'Lane B'
+    )[0];
+    expect(laneA).toBeDefined();
+    expect(laneB).toBeDefined();
+
+    // Add tasks in Lane A
+    const taskA1 = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Task A1',
+        laneId: laneA.id,
+      })
+    );
+    const taskA2 = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Task A2',
+        laneId: laneA.id,
+      })
+    );
+    // Add a task in Lane B
+    const taskB1 = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Task B1',
+        laneId: laneB.id,
+      })
+    );
+    await handleConnect({
+      diagramId,
+      sourceElementId: taskA1.elementId,
+      targetElementId: taskA2.elementId,
+    });
+    await handleConnect({
+      diagramId,
+      sourceElementId: taskA2.elementId,
+      targetElementId: taskB1.elementId,
+    });
+
+    // Layout with direction DOWN
+    const result = parseResult(await handleLayoutDiagram({ diagramId, direction: 'DOWN' }));
+    expect(result.success).toBe(true);
+
+    const regAfter = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    const laneAAfter = regAfter.get(laneA.id);
+    const laneBAfter = regAfter.get(laneB.id);
+    const a1After = regAfter.get(taskA1.elementId);
+    const a2After = regAfter.get(taskA2.elementId);
+    const b1After = regAfter.get(taskB1.elementId);
+
+    // With column layout (F5), Lane A and Lane B should be at different X positions
+    expect(laneAAfter).toBeDefined();
+    expect(laneBAfter).toBeDefined();
+
+    // Lane A elements (taskA1, taskA2) should be in a different X-band than Lane B elements (taskB1)
+    const laneACentreX = laneAAfter.x + laneAAfter.width / 2;
+    const laneBCentreX = laneBAfter.x + laneBAfter.width / 2;
+    // The two lanes should be in different columns (meaningfully different X centres)
+    expect(Math.abs(laneACentreX - laneBCentreX)).toBeGreaterThan(50);
+
+    // Lane A tasks should be within Lane A's X bounds (with tolerance)
+    const a1Cx = a1After.x + a1After.width / 2;
+    const a2Cx = a2After.x + a2After.width / 2;
+    expect(a1Cx).toBeGreaterThanOrEqual(laneAAfter.x - 10);
+    expect(a1Cx).toBeLessThanOrEqual(laneAAfter.x + laneAAfter.width + 10);
+    expect(a2Cx).toBeGreaterThanOrEqual(laneAAfter.x - 10);
+    expect(a2Cx).toBeLessThanOrEqual(laneAAfter.x + laneAAfter.width + 10);
+
+    // Lane B task should be within Lane B's X bounds (with tolerance)
+    const b1Cx = b1After.x + b1After.width / 2;
+    expect(b1Cx).toBeGreaterThanOrEqual(laneBAfter.x - 10);
+    expect(b1Cx).toBeLessThanOrEqual(laneBAfter.x + laneBAfter.width + 10);
+
+    // Suppress unused-variable warning
+    void participantId;
   });
 });

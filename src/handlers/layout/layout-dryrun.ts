@@ -114,6 +114,8 @@ export async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolR
         avgFlowLength: qualityMetrics.avgFlowLength,
         orthogonalFlowPercent: qualityMetrics.orthogonalFlowPercent,
         elementDensity: qualityMetrics.elementDensity,
+        avgBendCount: qualityMetrics.avgBendCount,
+        alignedElementPercent: qualityMetrics.alignedElementPercent,
       },
       ...(isLargeChange
         ? {
