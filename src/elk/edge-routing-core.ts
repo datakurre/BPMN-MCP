@@ -9,7 +9,13 @@ import type { ElkNode, ElkEdgeSection } from 'elkjs';
 import type { ElementRegistry, Modeling } from '../bpmn-types';
 import { isConnection } from './helpers';
 import { deduplicateWaypoints } from './edge-routing-helpers';
-import { ENDPOINT_SNAP_TOLERANCE, BPMN_EVENT_SIZE, SEGMENT_ORTHO_SNAP, SELF_LOOP_MARGIN_H, SELF_LOOP_MARGIN_V } from './constants';
+import {
+  ENDPOINT_SNAP_TOLERANCE,
+  BPMN_EVENT_SIZE,
+  SEGMENT_ORTHO_SNAP,
+  SELF_LOOP_MARGIN_H,
+  SELF_LOOP_MARGIN_V,
+} from './constants';
 
 /**
  * Build a flat lookup of ELK edges (including nested containers) so we can
@@ -318,10 +324,7 @@ export function applyElkEdgeRoutes(
 export function routeSelfLoops(elementRegistry: ElementRegistry, modeling: Modeling): void {
   const selfLoops = elementRegistry.filter(
     (el) =>
-      el.type === 'bpmn:SequenceFlow' &&
-      !!el.source &&
-      !!el.target &&
-      el.source.id === el.target.id
+      el.type === 'bpmn:SequenceFlow' && !!el.source && !!el.target && el.source.id === el.target.id
   );
 
   for (const conn of selfLoops) {

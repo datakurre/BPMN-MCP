@@ -73,20 +73,13 @@ describe('layout direction DOWN', () => {
     await handleLayoutDiagram({ diagramId, direction: 'DOWN' });
 
     const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
-    const elements = [
-      reg.get(start),
-      reg.get(t1),
-      reg.get(t2),
-      reg.get(t3),
-      reg.get(end),
-    ];
+    const elements = [reg.get(start), reg.get(t1), reg.get(t2), reg.get(t3), reg.get(end)];
 
     // Each element should be below the previous one
     for (let i = 0; i < elements.length - 1; i++) {
-      expect(
-        elements[i].y,
-        `Element ${i} should be above element ${i + 1}`
-      ).toBeLessThan(elements[i + 1].y);
+      expect(elements[i].y, `Element ${i} should be above element ${i + 1}`).toBeLessThan(
+        elements[i + 1].y
+      );
     }
   });
 
