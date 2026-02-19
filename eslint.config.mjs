@@ -110,6 +110,14 @@ export default tseslint.config(
     },
   },
 
+  // ── Handlers barrel — aggregates all tool registrations, higher line limit ─
+  {
+    files: ['src/handlers/index.ts'],
+    rules: {
+      'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
+    },
+  },
+
   // ── ELK layout engine — algorithmic code with inherent complexity ────────
   {
     files: ['src/elk/**/*.ts'],
