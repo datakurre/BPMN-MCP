@@ -19,6 +19,7 @@ import {
   POOL_COMPACT_RIGHT_PADDING,
   POOL_LABEL_BAND,
   NORMALISE_ORIGIN_Y,
+  NORMALISE_BOUNDARY_ORIGIN_Y,
   NORMALISE_LARGE_THRESHOLD,
   ORIGIN_OFFSET_Y,
 } from './constants';
@@ -558,20 +559,34 @@ export function normaliseOrigin(elementRegistry: ElementRegistry, modeling: Mode
     if (el.y < topY) topY = el.y;
   }
 
-  // Shift elements to anchor the top at NORMALISE_ORIGIN_Y, but only when
-  // the displacement is clearly outside the expected ELK natural range:
+  // Processes with boundary events need extra top margin when ELK hasn't
+  // already provided it organically.  Camunda Modeler places the topmost
+  // element 13px lower (y=105 vs y=92) to give visual breathing room for
+  // boundary event labels and exception-path flows below the main row.
+  // Only apply when topY is below NORMALISE_ORIGIN_Y — if ELK already gave
+  // a larger natural margin (topY >= NORMALISE_ORIGIN_Y), the extra spacing
+  // is already present and we should not push elements further down.
+  const hasBoundaryEvents = allElements.some(
+    (el) => el.type === 'bpmn:BoundaryEvent' && (!rootProcess || el.parent === rootProcess)
+  );
+  const targetY =
+    hasBoundaryEvents && topY < NORMALISE_ORIGIN_Y
+      ? NORMALISE_BOUNDARY_ORIGIN_Y
+      : NORMALISE_ORIGIN_Y;
+
+  // Shift elements to anchor the top at targetY, but only when the displacement
+  // is clearly outside the expected ELK natural range:
   //
-  //  • topY < NORMALISE_ORIGIN_Y - 2: ELK placed elements above the target
-  //    (shouldn't happen with normal ELK padding, but guard anyway).
-  //  • topY > NORMALISE_ORIGIN_Y + NORMALISE_LARGE_THRESHOLD: ELK placed the
-  //    layout far too low — typically caused by SOUTH-port gateway constraints
-  //    reserving a virtual upper row in the ELK graph.  Shift up to target.
+  //  • topY < targetY - 2: ELK placed elements above the target — shift down.
+  //  • topY > targetY + NORMALISE_LARGE_THRESHOLD: ELK placed the layout far
+  //    too low (e.g. SOUTH-port gateway constraints reserving a virtual upper
+  //    row).  Shift up to target.
   //
-  // Do NOT shift when 92 ≤ topY ≤ 92+40: ELK gave a larger-than-usual but
-  // intentional top margin (e.g. boundary-event processes, parallel gateways).
-  // Forcing those down to 92 breaks the spacing ELK reserved for exceptions.
-  const delta = NORMALISE_ORIGIN_Y - topY;
-  const shouldShift = delta > 2 || topY - NORMALISE_ORIGIN_Y > NORMALISE_LARGE_THRESHOLD;
+  // Do NOT shift when targetY - 2 ≤ topY ≤ targetY + NORMALISE_LARGE_THRESHOLD:
+  // ELK gave an intentional top margin in the natural range.  Forcing elements
+  // to exactly targetY would discard ELK's internal spacing decisions.
+  const delta = targetY - topY;
+  const shouldShift = delta > 2 || topY - targetY > NORMALISE_LARGE_THRESHOLD;
   if (shouldShift) {
     try {
       modeling.moveElements(flowElements, { x: 0, y: delta });

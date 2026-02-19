@@ -70,10 +70,16 @@ export const PARTICIPANT_WITH_LANES_PADDING = '[top=80,left=80,bottom=80,right=4
  * producing 12px more breathing room than the raw ELK output (y=80).
  * Collaborations skip normaliseOrigin entirely — their pool positions are
  * anchored by centreElementsInPools + enforceExpandedPoolGap.
+ *
+ * NORMALISE_BOUNDARY_ORIGIN_Y is the equivalent target for processes that
+ * contain boundary events.  Camunda Modeler places the topmost flow element
+ * 13px lower in these diagrams (y=105 vs y=92) to give more visual space
+ * for boundary event labels and exception-path flows below the main row.
  */
 export const ORIGIN_OFFSET_X = 180;
 export const ORIGIN_OFFSET_Y = 80;
 export const NORMALISE_ORIGIN_Y = 94;
+export const NORMALISE_BOUNDARY_ORIGIN_Y = 105;
 
 /**
  * Large displacement threshold (px) for normaliseOrigin().
