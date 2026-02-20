@@ -10,6 +10,7 @@
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import { type Point, type Rect, segmentIntersectsRect, cloneWaypoints } from '../geometry';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
+import { buildObstacleGrid, segmentBBox } from './spatial-index';
 
 /** Margin (px) around elements for avoidance routing. */
 const AVOIDANCE_MARGIN = 15;
@@ -48,6 +49,11 @@ export function avoidElementIntersections(
     (el) => isConnection(el.type) && el.waypoints && el.waypoints.length >= 2
   );
 
+  // H3: Build a single global obstacle grid for fast per-segment queries.
+  // The grid covers the whole diagram; each connection's segments query
+  // only nearby cells rather than scanning all shapes.
+  const obstacleGrid = buildObstacleGrid(shapes);
+
   for (const conn of connections) {
     const sourceId = conn.source?.id;
     const targetId = conn.target?.id;
@@ -83,24 +89,25 @@ export function avoidElementIntersections(
       sourceParent.id === targetParent.id &&
       sourceParent.type === 'bpmn:SubProcess';
 
-    // Filter shapes that could be obstructing this connection
-    const obstacles = shapes.filter((s) => {
-      if (s.id === sourceId || s.id === targetId) return false;
-      if (attachedBoundaryIds.has(s.id)) return false;
-      if (isArtifact(s.type)) return false;
+    // H3: Build the set of valid obstacle IDs for this connection.
+    // The spatial grid returns candidate shapes per segment; we filter
+    // candidates through this set so only valid obstacles are considered.
+    const validObstacleIds = new Set<string>();
+    for (const s of shapes) {
+      if (s.id === sourceId || s.id === targetId) continue;
+      if (attachedBoundaryIds.has(s.id)) continue;
+      if (isArtifact(s.type)) continue;
 
       // For connections inside a subprocess, only consider obstacles
       // that are also inside the same subprocess (direct children).
-      // This prevents routing around the subprocess container itself
-      // or elements at outer nesting levels.
       if (isInsideSubprocess && s.parent?.id !== sourceParent.id) {
-        return false;
+        continue;
       }
 
-      return true;
-    });
+      validObstacleIds.add(s.id);
+    }
 
-    if (obstacles.length === 0) continue;
+    if (validObstacleIds.size === 0) continue;
 
     let modified = false;
     let wps = cloneWaypoints(conn.waypoints!);
@@ -112,7 +119,13 @@ export function avoidElementIntersections(
         const p1 = wps[i];
         const p2 = wps[i + 1];
 
-        for (const obstacle of obstacles) {
+        // H3: Query only shapes near this segment using the spatial grid.
+        const segBox = segmentBBox(p1, p2, AVOIDANCE_MARGIN);
+        const candidates = obstacleGrid
+          .getCandidates(segBox)
+          .filter((e) => validObstacleIds.has(e.element.id));
+
+        for (const { element: obstacle } of candidates) {
           const rect: Rect = {
             x: obstacle.x - AVOIDANCE_MARGIN,
             y: obstacle.y - AVOIDANCE_MARGIN,
@@ -123,7 +136,11 @@ export function avoidElementIntersections(
           if (!segmentIntersectsRect(p1, p2, rect)) continue;
 
           // Compute a detour around the obstacle
-          const detour = computeDetour(p1, p2, obstacle, AVOIDANCE_MARGIN, obstacles);
+          // H3: use all valid obstacles (not just candidates) for counting
+          // new intersections — we only skip the per-segment spatial query
+          // for the initial check, not for the detour quality assessment.
+          const allObstacles = shapes.filter((s) => validObstacleIds.has(s.id));
+          const detour = computeDetour(p1, p2, obstacle, AVOIDANCE_MARGIN, allObstacles);
           if (detour) {
             // Replace the segment with the detour
             wps.splice(i + 1, 0, ...detour);

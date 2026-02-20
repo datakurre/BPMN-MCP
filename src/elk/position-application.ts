@@ -538,6 +538,95 @@ export function reorderCollapsedPoolsBelow(
 }
 
 /**
+ * G5: Rearrange children of ad-hoc subprocesses in a grid/matrix layout.
+ *
+ * Ad-hoc subprocesses (businessObject.isAdHoc === true) contain unordered
+ * activities.  Instead of the default Sugiyama sequential layout that ELK
+ * produces, this function arranges children in a compact grid with a
+ * configurable number of columns, giving a more intuitive "pick any task"
+ * appearance.
+ *
+ * This runs after applyElkPositions, overriding ELK's sequential placement
+ * for the specific case of ad-hoc containers.  The subprocess is resized
+ * to fit the grid content.
+ */
+export function repositionAdHocSubprocessChildren(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling
+): void {
+  const allElements: BpmnElement[] = elementRegistry.getAll();
+
+  const adHocSubprocesses = allElements.filter(
+    (el) =>
+      el.type === BPMN_SUBPROCESS && el.isExpanded !== false && el.businessObject?.isAdHoc === true
+  );
+
+  if (adHocSubprocesses.length === 0) return;
+
+  // Grid layout constants
+  const CELL_WIDTH = 100;
+  const CELL_HEIGHT = 80;
+  const GAP_X = 50;
+  const GAP_Y = 40;
+  const PAD_TOP = 50; // extra top padding for subprocess label header
+  const PAD_SIDES = 30;
+
+  for (const sp of adHocSubprocesses) {
+    const children = allElements.filter(
+      (el) =>
+        el.parent === sp &&
+        !el.type.includes('SequenceFlow') &&
+        !el.type.includes('MessageFlow') &&
+        !el.type.includes('Association') &&
+        el.type !== 'bpmn:BoundaryEvent' &&
+        el.type !== 'label' &&
+        el.type !== 'bpmn:LaneSet' &&
+        el.type !== 'bpmn:Lane' &&
+        el.width !== undefined
+    );
+
+    if (children.length === 0) continue;
+
+    // Compute the optimal number of columns: square root of element count,
+    // clamped to a sensible range
+    const numCols = Math.max(2, Math.min(5, Math.ceil(Math.sqrt(children.length))));
+    const numRows = Math.ceil(children.length / numCols);
+
+    // Position each child in the grid (relative to subprocess top-left)
+    children.forEach((child, i) => {
+      const col = i % numCols;
+      const row = Math.floor(i / numCols);
+      const childW = child.width || CELL_WIDTH;
+      const childH = child.height || CELL_HEIGHT;
+      const targetX = sp.x + PAD_SIDES + col * (CELL_WIDTH + GAP_X);
+      const targetY = sp.y + PAD_TOP + row * (CELL_HEIGHT + GAP_Y);
+
+      const dx = Math.round(targetX - child.x);
+      const dy = Math.round(targetY - child.y);
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        modeling.moveElements([child], { x: dx, y: dy });
+      }
+      void childW;
+      void childH;
+    });
+
+    // Resize the subprocess to tightly fit the grid
+    const contentWidth = PAD_SIDES * 2 + numCols * (CELL_WIDTH + GAP_X) - GAP_X;
+    const contentHeight = PAD_TOP + PAD_SIDES + numRows * (CELL_HEIGHT + GAP_Y) - GAP_Y;
+
+    const newW = Math.max(sp.width || 350, contentWidth);
+    const newH = Math.max(sp.height || 200, contentHeight);
+
+    if (
+      Math.abs(newW - (sp.width || 0)) > RESIZE_SIGNIFICANCE_THRESHOLD ||
+      Math.abs(newH - (sp.height || 0)) > RESIZE_SIGNIFICANCE_THRESHOLD
+    ) {
+      modeling.resizeShape(sp, { x: sp.x, y: sp.y, width: newW, height: newH });
+    }
+  }
+}
+
+/**
  * Normalise the Y origin of the diagram so the topmost flow element
  * starts at ORIGIN_OFFSET_Y.
  *

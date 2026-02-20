@@ -59,6 +59,7 @@ import {
   reorderCollapsedPoolsBelow,
   compactPools,
   normaliseOrigin,
+  repositionAdHocSubprocessChildren,
 } from './position-application';
 import {
   repositionLanes,
@@ -245,6 +246,10 @@ interface LayoutContext {
 async function applyNodePositions(ctx: LayoutContext): Promise<void> {
   applyElkPositions(ctx.elementRegistry, ctx.modeling, ctx.result, ctx.offsetX, ctx.offsetY);
   resizeCompoundNodes(ctx.elementRegistry, ctx.modeling, ctx.result);
+  // G5: Rearrange children of ad-hoc subprocesses in a grid layout.
+  // Ad-hoc subprocesses have unordered activities that should be arranged in a
+  // matrix pattern instead of the default sequential Sugiyama layout.
+  repositionAdHocSubprocessChildren(ctx.elementRegistry, ctx.modeling);
   // Position event subprocesses below main process (they were excluded from ELK graph)
   await positionEventSubprocesses(ctx.elementRegistry, ctx.modeling);
 }

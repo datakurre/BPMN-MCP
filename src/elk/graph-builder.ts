@@ -294,6 +294,14 @@ function buildEdges(
 
   addBoundaryProxyEdges(allElements, container, childConnections, nodeIds, edges);
 
+  // G4: Add weak virtual edges for tasks that share data objects/stores.
+  // When two tasks both access the same data object (via DataInputAssociation,
+  // DataOutputAssociation, or Association), a virtual ordering edge is added
+  // between them so ELK clusters them in adjacent layers.  The edge has
+  // priority=1 (lower than default edges) so it doesn't force ordering but
+  // provides a mild gravitational pull toward colocation.
+  addDataFlowVirtualEdges(allElements, nodeIds, edges);
+
   return edges;
 }
 
@@ -325,6 +333,75 @@ function addBoundaryProxyEdges(
         sources: [hostId],
         targets: [conn.target!.id],
       });
+    }
+  }
+}
+
+/**
+ * G4: Add weak virtual edges between tasks that share a data object or
+ * data store.  When task A writes to DataObject_1 and task B reads from
+ * DataObject_1, a synthetic ELK edge (priority=1, lower than normal flow
+ * edges) is emitted so ELK's Sugiyama layering pulls the two tasks into
+ * adjacent or nearby layers without forcing a strict ordering.
+ *
+ * Only edges between proper graph nodes (nodeIds) are produced.
+ * The function is intentionally idempotent: if an affinity edge between
+ * the same pair already exists it is skipped.
+ */
+function addDataFlowVirtualEdges(
+  allElements: BpmnElement[],
+  nodeIds: Set<string>,
+  edges: ElkExtendedEdge[]
+): void {
+  // Map from data-object/store id → set of task ids connected to it
+  const dataToTasks = new Map<string, Set<string>>();
+
+  for (const el of allElements) {
+    if (!nodeIds.has(el.id)) continue;
+    const bo = el.businessObject as Record<string, unknown>;
+    if (!bo) continue;
+
+    // DataInputAssociation references are stored on the target task
+    const dataInputAssocs =
+      (bo['dataInputAssociations'] as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const assoc of dataInputAssocs) {
+      const sourceRefs = assoc['sourceRef'] as Array<{ id: string }> | undefined;
+      if (!sourceRefs) continue;
+      for (const ref of sourceRefs) {
+        if (!dataToTasks.has(ref.id)) dataToTasks.set(ref.id, new Set());
+        dataToTasks.get(ref.id)!.add(el.id);
+      }
+    }
+
+    // DataOutputAssociation references are stored on the source task
+    const dataOutputAssocs =
+      (bo['dataOutputAssociations'] as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const assoc of dataOutputAssocs) {
+      const targetRef = assoc['targetRef'] as { id: string } | undefined;
+      if (!targetRef) continue;
+      if (!dataToTasks.has(targetRef.id)) dataToTasks.set(targetRef.id, new Set());
+      dataToTasks.get(targetRef.id)!.add(el.id);
+    }
+  }
+
+  // Build a deduplicated set of already-present edge id prefixes to avoid
+  // duplicate insertions when addDataFlowVirtualEdges is called twice
+  const existingIds = new Set(edges.map((e) => e.id));
+
+  for (const [dataId, taskIds] of dataToTasks) {
+    const ids = [...taskIds];
+    for (let i = 0; i < ids.length - 1; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const edgeId = `__data_affinity__${dataId}__${ids[i]}__${ids[j]}`;
+        if (existingIds.has(edgeId)) continue;
+        existingIds.add(edgeId);
+        edges.push({
+          id: edgeId,
+          sources: [ids[i]],
+          targets: [ids[j]],
+          layoutOptions: { 'elk.priority': '1' },
+        });
+      }
     }
   }
 }
