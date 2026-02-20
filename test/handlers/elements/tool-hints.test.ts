@@ -47,7 +47,7 @@ describe('connect_bpmn_elements layout hint', () => {
 });
 
 describe('insert_bpmn_element hints', () => {
-  test('includes layout and type-specific hints after insertion', async () => {
+  test('includes type-specific hints after insertion (no layout hint per C1-6)', async () => {
     const diagramId = await createDiagram();
     const start = (await addEl(diagramId, 'bpmn:StartEvent', 'Start')).elementId;
     const end = (await addEl(diagramId, 'bpmn:EndEvent', 'End')).elementId;
@@ -67,8 +67,10 @@ describe('insert_bpmn_element hints', () => {
     );
 
     expect(result.nextSteps).toBeDefined();
-    expect(result.nextSteps.some((h: any) => h.tool === 'layout_bpmn_diagram')).toBe(true);
-    // ServiceTask should get set_bpmn_element_properties hint
+    // C1-6: layout_bpmn_diagram hint is no longer added unconditionally after insert.
+    // Incremental insert handles shift + reconnection inline; re-layout is optional.
+    expect(result.nextSteps.some((h: any) => h.tool === 'layout_bpmn_diagram')).toBe(false);
+    // ServiceTask should still get set_bpmn_element_properties hint
     expect(result.nextSteps.some((h: any) => h.tool === 'set_bpmn_element_properties')).toBe(true);
   });
 });

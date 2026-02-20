@@ -21,7 +21,7 @@ import {
   typeMismatchError,
   getService,
 } from '../helpers';
-import { STANDARD_BPMN_GAP, getElementSize } from '../../constants';
+import { STANDARD_BPMN_GAP, ELK_LAYER_SPACING, getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
 import {
   detectOverlaps,
@@ -244,16 +244,23 @@ function deleteFlowAndShift(
   const targetId = target.id;
   const srcRight = source.x + (source.width || 0);
   const tgtLeft = target.x;
-  const requiredSpace = STANDARD_BPMN_GAP + newSize.width + STANDARD_BPMN_GAP;
+  // C1-2: Use ELK_LAYER_SPACING (the inter-layer gap that full layout produces)
+  // plus STANDARD_BPMN_GAP on the far side.  This makes the insert shift
+  // consistent with what layout_bpmn_diagram would place, reducing the need
+  // for a full re-layout after insertion.
+  const requiredSpace = ELK_LAYER_SPACING + newSize.width + STANDARD_BPMN_GAP;
 
   modeling.removeElements([flow]);
+  // C1-1: Pass the target element so shiftIfNeeded can BFS-walk downstream,
+  // avoiding shifts of unrelated parallel branches.
   const shiftApplied = shiftIfNeeded(
     elementRegistry,
     modeling,
     srcRight,
     tgtLeft,
     requiredSpace,
-    sourceId
+    sourceId,
+    target
   );
 
   const updatedSource = elementRegistry.get(sourceId);

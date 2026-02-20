@@ -112,13 +112,11 @@ export function buildInsertResult(opts: {
     message: `Inserted ${opts.elementType}${opts.elementName ? ` "${opts.elementName}"` : ''} between ${opts.sourceId} and ${opts.targetId}`,
     ...getTypeSpecificHints(opts.elementType),
   };
-  // Append layout hint as an additional next step
-  if (!data.nextSteps) data.nextSteps = [];
-  data.nextSteps.push({
-    tool: 'layout_bpmn_diagram',
-    description:
-      'Re-layout after insertion \u2014 use elementIds for partial re-layout of affected elements',
-  });
+  // C1-6: Removed the unconditional layout_bpmn_diagram next-step hint.
+  // Incremental insert now handles element shift, reconnection, and label
+  // adjustment inline (C1-1/C1-2/C1-4), so a full re-layout is not always
+  // required.  Callers may still run layout_bpmn_diagram for complex diagrams
+  // where ELK produces cleaner routes than the incremental approach.
   if (opts.shiftApplied > 0) {
     data.shiftApplied = opts.shiftApplied;
     data.shiftNote = 'Downstream elements shifted right to make space';
@@ -132,19 +130,38 @@ export function buildInsertResult(opts: {
   return data;
 }
 
-/** Shift downstream elements right when there isn't enough horizontal space. */
+/** Shift downstream elements right when there isn't enough horizontal space.
+ *
+ * C1-1: Uses a BFS walk from `startElement` (the insertion target) along
+ * outgoing sequence flows instead of shifting ALL elements at x >= tgtLeft.
+ * This prevents unrelated parallel branches from being displaced when an
+ * element is inserted on only one branch of a split gateway.
+ */
 export function shiftIfNeeded(
   elementRegistry: any,
   modeling: any,
   srcRight: number,
   tgtLeft: number,
   requiredSpace: number,
-  sourceId: string
+  sourceId: string,
+  startElement?: any
 ): number {
   const availableSpace = tgtLeft - srcRight;
   if (availableSpace >= requiredSpace) return 0;
 
   const shiftAmount = requiredSpace - availableSpace;
+
+  // C1-1: BFS from startElement following outgoing SequenceFlows.
+  // Only elements reachable downstream from the insertion target are shifted,
+  // so parallel branches on other paths remain untouched.
+  if (startElement) {
+    const toShift = collectDownstreamElements(elementRegistry, startElement, sourceId);
+    if (toShift.length > 0) modeling.moveElements(toShift, { x: shiftAmount, y: 0 });
+    resizeParentContainers(elementRegistry, modeling);
+    return shiftAmount;
+  }
+
+  // Fallback: original X-threshold approach (used when startElement is unknown)
   const toShift = getVisibleElements(elementRegistry).filter(
     (el: any) =>
       !el.type.includes('SequenceFlow') &&
@@ -158,6 +175,79 @@ export function shiftIfNeeded(
   if (toShift.length > 0) modeling.moveElements(toShift, { x: shiftAmount, y: 0 });
   resizeParentContainers(elementRegistry, modeling);
   return shiftAmount;
+}
+
+/**
+ * C1-1: BFS traversal of the sequence flow graph starting from `rootElement`.
+ *
+ * Returns the set of shape elements reachable by following outgoing sequence
+ * flows from `rootElement`, excluding the `excludeId` element (the insertion
+ * source).  Boundary events attached to reachable hosts are also included.
+ */
+export function collectDownstreamElements(
+  elementRegistry: any,
+  rootElement: any,
+  excludeId: string
+): any[] {
+  const visited = new Set<string>();
+  const queue: any[] = [rootElement];
+  const result: any[] = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || visited.has(current.id)) continue;
+    visited.add(current.id);
+
+    if (current.id !== excludeId) {
+      addShapeIfEligible(current, result, visited);
+    }
+
+    enqueueOutgoingTargets(current, queue, visited);
+  }
+
+  return result;
+}
+
+/** Check if an element is a shiftable shape and add it (plus its boundary events) to `result`. */
+function addShapeIfEligible(el: any, result: any[], visited: Set<string>): void {
+  if (!isShiftableShape(el)) return;
+  result.push(el);
+  if (el.attachers) {
+    for (const attacher of el.attachers) {
+      if (!visited.has(attacher.id)) {
+        result.push(attacher);
+        visited.add(attacher.id);
+      }
+    }
+  }
+}
+
+/** Return true if the element is a shape that should be shifted (not a connection/pool/lane). */
+function isShiftableShape(el: any): boolean {
+  if (!el.type) return false;
+  return (
+    !el.type.includes('SequenceFlow') &&
+    !el.type.includes('MessageFlow') &&
+    !el.type.includes('Association') &&
+    el.type !== 'bpmn:Participant' &&
+    el.type !== 'bpmn:Lane' &&
+    el.type !== 'bpmn:Process' &&
+    el.type !== 'bpmn:Collaboration' &&
+    el.type !== 'label'
+  );
+}
+
+/** Follow outgoing SequenceFlow / MessageFlow targets and add unseen ones to the queue. */
+function enqueueOutgoingTargets(el: any, queue: any[], visited: Set<string>): void {
+  if (!el.outgoing) return;
+  for (const flow of el.outgoing) {
+    if (!flow.type) continue;
+    if (!flow.type.includes('SequenceFlow') && !flow.type.includes('MessageFlow')) continue;
+    const target = flow.target;
+    if (target && !visited.has(target.id)) {
+      queue.push(target);
+    }
+  }
 }
 
 /** Reconnect source→newElement→target with new sequence flows. */

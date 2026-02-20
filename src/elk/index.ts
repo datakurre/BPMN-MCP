@@ -109,8 +109,9 @@ import {
 import { detectCrossingFlows, reduceCrossings } from './crossing-detection';
 import { avoidElementIntersections } from './element-avoidance';
 import { resolveOverlaps } from './overlap-resolution';
-import type { ElkLayoutOptions, LayoutContext } from './types';
+import type { ElkLayoutOptions, LayoutContext, PipelineStep } from './types';
 import { createLayoutLogger, type PositionSnapshot } from './layout-logger';
+import { PipelineRunner } from './pipeline-runner';
 
 export type {
   ElkLayoutOptions,
@@ -121,6 +122,7 @@ export type {
   PipelineStep,
 } from './types';
 
+export { PipelineRunner } from './pipeline-runner';
 export { elkLayoutSubset } from './subset-layout';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -448,13 +450,9 @@ function applyEdgeRoutes(ctx: LayoutContext): void {
 }
 
 /**
- * Repair disconnected edge endpoints, snap to element centres,
- * rebuild off-row gateway routes, simplify collinear waypoints,
- * and final orthogonal snap.
+ * B4 — Edge routing sub-step dependency order (preserved in REPAIR_SIMPLIFY_SUBSTEPS).
  *
- * ## B4 — Edge routing sub-step dependency order
- *
- * The 8 sub-steps below have strict ordering dependencies.  Reordering
+ * The sub-steps below have strict ordering dependencies.  Reordering
  * them will produce incorrect or degraded routes.
  *
  * ```
@@ -476,22 +474,202 @@ function applyEdgeRoutes(ctx: LayoutContext): void {
  *                                 (E4: must run after simplification to avoid redundant H-V-H merges;
  *                                 before final orthogonal snap so offsets are preserved correctly)
  * ```
+ *
+ * B1-5: The sub-steps are now declared in `REPAIR_SIMPLIFY_SUBSTEPS` (see below).
+ * The `repairAndSimplifyEdges` PipelineStep in `POST_ROUTING_STEPS` runs them
+ * via a nested `PipelineRunner` that shares `ctx.log` for per-sub-step logging.
  */
-function repairAndSimplifyEdges(ctx: LayoutContext): void {
-  fixDisconnectedEdges(ctx.elementRegistry, ctx.modeling);
-  snapEndpointsToElementCentres(ctx.elementRegistry, ctx.modeling);
-  rebuildOffRowGatewayRoutes(ctx.elementRegistry, ctx.modeling);
-  separateOverlappingGatewayFlows(ctx.elementRegistry, ctx.modeling);
-  simplifyCollinearWaypoints(ctx.elementRegistry, ctx.modeling);
-  removeMicroBends(ctx.elementRegistry, ctx.modeling);
-  routeLoopbacksBelow(ctx.elementRegistry, ctx.modeling);
-  // E4: Bundle parallel flows between the same source→target pair.
-  // Runs after loopback routing (which may produce multi-waypoint routes for
-  // backward flows) and before the final orthogonal snap so the small
-  // vertical offsets applied here are preserved by the snap pass.
-  bundleParallelFlows(ctx.elementRegistry, ctx.modeling);
-  snapAllConnectionsOrthogonal(ctx.elementRegistry, ctx.modeling);
-}
+
+/**
+ * B1-5: Sub-steps of the edge repair pipeline.
+ *
+ * Order is **B4-critical** — see the dependency chain comment on
+ * `repairAndSimplifyEdges` for why each step must follow the previous one.
+ * These are declared as a separate `PipelineStep[]` so that:
+ *  - The ordering constraint is visible at declaration site.
+ *  - `PipelineRunner` can individually log each sub-step via `ctx.log`.
+ *  - The `pipeline-ordering.test.ts` (B1-8) can assert the sub-step order.
+ */
+const REPAIR_SIMPLIFY_SUBSTEPS: PipelineStep[] = [
+  {
+    name: 'fixDisconnectedEdges',
+    run: (ctx) => fixDisconnectedEdges(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'snapEndpointsToElementCentres',
+    run: (ctx) => snapEndpointsToElementCentres(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'rebuildOffRowGatewayRoutes',
+    run: (ctx) => rebuildOffRowGatewayRoutes(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'separateOverlappingGatewayFlows',
+    run: (ctx) => separateOverlappingGatewayFlows(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'simplifyCollinearWaypoints',
+    run: (ctx) => simplifyCollinearWaypoints(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'removeMicroBends',
+    run: (ctx) => removeMicroBends(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'routeLoopbacksBelow',
+    run: (ctx) => routeLoopbacksBelow(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    // E4: bundle parallel flows before final orthogonal snap
+    name: 'bundleParallelFlows',
+    run: (ctx) => bundleParallelFlows(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'snapAllConnectionsOrthogonal',
+    run: (ctx) => snapAllConnectionsOrthogonal(ctx.elementRegistry, ctx.modeling),
+  },
+];
+
+/**
+ * B1-4a: Node-positioning steps (steps 2–8 in the pipeline).
+ *
+ * These steps operate on element x/y coordinates before edge routes exist.
+ * They must run in the listed order (see B2/B3/B5 dependency comments on
+ * each step function above).
+ *
+ * Skip guards are expressed as `skip` predicates for declarative readability.
+ */
+const NODE_POSITION_STEPS: PipelineStep[] = [
+  {
+    name: 'applyNodePositions',
+    run: (ctx) => applyNodePositions(ctx),
+    trackDelta: true,
+  },
+  {
+    name: 'fixBoundaryEvents',
+    run: (ctx) => fixBoundaryEvents(ctx),
+    trackDelta: true,
+  },
+  {
+    name: 'snapAndAlignLayers',
+    run: (ctx) => snapAndAlignLayers(ctx),
+    trackDelta: true,
+  },
+  {
+    name: 'gridSnapAndResolveOverlaps',
+    run: (ctx) => gridSnapAndResolveOverlaps(ctx),
+    trackDelta: true,
+  },
+  {
+    // B1-6: repositionArtifacts takes (elementRegistry, modeling) directly;
+    // wrapped here so every step uniformly receives LayoutContext.
+    name: 'repositionArtifacts',
+    run: (ctx) => repositionArtifacts(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'alignHappyPathAndOffPathEvents',
+    run: (ctx) => alignHappyPathAndOffPathEvents(ctx),
+    trackDelta: true,
+  },
+  {
+    // B5: second resolveOverlaps pass — fixes overlaps created by
+    // alignHappyPath pulling multiple elements to the same Y.
+    name: 'resolveOverlaps-2nd',
+    run: (ctx) => {
+      forEachScope(ctx.elementRegistry, (scope) => {
+        resolveOverlaps(ctx.elementRegistry, ctx.modeling, scope);
+      });
+    },
+  },
+];
+
+/**
+ * B1-4b: Pool/boundary/edge-routing transition steps (steps 9–12).
+ *
+ * These bridge node positioning (B1-4a) and post-routing repair (B1-4c).
+ * normaliseOrigin runs AFTER applyEdgeRoutes so the origin shift carries
+ * both element positions and their freshly-placed waypoints together.
+ */
+const POOL_BOUNDARY_EDGE_STEPS: PipelineStep[] = [
+  {
+    name: 'finalisePoolsAndLanes',
+    run: (ctx) => finalisePoolsAndLanes(ctx),
+  },
+  {
+    name: 'finaliseBoundaryTargets',
+    run: (ctx) => finaliseBoundaryTargets(ctx),
+    trackDelta: true,
+  },
+  {
+    name: 'applyEdgeRoutes',
+    run: (ctx) => applyEdgeRoutes(ctx),
+  },
+  {
+    // B1-6: normaliseOrigin takes (elementRegistry, modeling) directly; wrapped
+    // here so every step uniformly receives LayoutContext.
+    name: 'normaliseOrigin',
+    run: (ctx) => normaliseOrigin(ctx.elementRegistry, ctx.modeling),
+  },
+];
+
+/**
+ * B1-4c: Post-routing steps (steps 13–18 in the pipeline).
+ *
+ * These run after all edge routes have been placed.  The nested sub-runner
+ * inside `repairAndSimplifyEdges` preserves the B4 sub-step dependency chain.
+ * `detectCrossingFlows` writes its result to `ctx.crossingFlowsResult` so
+ * that `elkLayout()` can read it after the pipeline finishes.
+ */
+const POST_ROUTING_STEPS: PipelineStep[] = [
+  {
+    // B1-5: sub-steps run via a nested PipelineRunner that shares ctx.log
+    name: 'repairAndSimplifyEdges',
+    run: (ctx) => {
+      const subRunner = new PipelineRunner(REPAIR_SIMPLIFY_SUBSTEPS, ctx.log);
+      return subRunner.run(ctx);
+    },
+  },
+  {
+    // B1-6: clampFlowsToLaneBounds takes (elementRegistry, modeling) directly.
+    name: 'clampFlowsToLaneBounds',
+    run: (ctx) => clampFlowsToLaneBounds(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    // B1-6: routeCrossLaneStaircase takes (elementRegistry, modeling) directly.
+    name: 'routeCrossLaneStaircase',
+    run: (ctx) => routeCrossLaneStaircase(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'reduceCrossings-1st',
+    run: (ctx) => reduceCrossings(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    name: 'avoidElementIntersections',
+    run: (ctx) => avoidElementIntersections(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    // B6: second reduceCrossings — avoidance detours may introduce new crossings.
+    name: 'reduceCrossings-2nd',
+    run: (ctx) => reduceCrossings(ctx.elementRegistry, ctx.modeling),
+  },
+  {
+    // Read-only final step: writes result to ctx for return value extraction.
+    name: 'detectCrossingFlows',
+    run: (ctx) => {
+      ctx.crossingFlowsResult = detectCrossingFlows(ctx.elementRegistry);
+    },
+  },
+];
+
+/** All main-pipeline steps in execution order (for ordering tests / B1-8). */
+export const MAIN_PIPELINE_STEPS: readonly PipelineStep[] = [
+  ...NODE_POSITION_STEPS,
+  ...POOL_BOUNDARY_EDGE_STEPS,
+  ...POST_ROUTING_STEPS,
+];
+
+/** Sub-steps of the edge repair phase (for ordering tests / B1-8). */
+export const REPAIR_SIMPLIFY_PIPELINE_STEPS: readonly PipelineStep[] = REPAIR_SIMPLIFY_SUBSTEPS;
 
 // ── Main layout ─────────────────────────────────────────────────────────────
 
@@ -639,6 +817,9 @@ export async function elkLayout(
   const { offsetX, offsetY } = computeLayoutOffset(elementRegistry, options);
 
   // Build pipeline context
+  const snap = () => snapshotPositions(elementRegistry);
+  const countMoved = (before: PositionSnapshot) => countMovedElements(elementRegistry, before);
+
   const ctx: LayoutContext = {
     elementRegistry,
     modeling,
@@ -652,89 +833,21 @@ export async function elkLayout(
     boundaryLeafTargetIds,
     laneSnapshots: saveLaneNodeAssignments(elementRegistry),
     boundarySnapshots: saveBoundaryEventData(elementRegistry),
+    log, // B1-6: logger carried in context so sub-pipelines (B1-5) can share it
   };
 
-  // Execute layout pipeline
-  const snap = () => snapshotPositions(elementRegistry);
-  const countMoved = (before: PositionSnapshot) => countMovedElements(elementRegistry, before);
-
-  await log.stepAsyncWithDelta(
-    'applyNodePositions',
-    () => applyNodePositions(ctx),
-    snap,
-    countMoved
+  // Execute layout pipeline via PipelineRunner (B1-3/B1-4a/4b/4c).
+  // Step arrays are declared at module level (NODE_POSITION_STEPS, etc.) for
+  // testability (B1-8) and grouped by concern (node positioning, pool/boundary,
+  // post-routing).
+  const runner = new PipelineRunner(
+    [...NODE_POSITION_STEPS, ...POOL_BOUNDARY_EDGE_STEPS, ...POST_ROUTING_STEPS],
+    log,
+    { snap, count: countMoved }
   );
+  await runner.run(ctx);
 
-  log.stepWithDelta('fixBoundaryEvents', () => fixBoundaryEvents(ctx), snap, countMoved);
-  log.stepWithDelta('snapAndAlignLayers', () => snapAndAlignLayers(ctx), snap, countMoved);
-  log.stepWithDelta(
-    'gridSnapAndResolveOverlaps',
-    () => gridSnapAndResolveOverlaps(ctx),
-    snap,
-    countMoved
-  );
-  log.step('repositionArtifacts', () => repositionArtifacts(elementRegistry, modeling));
-  log.stepWithDelta(
-    'alignHappyPathAndOffPathEvents',
-    () => alignHappyPathAndOffPathEvents(ctx),
-    snap,
-    countMoved
-  );
-  // B5 — second resolveOverlaps: alignHappyPath pulls multiple elements
-  // (e.g. two start events, parallel branches) to the same Y coordinate,
-  // which can cause them to overlap horizontally.  This second pass repairs
-  // those overlaps without disturbing the happy-path row.
-  // Profiled: removing this pass causes overlap regressions in diagrams with
-  // ≥2 parallel start events or fan-out gateways (verified via overlap tests).
-  log.step('resolveOverlaps-2nd', () => {
-    forEachScope(elementRegistry, (scope) => {
-      resolveOverlaps(elementRegistry, modeling, scope);
-    });
-  });
-  log.step('finalisePoolsAndLanes', () => finalisePoolsAndLanes(ctx));
-  log.stepWithDelta(
-    'finaliseBoundaryTargets',
-    () => finaliseBoundaryTargets(ctx),
-    snap,
-    countMoved
-  );
-  // Apply edge routes before normalising origin.
-  // Normalising origin AFTER edge route application ensures that
-  // modeling.moveElements shifts both element positions AND their
-  // already-placed waypoints together, keeping flows aligned with their
-  // source/target elements.  If normaliseOrigin ran first, elements would
-  // shift but waypoints (not yet applied from ELK) would be placed at the
-  // old (pre-shift) coordinates, causing flows to appear displaced.
-  log.step('applyEdgeRoutes', () => applyEdgeRoutes(ctx));
-  // Normalise Y origin after edge routes are placed so that the shift
-  // is applied uniformly to both elements and their waypoints.
-  log.step('normaliseOrigin', () => normaliseOrigin(ctx.elementRegistry, ctx.modeling));
-  log.step('repairAndSimplifyEdges', () => repairAndSimplifyEdges(ctx));
-
-  // Clamp intra-lane flow waypoints to stay within lane bounds
-  log.step('clampFlowsToLaneBounds', () => clampFlowsToLaneBounds(elementRegistry, modeling));
-
-  // Route cross-lane flows as clean staircase shapes through lane boundaries
-  log.step('routeCrossLaneStaircase', () => routeCrossLaneStaircase(elementRegistry, modeling));
-
-  // Attempt to reduce edge crossings by nudging waypoints
-  log.step('reduceCrossings-1st', () => reduceCrossings(elementRegistry, modeling));
-
-  // Reroute connections that pass through unrelated element bounding boxes.
-  // Uses modeling.updateWaypoints with try/catch — bpmn-js's LineAttachmentUtil
-  // can throw on geometrically difficult paths (those connections are skipped).
-  log.step('avoidElementIntersections', () => avoidElementIntersections(elementRegistry, modeling));
-
-  // B6 — second reduceCrossings: avoidElementIntersections introduces detour
-  // waypoints to route around shapes; these detours can create new crossings
-  // with other edges.  A second crossing-reduction pass resolves them.
-  // Profiled: removing this pass regresses 5-10% of crossing counts in complex
-  // diagrams (verified via layout-idempotency + crossing-reduction tests).
-  log.step('reduceCrossings-2nd', () => reduceCrossings(elementRegistry, modeling));
-
-  const crossingFlowsResult = log.step('detectCrossingFlows', () =>
-    detectCrossingFlows(elementRegistry)
-  );
+  const crossingFlowsResult = ctx.crossingFlowsResult ?? { count: 0, pairs: [] };
   log.note('result', `crossingFlows=${crossingFlowsResult.count}`);
   log.finish();
   return {

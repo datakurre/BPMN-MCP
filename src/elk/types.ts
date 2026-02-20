@@ -6,6 +6,7 @@ import type { LayoutOptions, ElkNode } from 'elkjs';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import type { LaneSnapshot } from './lane-layout';
 import type { BoundaryEventSnapshot } from './boundary-save-restore';
+import type { LayoutLogger } from './layout-logger';
 
 /**
  * Typed ELK layout options for BPMN diagrams (J5).
@@ -260,6 +261,23 @@ export interface LayoutContext {
   boundaryLeafTargetIds: Set<string>;
   laneSnapshots: LaneSnapshot[];
   boundarySnapshots: BoundaryEventSnapshot[];
+  /**
+   * Logger for the current pipeline invocation (B1-6).
+   *
+   * Carried in context so that nested sub-pipelines (e.g. the
+   * `repairAndSimplifyEdges` sub-steps in B1-5) can create child
+   * {@link PipelineRunner} instances that share the same logger,
+   * producing unified timing output for the full pipeline run.
+   */
+  log: LayoutLogger;
+  /**
+   * Output slot populated by the `detectCrossingFlows` pipeline step.
+   *
+   * Storing the result on the context allows the step to be part of the
+   * declarative `PipelineStep[]` array while still making its return
+   * value available to `elkLayout()` after the runner completes.
+   */
+  crossingFlowsResult?: CrossingFlowsResult;
 }
 
 /**
