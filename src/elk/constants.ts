@@ -164,6 +164,18 @@ export const ELK_HIGH_PRIORITY = '10';
 export const EVENT_TASK_GAP_EXTRA = 0;
 
 /**
+ * Gap reduction (px) between intermediate event↔task layers (G1).
+ *
+ * Intermediate catch/throw events (timer, message, signal) appear mid-flow
+ * alongside tasks.  Camunda Modeler places them with slightly tighter
+ * horizontal spacing than start/end events, because they are compact
+ * shapes (36px) that appear inline with the main sequence flow rather
+ * than as bookend elements.  A 5px reduction produces spacing consistent
+ * with Camunda Modeler reference layouts.
+ */
+export const INTERMEDIATE_EVENT_TASK_GAP_REDUCE = 5;
+
+/**
  * Extra gap (px) added after a layer containing a boundary-event host.
  *
  * Tasks with attached boundary events need extra horizontal space to

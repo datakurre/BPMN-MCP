@@ -7,6 +7,7 @@
  */
 
 import {
+  BPMN_TASK_WIDTH,
   BPMN_TASK_HEIGHT,
   BPMN_EVENT_SIZE,
   BOUNDARY_TARGET_ROW_BUFFER,
@@ -22,6 +23,9 @@ const BPMN_SEQUENCE_FLOW = 'bpmn:SequenceFlow';
 
 /** BPMN type string for message flows. */
 const BPMN_MESSAGE_FLOW = 'bpmn:MessageFlow';
+
+/** BPMN type string for associations (used for compensation handler connections). */
+const BPMN_ASSOCIATION = 'bpmn:Association';
 
 /** Gap (px) between consecutive chain elements (edge-to-edge). */
 const BOUNDARY_CHAIN_GAP = 50;
@@ -147,6 +151,107 @@ export function identifyBoundaryExceptionChains(
   return result;
 }
 
+// ── Compensation handler positioning (G2) ────────────────────────────────────
+
+/**
+ * Check if a boundary event has a CompensateEventDefinition.
+ *
+ * Inspects `businessObject.eventDefinitions` (an array of moddle elements)
+ * for a `bpmn:CompensateEventDefinition` entry.
+ */
+function hasCompensateEventDefinition(el: BpmnElement): boolean {
+  const defs = el.businessObject?.eventDefinitions;
+  if (!Array.isArray(defs)) return false;
+  return (defs as Array<{ $type: string }>).some(
+    (def) => def.$type === 'bpmn:CompensateEventDefinition'
+  );
+}
+
+/**
+ * Reposition compensation handler activities (G2).
+ *
+ * Compensation handlers (tasks connected to a compensation boundary event
+ * via `bpmn:Association`) have no ELK-assigned layout position because ELK
+ * only considers sequence-flow connectivity.  This function detects
+ * compensation boundary events and places their associated handlers below
+ * the host element, similar to error exception chain targets.
+ *
+ * Only repositions handlers that are exclusively connected via association
+ * (no incoming or outgoing sequence flows).  Tasks that also participate
+ * in the main sequence flow keep their ELK-assigned positions.
+ *
+ * Compensation boundary events are identified by a `CompensateEventDefinition`
+ * in `businessObject.eventDefinitions`.  The handler activity is the target
+ * of the `bpmn:Association` originating from the boundary event.
+ */
+export function repositionCompensationHandlers(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling
+): void {
+  const allElements: BpmnElement[] = elementRegistry.getAll();
+
+  // Find all compensation boundary events
+  const compensationBEs = allElements.filter(
+    (el) => el.type === BPMN_BOUNDARY_EVENT_TYPE && !!el.host && hasCompensateEventDefinition(el)
+  );
+
+  if (compensationBEs.length === 0) return;
+
+  // Collect all associations
+  const associations = allElements.filter((el) => el.type === BPMN_ASSOCIATION);
+
+  // Build sequence-flow connectivity to identify isolated compensation handlers.
+  // Only reposition handlers that are NOT part of the normal sequence flow.
+  const seqFlowParticipants = new Set<string>();
+  for (const el of allElements) {
+    if (el.type === BPMN_SEQUENCE_FLOW) {
+      if (el.target) seqFlowParticipants.add(el.target.id);
+      if (el.source) seqFlowParticipants.add(el.source.id);
+    }
+  }
+
+  // Track how many compensation handlers have been placed per host
+  // to stack multiple handlers with a vertical offset.
+  const hostHandlerCount = new Map<string, number>();
+
+  for (const be of compensationBEs) {
+    const host = be.host!;
+
+    // Find the compensation handler via an association from this boundary event
+    const handlerAssoc = associations.find((assoc) => assoc.source?.id === be.id && !!assoc.target);
+    if (!handlerAssoc?.target) continue;
+
+    const handler = handlerAssoc.target;
+
+    // Skip tasks that are also part of the sequence flow
+    if (seqFlowParticipants.has(handler.id)) continue;
+
+    const handlerW = handler.width || BPMN_TASK_WIDTH;
+    const handlerH = handler.height || BPMN_TASK_HEIGHT;
+
+    // Stack multiple handlers on the same host with a Y offset
+    const handlerIndex = hostHandlerCount.get(host.id) || 0;
+    hostHandlerCount.set(host.id, handlerIndex + 1);
+    const stackOffset = handlerIndex * BOUNDARY_CHAIN_STACK_OFFSET;
+
+    // Position below host, aligned with the boundary event centre X
+    const hostBottom = host.y + (host.height || BPMN_TASK_HEIGHT);
+    const beCx = be.x + (be.width || BPMN_EVENT_SIZE) / 2;
+
+    const desiredCx = beCx + BOUNDARY_TARGET_X_OFFSET;
+    const desiredCy = hostBottom + BOUNDARY_TARGET_Y_OFFSET + stackOffset;
+
+    const currentCx = handler.x + handlerW / 2;
+    const currentCy = handler.y + handlerH / 2;
+
+    const dx = Math.round(desiredCx - currentCx);
+    const dy = Math.round(desiredCy - currentCy);
+
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      modeling.moveElements([handler], { x: dx, y: dy });
+    }
+  }
+}
 /**
  * Backwards-compatible alias for `identifyBoundaryExceptionChains`.
  * @deprecated Use `identifyBoundaryExceptionChains` instead.

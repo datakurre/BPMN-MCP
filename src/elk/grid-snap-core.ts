@@ -16,6 +16,7 @@ import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import { isConnection, isLayoutableShape } from './helpers';
 import {
   EVENT_TASK_GAP_EXTRA,
+  INTERMEDIATE_EVENT_TASK_GAP_REDUCE,
   GATEWAY_TASK_GAP_EXTRA,
   GATEWAY_EVENT_GAP_REDUCE,
   GATEWAY_GATEWAY_GAP_EXTRA,
@@ -111,18 +112,30 @@ function buildLayer(elements: BpmnElement[]): GridLayer {
 /**
  * Classify the dominant element category of a layer.
  *
- * Returns 'event', 'gateway', or 'task' (the default catch-all that
- * includes service tasks, user tasks, subprocesses, etc.).
+ * Returns 'intermediateEvent' for layers dominated by mid-flow catch/throw
+ * events (G1), 'event' for start/end event layers, 'gateway' for gateway
+ * layers, or 'task' (the default catch-all for tasks, subprocesses, etc.).
+ *
+ * Intermediate events are distinguished from start/end events because they
+ * appear inline with the main sequence flow and use slightly tighter
+ * horizontal spacing in Camunda Modeler reference layouts.
  */
-function dominantCategory(layer: GridLayer): 'event' | 'gateway' | 'task' {
-  let events = 0;
+function dominantCategory(layer: GridLayer): 'intermediateEvent' | 'event' | 'gateway' | 'task' {
+  let intermediateEvents = 0;
+  let startEndEvents = 0;
   let gateways = 0;
   for (const el of layer.elements) {
-    if (el.type?.includes('Event')) events++;
-    else if (el.type?.includes('Gateway')) gateways++;
+    if (el.type === 'bpmn:IntermediateCatchEvent' || el.type === 'bpmn:IntermediateThrowEvent') {
+      intermediateEvents++;
+    } else if (el.type?.includes('Event')) {
+      startEndEvents++;
+    } else if (el.type?.includes('Gateway')) {
+      gateways++;
+    }
   }
   const total = layer.elements.length;
-  if (events > 0 && events >= total / 2) return 'event';
+  if (intermediateEvents > 0 && intermediateEvents >= total / 2) return 'intermediateEvent';
+  if (startEndEvents > 0 && startEndEvents >= total / 2) return 'event';
   if (gateways > 0 && gateways >= total / 2) return 'gateway';
   return 'task';
 }
@@ -134,9 +147,11 @@ function dominantCategory(layer: GridLayer): 'event' | 'gateway' | 'task' {
  * Uses ELK_LAYER_SPACING as the baseline and applies small adjustments
  * for element type pairs to produce more natural-looking spacing:
  *
- * - **Event → Task / Task → Event**: slightly larger gap because events
- *   are small (36px wide) and need visual breathing room next to larger
- *   task shapes.
+ * - **IntermediateEvent → Task / Task → IntermediateEvent**: slightly tighter
+ *   gap (G1) — intermediate catch/throw events appear inline with the main
+ *   flow and use compact spacing in Camunda Modeler reference layouts.
+ * - **Event → Task / Task → Event**: baseline gap — start/end events are
+ *   bookend shapes that use the same spacing as task-to-task transitions.
  * - **Gateway → Task / Task → Gateway**: slightly larger gap — gateways
  *   (50px) are narrower than tasks (100px) and need a small gap boost
  *   to produce balanced visual spacing.
@@ -156,6 +171,24 @@ function computeInterLayerGap(
   const base = baseSpacing ?? ELK_LAYER_SPACING;
   const prevCat = dominantCategory(prevLayer);
   const nextCat = dominantCategory(nextLayer);
+
+  // IntermediateEvent ↔ Task: tighter spacing (G1)
+  // Intermediate events are inline compact shapes that Camunda Modeler
+  // places with slightly tighter horizontal spacing than start/end events.
+  if (
+    (prevCat === 'intermediateEvent' && nextCat === 'task') ||
+    (prevCat === 'task' && nextCat === 'intermediateEvent')
+  ) {
+    return base - INTERMEDIATE_EVENT_TASK_GAP_REDUCE;
+  }
+
+  // IntermediateEvent ↔ Gateway: treat like event↔gateway (both compact)
+  if (
+    (prevCat === 'intermediateEvent' && nextCat === 'gateway') ||
+    (prevCat === 'gateway' && nextCat === 'intermediateEvent')
+  ) {
+    return base - GATEWAY_EVENT_GAP_REDUCE;
+  }
 
   // Event ↔ Task: add breathing room (events are small beside large tasks)
   if ((prevCat === 'event' && nextCat === 'task') || (prevCat === 'task' && nextCat === 'event')) {
@@ -183,7 +216,7 @@ function computeInterLayerGap(
     return base - GATEWAY_EVENT_GAP_REDUCE;
   }
 
-  // All other pairs (task→task, event→event): baseline
+  // All other pairs (task→task, event→event, intermediateEvent→event, etc.): baseline
   return base;
 }
 

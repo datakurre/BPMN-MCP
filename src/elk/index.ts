@@ -73,6 +73,7 @@ import {
   repositionBoundaryEventTargets,
   alignOffPathEndEventsToSecondRow,
   pushBoundaryTargetsBelowHappyPath,
+  repositionCompensationHandlers,
 } from './boundary-events';
 import {
   snapSameLayerElements,
@@ -336,6 +337,13 @@ function finaliseBoundaryTargets(ctx: LayoutContext): void {
     ctx.boundaryLeafTargetIds,
     ctx.happyPathEdgeIds
   );
+
+  // Reposition compensation handler tasks (G2).
+  // Compensation handlers are connected to their compensation boundary event
+  // via bpmn:Association (not sequence flow), so ELK has no knowledge of
+  // where to place them.  We position them below the host task here, after
+  // all ELK-driven positioning is complete.
+  repositionCompensationHandlers(ctx.elementRegistry, ctx.modeling);
 }
 
 /**

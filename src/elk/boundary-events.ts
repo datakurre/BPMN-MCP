@@ -27,4 +27,5 @@ export {
   repositionBoundaryEventTargets,
   alignOffPathEndEventsToSecondRow,
   pushBoundaryTargetsBelowHappyPath,
+  repositionCompensationHandlers,
 } from './boundary-chains';
