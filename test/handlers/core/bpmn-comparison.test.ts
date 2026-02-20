@@ -66,17 +66,19 @@ interface DiagramConfig {
 }
 
 const DIAGRAMS: DiagramConfig[] = [
-  // Simple flow diagrams — layout differences tracked
-  { name: '01-linear-flow', tolerance: 50, minMatchRate: 0.0 },
-  { name: '02-exclusive-gateway', tolerance: 50, minMatchRate: 0.0 },
-  { name: '03-parallel-fork-join', tolerance: 50, minMatchRate: 0.0 },
-  { name: '04-nested-subprocess', tolerance: 50, minMatchRate: 0.0 },
-  { name: '05-collaboration', tolerance: 50, minMatchRate: 0.0 },
-  { name: '06-boundary-events', tolerance: 50, minMatchRate: 0.0 },
-  { name: '07-complex-workflow', tolerance: 100, minMatchRate: 0.0 },
-  { name: '08-collaboration-collapsed', tolerance: 50, minMatchRate: 0.0 },
-  { name: '09-complex-workflow', tolerance: 100, minMatchRate: 0.0 },
-  { name: '10-pool-with-lanes', tolerance: 50, minMatchRate: 0.0 },
+  // Simple flow diagrams — I7-3: tightened minMatchRate from 0.0 to meaningful thresholds.
+  // 06-boundary-events is currently at 71.4% due to boundary event positioning
+  // differences — kept at 0.6 (71.4% > 60% ✓).
+  { name: '01-linear-flow', tolerance: 50, minMatchRate: 0.9 },
+  { name: '02-exclusive-gateway', tolerance: 50, minMatchRate: 0.8 },
+  { name: '03-parallel-fork-join', tolerance: 50, minMatchRate: 0.8 },
+  { name: '04-nested-subprocess', tolerance: 50, minMatchRate: 0.9 },
+  { name: '05-collaboration', tolerance: 50, minMatchRate: 0.8 },
+  { name: '06-boundary-events', tolerance: 50, minMatchRate: 0.6 },
+  { name: '07-complex-workflow', tolerance: 100, minMatchRate: 0.8 },
+  { name: '08-collaboration-collapsed', tolerance: 50, minMatchRate: 0.8 },
+  { name: '09-complex-workflow', tolerance: 100, minMatchRate: 0.8 },
+  { name: '10-pool-with-lanes', tolerance: 50, minMatchRate: 0.8 },
 ];
 
 // ── Tests ──────────────────────────────────────────────────────────────────

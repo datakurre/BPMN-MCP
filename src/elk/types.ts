@@ -162,12 +162,28 @@ export interface ElkLayoutOptions {
   /** Pin the main (happy) path to a single row for visual clarity. */
   preserveHappyPath?: boolean;
   /**
-   * Enable post-ELK grid snap pass (default: true).
+   * Grid snap: enable/disable post-ELK grid snap (default: true).
    * When true, quantises node positions to a virtual grid for visual
    * regularity matching bpmn-auto-layout's aesthetic.
    * When false, preserves pure ELK positioning.
    */
   gridSnap?: boolean;
+  /**
+   * Grid quantum (px) for pixel-level snapping after layout (D3).
+   *
+   * When set, shapes are snapped to the nearest multiple of this value
+   * and intermediate connection waypoints are rounded to the same grid
+   * after all other layout passes complete.
+   *
+   * Common value: 10 — bpmn-js's interactive editing grid quantum.
+   * This ensures MCP-generated diagrams land on the same pixel grid
+   * that Camunda Modeler uses, preventing misalignment when users
+   * later edit the diagram interactively.
+   *
+   * Exposed via the `gridSnap` number parameter of `layout_bpmn_diagram`
+   * (which already accepts `number | boolean`).
+   */
+  gridQuantum?: number;
   /**
    * Simplify gateway branch routes to clean L/Z-shaped paths (default: true).
    * When false, preserves ELK's original crossing-minimised routing.

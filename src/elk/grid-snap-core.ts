@@ -492,3 +492,67 @@ export function gridSnapPass(
   // their immediate predecessor's Y to form clean visual rows.
   alignBoundarySubFlowEndEvents(elementRegistry, modeling);
 }
+// ── Pixel-grid snap utilities (D3) ─────────────────────────────────────────
+
+/**
+ * Snap all layoutable shape positions to a pixel grid (D3-1).
+ *
+ * Applied as a final pass after all other layout steps to ensure
+ * visual regularity and alignment with bpmn-js's interactive editing
+ * grid quantum (default: 10px).
+ *
+ * Boundary events are excluded — they must stay on their host shape's
+ * boundary, which may not align to the grid.
+ *
+ * @param quantum Grid quantum in pixels (e.g. 10 for bpmn-js's grid).
+ */
+export function snapShapesToPixelGrid(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling,
+  quantum: number
+): void {
+  const shapes = elementRegistry.filter(
+    (el) => isLayoutableShape(el) && el.type !== 'bpmn:BoundaryEvent'
+  );
+  for (const el of shapes) {
+    const snappedX = Math.round(el.x / quantum) * quantum;
+    const snappedY = Math.round(el.y / quantum) * quantum;
+    if (snappedX !== el.x || snappedY !== el.y) {
+      modeling.moveElements([el], { x: snappedX - el.x, y: snappedY - el.y });
+    }
+  }
+}
+
+/**
+ * Snap connection waypoint coordinates to a pixel grid (D3-2).
+ *
+ * Intermediate waypoints are rounded to the nearest grid quantum.
+ * Endpoint waypoints (first and last) are excluded to keep them on
+ * shape boundaries, which may not align to the grid.
+ *
+ * @param quantum Grid quantum in pixels (e.g. 10).
+ */
+export function snapWaypointsToPixelGrid(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling,
+  quantum: number
+): void {
+  const connections = elementRegistry.filter(
+    (el) => isConnection(el.type) && !!el.waypoints && el.waypoints.length >= 2
+  );
+  for (const conn of connections) {
+    const wps = conn.waypoints!;
+    const snapped = wps.map((wp, i) => {
+      // Preserve endpoints — they must stay on shape boundaries
+      if (i === 0 || i === wps.length - 1) return { x: wp.x, y: wp.y };
+      return {
+        x: Math.round(wp.x / quantum) * quantum,
+        y: Math.round(wp.y / quantum) * quantum,
+      };
+    });
+    const changed = snapped.some((wp, i) => wp.x !== wps[i].x || wp.y !== wps[i].y);
+    if (changed) {
+      modeling.updateWaypoints(conn, snapped);
+    }
+  }
+}

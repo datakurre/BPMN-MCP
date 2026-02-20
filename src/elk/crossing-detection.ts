@@ -234,15 +234,12 @@ export function reduceCrossings(elementRegistry: ElementRegistry, modeling: Mode
 
   let eliminated = 0;
 
-  // Build a crossing index: for each connection, which others does it cross?
-  const crossingPairs = new Set<string>();
-  for (let i = 0; i < connections.length; i++) {
-    for (let j = i + 1; j < connections.length; j++) {
-      if (edgesCross(connections[i], connections[j])) {
-        crossingPairs.add(pairKey(connections[i].id, connections[j].id));
-      }
-    }
-  }
+  // Build crossing index using the O(n log n) sweep-line algorithm (E6-1).
+  // detectCrossingFlows() uses a fast H×V sweep instead of the O(n²)
+  // pairwise edgesCross() loop, cutting detection cost significantly for
+  // diagrams with many connections.
+  const { pairs: detectedPairs } = detectCrossingFlows(elementRegistry);
+  const crossingPairs = new Set(detectedPairs.map(([a, b]) => pairKey(a, b)));
 
   if (crossingPairs.size === 0) return 0;
 
@@ -358,6 +355,52 @@ function tryNudgeToAvoidCrossing(
       for (let k = 1; k < candidate.length - 1; k++) {
         if (Math.abs(candidate[k].x - baseX) < 2) {
           candidate[k] = { x: candidate[k].x + dx, y: candidate[k].y };
+        }
+      }
+
+      // Check: does the nudge eliminate the target crossing?
+      let stillCrosses = false;
+      const wpsB = crossingWith.waypoints!;
+      for (let a = 0; a < candidate.length - 1 && !stillCrosses; a++) {
+        for (let b = 0; b < wpsB.length - 1 && !stillCrosses; b++) {
+          if (segmentsIntersect(candidate[a], candidate[a + 1], wpsB[b], wpsB[b + 1])) {
+            stillCrosses = true;
+          }
+        }
+      }
+      if (stillCrosses) continue;
+
+      // Check: did we create more crossings overall?
+      const newCrossings = countCrossingsWithCandidate(candidate, allConnections, toNudge.id);
+      if (newCrossings >= currentCrossings) continue;
+
+      // Accept the nudge
+      modeling.updateWaypoints(toNudge, deduplicateWaypoints(candidate));
+      return true;
+    }
+  }
+
+  // Try nudging each internal horizontal segment vertically (E6-2).
+  // Symmetric to the vertical-segment case above: when two horizontal
+  // runs share the same Y, nudging one up or down by CROSSING_NUDGE_PX
+  // can eliminate a horizontal-overlap crossing.
+  for (let i = 1; i < wps.length - 1; i++) {
+    // An internal point is part of a horizontal segment if its Y differs
+    // from a neighbour by < 2px (near-horizontal in orthogonal routes).
+    const prevIsHoriz = Math.abs(wps[i - 1].y - wps[i].y) < 2;
+    const nextIsHoriz = i < wps.length - 1 && Math.abs(wps[i].y - wps[i + 1].y) < 2;
+
+    if (!prevIsHoriz && !nextIsHoriz) continue;
+
+    for (const dy of [-CROSSING_NUDGE_PX, CROSSING_NUDGE_PX]) {
+      const candidate = wps.map((w) => ({ x: w.x, y: w.y }));
+
+      // Nudge the horizontal run: shift all consecutive points sharing
+      // the same Y as wps[i].
+      const baseY = wps[i].y;
+      for (let k = 1; k < candidate.length - 1; k++) {
+        if (Math.abs(candidate[k].y - baseY) < 2) {
+          candidate[k] = { x: candidate[k].x, y: candidate[k].y + dy };
         }
       }
 

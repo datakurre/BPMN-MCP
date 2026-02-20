@@ -14,11 +14,21 @@ import {
   computeLayoutQualityMetrics,
   type ContainerSizingIssue,
 } from './layout-quality-metrics';
+import { snapWaypointsToPixelGrid } from '../../elk/grid-snap';
 export { checkDiIntegrity, repairMissingDiShapes } from './layout-di-repair';
 
 // ── Pixel grid snapping ────────────────────────────────────────────────────
 
-/** Apply pixel-level grid snapping to all visible non-flow elements. */
+/**
+ * Apply pixel-level grid snapping to all shapes and connection waypoints.
+ *
+ * Snaps shape x/y positions and intermediate waypoints to the nearest
+ * multiple of `pixelGridSnap` (e.g. 10 for bpmn-js's 10px interactive
+ * grid).  Boundary events are excluded from shape snapping since they
+ * must stay on their host boundary.  Connection endpoints (first/last
+ * waypoint) are excluded from waypoint snapping to keep them on shape
+ * boundaries.
+ */
 export function applyPixelGridSnap(diagram: any, pixelGridSnap: number): void {
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const modeling = getService(diagram.modeler, 'modeling');
@@ -36,6 +46,8 @@ export function applyPixelGridSnap(diagram: any, pixelGridSnap: number): void {
       modeling.moveElements([el], { x: snappedX - el.x, y: snappedY - el.y });
     }
   }
+  // D3-2: Also snap intermediate connection waypoints.
+  snapWaypointsToPixelGrid(elementRegistry, modeling, pixelGridSnap);
 }
 
 // ── Displacement stats for dry-run ─────────────────────────────────────────

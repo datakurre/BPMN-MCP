@@ -9,7 +9,12 @@
  * This barrel re-exports all public functions for backward compatibility.
  */
 
-export { detectLayers, gridSnapPass } from './grid-snap-core';
+export {
+  detectLayers,
+  gridSnapPass,
+  snapShapesToPixelGrid,
+  snapWaypointsToPixelGrid,
+} from './grid-snap-core';
 export {
   centreGatewaysOnBranches,
   symmetriseGatewayBranches,
