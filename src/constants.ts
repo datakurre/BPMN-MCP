@@ -87,9 +87,9 @@ export const ELEMENT_SIZES: Readonly<Record<string, { width: number; height: num
 export const ELEMENT_LABEL_DISTANCE = 10;
 
 /**
- * Extra distance for labels placed below events.
- * Set to 0 for optimal visual spacing — event labels use only
- * ELEMENT_LABEL_DISTANCE for their bottom gap.
+ * @deprecated No longer used — bottom label position now computed using
+ * bpmn-js convention: centre at `element.bottom + DEFAULT_LABEL_SIZE.height / 2`.
+ * Kept to avoid breaking any external callers; value is 0.
  */
 export const ELEMENT_LABEL_BOTTOM_EXTRA = 0;
 
@@ -97,12 +97,13 @@ export const ELEMENT_LABEL_BOTTOM_EXTRA = 0;
 export const DEFAULT_LABEL_SIZE = { width: 90, height: 20 };
 
 /**
- * Default label position priority (top first).
- * Used for gateways and data objects/stores where top is preferred.
+ * Default label position priority (bottom first).
+ * Matches bpmn-js `getExternalLabelMid()` which places all external labels
+ * below the element by default.  Used for gateways and data objects/stores.
  */
 export const LABEL_POSITION_PRIORITY: readonly ('top' | 'bottom' | 'left' | 'right')[] = [
-  'top',
   'bottom',
+  'top',
   'left',
   'right',
 ];

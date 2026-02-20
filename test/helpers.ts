@@ -46,4 +46,8 @@ export {
   type TypeMatchRate,
   type PerTypeMatchRates,
   computePerTypeMatchRates,
+  type LabelPosition,
+  extractLabelPositionsFromBpmn,
+  type LabelPositionComparison,
+  compareLabelPositions,
 } from './utils/layout-comparison';

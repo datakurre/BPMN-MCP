@@ -56,7 +56,7 @@ const EXPECTED_MAIN_STEPS = [
  */
 const EXPECTED_REPAIR_SUBSTEPS = [
   'fixDisconnectedEdges',
-  'snapEndpointsToElementCentres',
+  'croppingDockPass',
   'rebuildOffRowGatewayRoutes',
   'separateOverlappingGatewayFlows',
   'simplifyCollinearWaypoints',
@@ -128,9 +128,9 @@ describe('pipeline step ordering (B1-8)', () => {
     expect(names[names.length - 1]).toBe('detectCrossingFlows');
   });
 
-  test('B4 sub-step ordering: snapEndpoints runs before rebuildOffRow', () => {
+  test('B4 sub-step ordering: croppingDockPass runs before rebuildOffRow', () => {
     const names = REPAIR_SIMPLIFY_PIPELINE_STEPS.map((s) => s.name);
-    const snapIdx = names.indexOf('snapEndpointsToElementCentres');
+    const snapIdx = names.indexOf('croppingDockPass');
     const rebuildIdx = names.indexOf('rebuildOffRowGatewayRoutes');
     const simplifyIdx = names.indexOf('simplifyCollinearWaypoints');
     const snapOrthoIdx = names.indexOf('snapAllConnectionsOrthogonal');

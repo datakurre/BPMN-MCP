@@ -20,7 +20,7 @@
  * 7. Apply ELK edge sections as waypoints → applyElkEdgeRoutes()
  * 7.5. Route branch connections through inter-column channels → routeBranchConnectionsThroughChannels()
  * 8. Repair disconnected edge endpoints → fixDisconnectedEdges()
- * 8.3. Snap flow endpoints to element centres → snapEndpointsToElementCentres()
+ * 8.3. Snap endpoints to shape boundaries → croppingDockPass() (D1-3, replaces snapEndpointsToElementCentres)
  * 8.5. Simplify collinear waypoints → simplifyCollinearWaypoints()
  * 8.6. Remove micro-bends and short-segment staircases → removeMicroBends()
  * 8.7. Separate overlapping collinear gateway flows → separateOverlappingGatewayFlows()
@@ -87,7 +87,7 @@ import {
   fixDisconnectedEdges,
   simplifyCollinearWaypoints,
   simplifyGatewayBranchRoutes,
-  snapEndpointsToElementCentres,
+  croppingDockPass,
   rebuildOffRowGatewayRoutes,
   separateOverlappingGatewayFlows,
   removeMicroBends,
@@ -457,9 +457,10 @@ function applyEdgeRoutes(ctx: LayoutContext): void {
  *
  * ```
  * fixDisconnectedEdges          — requires: element positions; provides: connected endpoints
- * snapEndpointsToElementCentres — requires: connected endpoints; provides: centre-aligned endpoints
- * rebuildOffRowGatewayRoutes    — requires: centre-aligned endpoints; provides: L/Z-bend routes
- *                                 (depends on snapEndpointsToElementCentres to know correct Y)
+ * croppingDockPass              — requires: connected endpoints; provides: shape-boundary-aligned endpoints
+ *                                 (D1-3: replaces snapEndpointsToElementCentres; uses CroppingConnectionDocking
+ *                                 for accurate endpoint placement on circles/diamonds/rounded-rects)
+ * rebuildOffRowGatewayRoutes    — requires: boundary-aligned endpoints; provides: L/Z-bend routes
  * separateOverlappingGatewayFlows — requires: L/Z-bend routes; provides: non-overlapping collinear flows
  * simplifyCollinearWaypoints    — requires: non-overlapping routes; provides: minimal-waypoint routes
  *                                 (must run after separation so the merged segments are clean)
@@ -496,8 +497,11 @@ const REPAIR_SIMPLIFY_SUBSTEPS: PipelineStep[] = [
     run: (ctx) => fixDisconnectedEdges(ctx.elementRegistry, ctx.modeling),
   },
   {
-    name: 'snapEndpointsToElementCentres',
-    run: (ctx) => snapEndpointsToElementCentres(ctx.elementRegistry, ctx.modeling),
+    // D1-3: Replace centre-snap with CroppingConnectionDocking for accurate
+    // shape-boundary endpoints (circles for events, diamonds for gateways).
+    // Falls back to snapEndpointsToElementCentres when connectionDocking is null.
+    name: 'croppingDockPass',
+    run: (ctx) => croppingDockPass(ctx.elementRegistry, ctx.modeling, ctx.connectionDocking),
   },
   {
     name: 'rebuildOffRowGatewayRoutes',
@@ -759,6 +763,14 @@ export async function elkLayout(
   const modeling = diagram.modeler.get('modeling');
   const canvas = diagram.modeler.get('canvas');
 
+  // D1-3: Get CroppingConnectionDocking service for accurate shape-boundary endpoints.
+  let connectionDocking: { getCroppedWaypoints: (conn: any) => any[] } | null = null;
+  try {
+    connectionDocking = diagram.modeler.get('connectionDocking') as typeof connectionDocking;
+  } catch {
+    // Service not available — croppingDockPass will fall back to snapEndpointsToElementCentres
+  }
+
   // Determine the layout root: scoped to a specific element, or the whole diagram
   const rootElement = resolveRootElement(elementRegistry, canvas, options);
 
@@ -823,6 +835,7 @@ export async function elkLayout(
   const ctx: LayoutContext = {
     elementRegistry,
     modeling,
+    connectionDocking,
     result,
     offsetX,
     offsetY,

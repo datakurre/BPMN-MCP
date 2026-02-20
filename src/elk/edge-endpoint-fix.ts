@@ -194,6 +194,81 @@ export function fixDisconnectedEdges(elementRegistry: ElementRegistry, modeling:
   }
 }
 
+// ── Cropping docking pass (D1-3) ────────────────────────────────────────────
+
+/**
+ * Snap connection endpoints to actual BPMN shape boundaries using
+ * `CroppingConnectionDocking` (D1-3).
+ *
+ * bpmn-js's `CroppingConnectionDocking` computes path intersection with
+ * the SVG outline of each shape (circle for events, diamond for gateways,
+ * rounded-rect for tasks).  This is more accurate than rectangular
+ * clamping via `nearestBorderPoint()` for non-rectangular shapes.
+ *
+ * Replaces `snapEndpointsToElementCentres` in the main layout pipeline.
+ * Falls back to `snapEndpointsToElementCentres` if `connectionDocking`
+ * is null (should not occur in practice).
+ *
+ * Skips boundary events and message flows (same exclusions as
+ * `snapEndpointsToElementCentres`).  The docking service sets `.original`
+ * on each endpoint to the pre-crop waypoint, enabling ManhattanLayout
+ * to re-route correctly when users subsequently move elements in Camunda
+ * Modeler (D1-5: removes need for manual `.original` assignment).
+ */
+export function croppingDockPass(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling,
+  connectionDocking: { getCroppedWaypoints: (conn: any) => any[] } | null
+): void {
+  // Fall back to centre-snap if docking service is unavailable.
+  if (!connectionDocking) {
+    snapEndpointsToElementCentres(elementRegistry, modeling);
+    return;
+  }
+
+  const BPMN_SEQUENCE_FLOW = 'bpmn:SequenceFlow';
+  const BPMN_BOUNDARY_EVENT = 'bpmn:BoundaryEvent';
+
+  const connections = elementRegistry.filter(
+    (el) =>
+      el.type === BPMN_SEQUENCE_FLOW &&
+      !!el.source &&
+      !!el.target &&
+      !!el.waypoints &&
+      el.waypoints.length >= 2 &&
+      el.source.type !== BPMN_BOUNDARY_EVENT
+  );
+
+  for (const conn of connections) {
+    let croppedWaypoints: any[];
+    try {
+      croppedWaypoints = connectionDocking.getCroppedWaypoints(conn);
+    } catch {
+      // Docking failed for this connection (e.g. missing SVG path polyfill
+      // for an unusual shape type) — skip and leave the existing waypoints.
+      continue;
+    }
+
+    if (!croppedWaypoints || croppedWaypoints.length < 2) {
+      continue;
+    }
+
+    // Check if docking actually changed the endpoints (avoid no-op updates).
+    const first = conn.waypoints![0];
+    const last = conn.waypoints![conn.waypoints!.length - 1];
+    const newFirst = croppedWaypoints[0];
+    const newLast = croppedWaypoints[croppedWaypoints.length - 1];
+
+    const dx0 = Math.abs((newFirst.x ?? 0) - (first.x ?? 0));
+    const dy0 = Math.abs((newFirst.y ?? 0) - (first.y ?? 0));
+    const dxN = Math.abs((newLast.x ?? 0) - (last.x ?? 0));
+    const dyN = Math.abs((newLast.y ?? 0) - (last.y ?? 0));
+
+    if (dx0 > 0.5 || dy0 > 0.5 || dxN > 0.5 || dyN > 0.5) {
+      modeling.updateWaypoints(conn, croppedWaypoints);
+    }
+  }
+}
 // ── Endpoint centre-snap pass ──────────────────────────────────────────────
 
 /**
@@ -212,6 +287,9 @@ export function fixDisconnectedEdges(elementRegistry: ElementRegistry, modeling:
  * Boundary events and message flows are skipped (they have special routing).
  *
  * Should run after fixDisconnectedEdges and before snapAllConnectionsOrthogonal.
+ *
+ * @deprecated Use `croppingDockPass()` instead (D1-3). Kept for use in
+ * `elkLayoutSubset()` which does not have access to the connectionDocking service.
  */
 export function snapEndpointsToElementCentres(
   elementRegistry: ElementRegistry,

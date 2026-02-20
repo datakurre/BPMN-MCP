@@ -208,27 +208,14 @@ export function applyElkEdgeRoutes(
         }
       }
 
-      // D2: Add `.original` to connection endpoints.
-      // bpmn-js's CroppingConnectionDocking uses `.original` to store the
-      // pre-cropped ideal endpoint position when it clips connection paths to
-      // shape boundaries during interactive editing.  When waypoints are set
-      // programmatically (as we do here), bpmn-js does not apply cropping and
-      // `.original` is absent.  Setting `.original` equal to the actual
-      // waypoint position ensures compatibility with subsequent bpmn-js
-      // operations (e.g. when the user moves a connected element after layout):
-      // ManhattanLayout and DockingUtil will use the pre-saved original to
-      // re-compute the new cropped endpoint, preventing a wrong route being
-      // drawn from a stale (undefined) original.
-      if (deduped.length >= 2) {
-        (deduped[0] as Record<string, unknown>).original = {
-          x: deduped[0].x,
-          y: deduped[0].y,
-        };
-        (deduped[deduped.length - 1] as Record<string, unknown>).original = {
-          x: deduped[deduped.length - 1].x,
-          y: deduped[deduped.length - 1].y,
-        };
-      }
+      // D1-5: `.original` is no longer set manually here.
+      // `croppingDockPass` (D1-3) runs after applyElkEdgeRoutes and calls
+      // `CroppingConnectionDocking.getCroppedWaypoints()` which sets `.original`
+      // to the pre-crop waypoint position automatically — a more semantically
+      // correct value than setting `.original = actual`.
+      // Note: for boundary events and message flows that `croppingDockPass`
+      // skips, `.original` remains unset, which is the same behaviour as before
+      // (bpmn-js falls back gracefully when `.original` is absent).
 
       modeling.updateWaypoints(conn, deduped);
     } else {

@@ -133,14 +133,16 @@ describe('label-utils', () => {
       expect(bottom.rect.y).toBeGreaterThanOrEqual(element.y + element.height);
     });
 
-    test('bottom label includes ELEMENT_LABEL_BOTTOM_EXTRA spacing', () => {
+    test('bottom label uses bpmn-js convention: centre at element.bottom + DEFAULT_LABEL_SIZE.height/2', () => {
       const element = { x: 100, y: 100, width: 36, height: 36 };
       const candidates = getLabelCandidatePositions(element);
       const bottom = candidates.find((c) => c.orientation === 'bottom')!;
 
-      // Bottom gap should be ELEMENT_LABEL_DISTANCE + ELEMENT_LABEL_BOTTOM_EXTRA = 10
-      const actualGap = bottom.rect.y - (element.y + element.height);
-      expect(actualGap).toBe(10); // 10 + 0
+      // D4-2: bpmn-js getExternalLabelMid places centre at element.bottom + 10.
+      // For standard label height (20px): rect.y = element.bottom + 10 - 10 = element.bottom.
+      // Gap between element bottom and label top is 0 for standard label height.
+      const expectedY = element.y + element.height + 10 - bottom.rect.height / 2;
+      expect(bottom.rect.y).toBe(expectedY); // should be element.bottom for lh=20
     });
 
     test('candidates have proper width and height', () => {

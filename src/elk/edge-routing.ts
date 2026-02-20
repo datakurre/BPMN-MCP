@@ -20,6 +20,7 @@ export {
 export {
   fixDisconnectedEdges,
   snapEndpointsToElementCentres,
+  croppingDockPass,
   rebuildOffRowGatewayRoutes,
   separateOverlappingGatewayFlows,
   routeLoopbacksBelow,

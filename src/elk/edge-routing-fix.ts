@@ -9,7 +9,11 @@
  * This barrel preserves backward compatibility for existing imports.
  */
 
-export { fixDisconnectedEdges, snapEndpointsToElementCentres } from './edge-endpoint-fix';
+export {
+  fixDisconnectedEdges,
+  snapEndpointsToElementCentres,
+  croppingDockPass,
+} from './edge-endpoint-fix';
 export {
   rebuildOffRowGatewayRoutes,
   separateOverlappingGatewayFlows,

@@ -6,7 +6,6 @@
 
 import {
   ELEMENT_LABEL_DISTANCE,
-  ELEMENT_LABEL_BOTTOM_EXTRA,
   DEFAULT_LABEL_SIZE,
   LABEL_POSITION_PRIORITY,
   EVENT_LABEL_POSITION_PRIORITY,
@@ -102,9 +101,14 @@ export function getLabelCandidatePositions(
         rect = { x: midX - lw / 2, y: element.y - gap - lh, width: lw, height: lh };
         break;
       case 'bottom':
+        // D4-2: match bpmn-js getExternalLabelMid() convention — label centre
+        // is at element.bottom + DEFAULT_LABEL_SIZE.height / 2 (i.e. 10 px below
+        // the element's bottom edge), so the rect's top is at:
+        //   element.bottom + DEFAULT_LABEL_SIZE.height / 2 - lh / 2
+        // For the standard label height of 20 px this simplifies to element.bottom.
         rect = {
           x: midX - lw / 2,
-          y: element.y + element.height + gap + ELEMENT_LABEL_BOTTOM_EXTRA,
+          y: element.y + element.height + DEFAULT_LABEL_SIZE.height / 2 - lh / 2,
           width: lw,
           height: lh,
         };
@@ -148,7 +152,7 @@ export function getLabelCandidatePositions(
       orientation: 'bottom' as LabelOrientation,
       rect: {
         x: element.x - dlw - diagonalGap + element.width / 2,
-        y: element.y + element.height + diagonalGap + ELEMENT_LABEL_BOTTOM_EXTRA,
+        y: element.y + element.height + diagonalGap,
         width: dlw,
         height: dlh,
       },
@@ -157,7 +161,7 @@ export function getLabelCandidatePositions(
       orientation: 'bottom' as LabelOrientation,
       rect: {
         x: element.x + element.width / 2 + diagonalGap,
-        y: element.y + element.height + diagonalGap + ELEMENT_LABEL_BOTTOM_EXTRA,
+        y: element.y + element.height + diagonalGap,
         width: dlw,
         height: dlh,
       },

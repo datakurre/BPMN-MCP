@@ -27,6 +27,7 @@ import {
   extractProcessXml,
   compareBpmnPositions,
   extractBpmnPositions,
+  compareLabelPositions,
   type compareWithNormalisation,
 } from '../../helpers';
 
@@ -112,7 +113,24 @@ describe('BPMN position comparison (normalised)', () => {
         const result = compareBpmnPositions(refXml, genXml, config.tolerance);
         logBpmnMismatches(config.name, result);
 
-        // Assert minimum match rate
+        // D4-3: Also compare label positions (informational — no strict assertion,
+        // since Camunda Modeler's label positions may differ from bpmn-js defaults).
+        const labelResult = compareLabelPositions(refXml, genXml, 15);
+        if (labelResult.totalLabels > 0) {
+          console.error(
+            `  Labels: ${(labelResult.matchRate * 100).toFixed(1)}% within 15px ` +
+              `(${labelResult.matchedLabels}/${labelResult.totalLabels})`
+          );
+          if (labelResult.mismatches.length > 0) {
+            for (const m of labelResult.mismatches.slice(0, 3)) {
+              console.error(
+                `    label[${m.elementId}]: refY=${m.refY} genY=${m.genY} normDy=${m.dy.toFixed(0)}`
+              );
+            }
+          }
+        }
+
+        // Assert minimum match rate (shape positions)
         expect(
           result.matchRate,
           `Match rate ${(result.matchRate * 100).toFixed(1)}% below minimum ${(config.minMatchRate * 100).toFixed(1)}%`

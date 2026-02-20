@@ -251,6 +251,16 @@ export interface GridLayer {
 export interface LayoutContext {
   elementRegistry: ElementRegistry;
   modeling: Modeling;
+  /**
+   * bpmn-js `CroppingConnectionDocking` service (D1-3).
+   *
+   * Provides `getCroppedWaypoints(connection)` which snaps connection
+   * endpoints to the actual shape boundary (circle for events, diamond
+   * for gateways, rounded-rect for tasks) rather than the rectangular
+   * bounding box.  Null if the service is unavailable (should not occur
+   * in practice — bpmn-js always registers it).
+   */
+  connectionDocking: { getCroppedWaypoints: (conn: any) => any[] } | null;
   result: ElkNode;
   offsetX: number;
   offsetY: number;

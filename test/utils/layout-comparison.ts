@@ -364,6 +364,104 @@ export function loadReferenceBpmn(name: string): string {
   return readFileSync(filePath, 'utf-8');
 }
 
+// ── Label position extraction (D4-3) ───────────────────────────────────────
+
+/** Label position from BPMN DI — bounds of the `<bpmndi:BPMNLabel>` element. */
+export interface LabelPosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Extract label positions from BPMN XML (D4-3).
+ *
+ * Parses all `<bpmndi:BPMNShape>` elements that contain a `<bpmndi:BPMNLabel>`
+ * child with `<dc:Bounds>` and returns a map of `bpmnElement` ID → label rect.
+ * Elements without a BPMNLabel (e.g. tasks with embedded labels) are excluded.
+ */
+export function extractLabelPositionsFromBpmn(xml: string): Map<string, LabelPosition> {
+  const labels = new Map<string, LabelPosition>();
+  const shapeRegex =
+    /<bpmndi:BPMNShape[^>]*bpmnElement="([^"]*)"[^>]*>([\s\S]*?)<\/bpmndi:BPMNShape>/g;
+  const labelBoundsRegex =
+    /<bpmndi:BPMNLabel[^>]*>[\s\S]*?<dc:Bounds\s+x="([^"]*?)"\s+y="([^"]*?)"\s+width="([^"]*?)"\s+height="([^"]*?)"/;
+
+  let shapeMatch;
+  while ((shapeMatch = shapeRegex.exec(xml)) !== null) {
+    const bpmnElement = shapeMatch[1];
+    const inner = shapeMatch[2];
+    const labelMatch = labelBoundsRegex.exec(inner);
+    if (labelMatch) {
+      labels.set(bpmnElement, {
+        x: parseFloat(labelMatch[1]),
+        y: parseFloat(labelMatch[2]),
+        width: parseFloat(labelMatch[3]),
+        height: parseFloat(labelMatch[4]),
+      });
+    }
+  }
+  return labels;
+}
+
+/** Result of comparing label positions between reference and generated BPMN. */
+export interface LabelPositionComparison {
+  totalLabels: number;
+  matchedLabels: number;
+  matchRate: number;
+  mismatches: Array<{ elementId: string; refY: number; genY: number; dy: number }>;
+}
+
+/**
+ * Compare label Y-positions between reference and generated BPMN XML (D4-3).
+ *
+ * Applies median-Y origin normalisation so that a uniform diagram translation
+ * does not produce spurious mismatches.  Only Y positions are compared; label
+ * X placement varies more by diagram context (connection directions, etc.).
+ *
+ * Default tolerance: 15 px (matches D4-4 spec).
+ */
+export function compareLabelPositions(
+  referenceXml: string,
+  generatedXml: string,
+  tolerance = 15
+): LabelPositionComparison {
+  const refLabels = extractLabelPositionsFromBpmn(referenceXml);
+  const genLabels = extractLabelPositionsFromBpmn(generatedXml);
+
+  const sharedIds = [...refLabels.keys()].filter((id) => genLabels.has(id));
+  if (sharedIds.length === 0) {
+    return { totalLabels: 0, matchedLabels: 0, matchRate: 0, mismatches: [] };
+  }
+
+  // Compute median Y shift for origin normalisation
+  const rawDys = sharedIds.map((id) => genLabels.get(id)!.y - refLabels.get(id)!.y);
+  const sortedDys = [...rawDys].sort((a, b) => a - b);
+  const medianDy = sortedDys[Math.floor(sortedDys.length / 2)];
+
+  const mismatches: Array<{ elementId: string; refY: number; genY: number; dy: number }> = [];
+  let matchedLabels = 0;
+
+  for (const id of sharedIds) {
+    const refY = refLabels.get(id)!.y;
+    const genY = genLabels.get(id)!.y;
+    const normalisedDy = genY - refY - medianDy;
+    if (Math.abs(normalisedDy) <= tolerance) {
+      matchedLabels++;
+    } else {
+      mismatches.push({ elementId: id, refY, genY, dy: normalisedDy });
+    }
+  }
+
+  return {
+    totalLabels: sharedIds.length,
+    matchedLabels,
+    matchRate: sharedIds.length > 0 ? matchedLabels / sharedIds.length : 0,
+    mismatches,
+  };
+}
+
 // ── Edge waypoint comparison (I7-1) ────────────────────────────────────────
 
 /** Waypoints for a single BPMN edge. */
