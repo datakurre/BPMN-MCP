@@ -113,17 +113,23 @@ function rebuildNeighborEdges(
     const tgtLeft = tgt.x;
 
     if (tgtLeft > srcRight) {
-      // Forward connection: target is to the right of source
       const sameRow = Math.abs(srcCy - tgtCy) <= SUBSET_NEIGHBOR_SAME_ROW_THRESHOLD;
       if (sameRow) {
-        // Straight horizontal
+        // Same row: 2-waypoint straight horizontal route — clean and collinear-free.
         modeling.updateWaypoints(conn, [
           { x: Math.round(srcRight), y: srcCy },
           { x: Math.round(tgtLeft), y: srcCy },
         ]);
       } else {
-        // Z-shape through midpoint
-        modeling.updateWaypoints(conn, buildZShapeRoute(srcRight, srcCy, tgtLeft, tgtCy));
+        // D5-3: Cross-row forward edge — delegate to bpmn-js ManhattanLayout.
+        // Works headlessly (confirmed via D5-1 spike) and produces routes
+        // consistent with Camunda Modeler interactive editing.
+        try {
+          modeling.layoutConnection(conn);
+        } catch {
+          // Fallback: manual Z-shape construction.
+          modeling.updateWaypoints(conn, buildZShapeRoute(srcRight, srcCy, tgtLeft, tgtCy));
+        }
       }
     } else {
       // C6: Backward connection — target is to the LEFT of or overlapping source.

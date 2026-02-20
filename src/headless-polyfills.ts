@@ -222,6 +222,53 @@ function applyGlobalPolyfills(win: any): void {
   };
 }
 
+/**
+ * Polyfill SVG path API methods used by CroppingConnectionDocking,
+ * DetachEventBehavior, and ManhattanLayout.
+ *
+ * D1-2 / D5-2 / D6-2: These methods are called on <path> elements in
+ * bpmn-js internals.  jsdom does not implement them.  The stubs return
+ * neutral values that let the callers continue without crashing:
+ *   - getTotalLength(): returns 0 (no path length)
+ *   - getPointAtLength(): returns the origin point (0,0)
+ *   - isPointInStroke(): returns false (point is not in stroke)
+ *
+ * NOTE: In practice, getCroppedWaypoints(), layoutConnection(), and
+ * moveElements([boundaryEvent]) all work correctly headlessly without
+ * these stubs (confirmed by D1-1, D5-1, D6-1 spike tests).  These stubs
+ * provide a safety net for any additional code paths that may reach
+ * these methods.
+ */
+function applySvgPathPolyfills(win: any): void {
+  const SVGElement = win.SVGElement;
+  if (!SVGElement) return;
+
+  if (!SVGElement.prototype.getTotalLength) {
+    SVGElement.prototype.getTotalLength = function (): number {
+      return 0;
+    };
+  }
+
+  if (!SVGElement.prototype.getPointAtLength) {
+    SVGElement.prototype.getPointAtLength = function (_len: number): DOMPoint {
+      // Return a minimal SVGPoint-like object at the origin
+      return {
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 1,
+        matrixTransform: () => ({ x: 0, y: 0, z: 0, w: 1 }),
+      } as unknown as DOMPoint;
+    };
+  }
+
+  if (!SVGElement.prototype.isPointInStroke) {
+    SVGElement.prototype.isPointInStroke = function (_point?: DOMPointInit): boolean {
+      return false;
+    };
+  }
+}
+
 /** Polyfill SVGElement methods: getBBox, getScreenCTM, getComputedTextLength, transform. */
 function applySvgElementPolyfills(win: any): void {
   const SVGElement = win.SVGElement;
@@ -291,6 +338,7 @@ function applySvgSvgElementPolyfills(win: any): void {
 export function applyPolyfills(instance: any): void {
   const win = instance.window;
   applyGlobalPolyfills(win);
+  applySvgPathPolyfills(win);
   applySvgElementPolyfills(win);
   applySvgSvgElementPolyfills(win);
 }

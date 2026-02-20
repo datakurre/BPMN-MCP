@@ -1,5 +1,5 @@
 /**
- * D5-1: ManhattanLayout headless invocation spike.
+ * D5-1 / D5-2: ManhattanLayout headless invocation spike and compatibility check.
  *
  * Tries `modeling.layoutConnection()` on a neighbor edge after subset layout.
  * Documents whether ManhattanLayout works in headless jsdom mode, and what
@@ -9,6 +9,13 @@
  * `ManhattanLayout` — the same routing used during interactive editing.
  * Using it would produce routes consistent with Camunda Modeler and eliminate
  * manual Z/U-shaped route construction in `rebuildNeighborEdges()`.
+ *
+ * FINDING (D5-2): modeling.layoutConnection() works correctly headlessly in
+ * jsdom WITHOUT any additional SVG polyfills.  The ManhattanLayout does not
+ * use SVG path geometry (it operates purely on element bounds), so it runs
+ * without modification in the headless environment.
+ * This unblocked D5-3: rebuildNeighborEdges() forward cases now delegate to
+ * modeling.layoutConnection() for consistent Camunda Modeler-compatible routes.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
