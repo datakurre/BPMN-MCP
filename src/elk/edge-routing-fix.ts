@@ -14,4 +14,5 @@ export {
   rebuildOffRowGatewayRoutes,
   separateOverlappingGatewayFlows,
   routeLoopbacksBelow,
+  bundleParallelFlows,
 } from './edge-route-optimization';

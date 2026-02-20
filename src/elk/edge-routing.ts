@@ -23,6 +23,7 @@ export {
   rebuildOffRowGatewayRoutes,
   separateOverlappingGatewayFlows,
   routeLoopbacksBelow,
+  bundleParallelFlows,
 } from './edge-routing-fix';
 
 export { avoidElementIntersections } from './element-avoidance';

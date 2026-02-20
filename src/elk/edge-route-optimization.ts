@@ -2,7 +2,8 @@
  * Edge route rebuilding and optimization passes.
  *
  * Rebuilds off-row gateway routes, separates overlapping collinear flows,
- * and routes loopback (backward) connections below the main path.
+ * routes loopback (backward) connections below the main path, and bundles
+ * parallel flows between the same source→target pair (E4).
  * These passes change the overall route topology, unlike the endpoint
  * fixes in edge-endpoint-fix.ts.
  *
@@ -468,5 +469,118 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
     }
 
     modeling.updateWaypoints(conn, deduplicateWaypoints(newWps));
+  }
+}
+
+// ── E4: Parallel flow bundling ──────────────────────────────────────────────
+
+/**
+ * Vertical offset (px) per parallel flow when bundling.
+ *
+ * When two flows between the same source and target are spread, they are
+ * offset from the route's natural Y by ± this amount (centred on the group).
+ * 10 px is large enough to be visually distinct but small enough not to
+ * disrupt neighbouring elements.
+ */
+const BUNDLE_OFFSET_PX = 10;
+
+/**
+ * E4: Bundle parallel flows between the same source → target pair.
+ *
+ * When multiple sequence flows connect exactly the same source and target
+ * element (e.g. a conditional flow + a compensation flow, or two labelled
+ * branches going to the same node), they are laid out at the same Y by the
+ * ELK pipeline and are visually indistinguishable.
+ *
+ * This pass groups flows by (source.id, target.id).  For each group of
+ * 2 or more flows it distributes them vertically by adjusting the Y
+ * coordinate of their intermediate (non-endpoint) waypoints:
+ *
+ * ```
+ *   flow 1 ──────────────────────────────────────→  (offset -10)
+ *   flow 2 ──────────────────────────────────────→  (offset   0, default)
+ *   flow 3 ──────────────────────────────────────→  (offset +10)
+ * ```
+ *
+ * Only flows with ≥ 3 waypoints are offset (2-waypoint straight lines have
+ * no safe intermediate point to shift without breaking connectivity).
+ * Flows already separated by `separateOverlappingGatewayFlows` (which
+ * routes the skip-ahead branch with a COLLINEAR_DETOUR_OFFSET detour) are
+ * not touched — this function is complementary and handles flows between
+ * the *same* source and target rather than between a shared source and
+ * different targets.
+ *
+ * Should run after all other edge routing passes and before the final
+ * orthogonal snap (`snapAllConnectionsOrthogonal`).
+ */
+export function bundleParallelFlows(elementRegistry: ElementRegistry, modeling: Modeling): void {
+  const BPMN_SEQUENCE_FLOW = 'bpmn:SequenceFlow';
+
+  const connections = elementRegistry.filter(
+    (el) =>
+      el.type === BPMN_SEQUENCE_FLOW &&
+      !!el.source &&
+      !!el.target &&
+      !!el.waypoints &&
+      el.waypoints.length >= 2
+  );
+
+  // Group flows by canonical (source.id, target.id) key
+  const groups = new Map<string, BpmnElement[]>();
+  for (const conn of connections) {
+    const key = `${conn.source!.id}::${conn.target!.id}`;
+    const group = groups.get(key);
+    if (group) {
+      group.push(conn);
+    } else {
+      groups.set(key, [conn]);
+    }
+  }
+
+  // Only process groups with 2+ flows
+  for (const flows of groups.values()) {
+    if (flows.length < 2) continue;
+
+    const n = flows.length;
+
+    for (let idx = 0; idx < n; idx++) {
+      const conn = flows[idx];
+      const wps = conn.waypoints!;
+
+      // Skip 2-waypoint straight connections — no interior point to offset.
+      if (wps.length < 3) continue;
+
+      // Centred offset: for n flows, offsets are -(n-1)/2…+(n-1)/2 * BUNDLE_OFFSET_PX
+      const offset = Math.round((idx - (n - 1) / 2) * BUNDLE_OFFSET_PX);
+      if (offset === 0) continue; // No movement needed for the middle flow
+
+      // Build updated waypoints: shift interior points' Y by `offset`.
+      // Only shift waypoints that are on horizontal segments (|dy| < tolerance)
+      // relative to their neighbours.  This moves the flat horizontal portion
+      // of the route without breaking the vertical segments that connect to
+      // element boundaries.
+      const newWps = wps.map((wp) => ({ x: wp.x, y: wp.y }));
+      let changed = false;
+
+      for (let i = 1; i < newWps.length - 1; i++) {
+        const prevY = newWps[i - 1].y;
+        const currY = newWps[i].y;
+        const nextY = newWps[i + 1].y;
+
+        // This waypoint is on a horizontal run if the segment from its
+        // predecessor OR to its successor is near-horizontal.
+        const prevSegHoriz = Math.abs(currY - prevY) <= 3;
+        const nextSegHoriz = Math.abs(currY - nextY) <= 3;
+
+        if (prevSegHoriz || nextSegHoriz) {
+          newWps[i] = { x: newWps[i].x, y: Math.round(currY + offset) };
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        modeling.updateWaypoints(conn, deduplicateWaypoints(newWps));
+      }
+    }
   }
 }

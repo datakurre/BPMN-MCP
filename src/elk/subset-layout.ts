@@ -19,6 +19,9 @@ import {
   BPMN_TASK_HEIGHT,
   BPMN_DUMMY_HEIGHT,
   SUBSET_NEIGHBOR_SAME_ROW_THRESHOLD,
+  LOOPBACK_BELOW_MARGIN,
+  LOOPBACK_ABOVE_MARGIN,
+  LOOPBACK_HORIZONTAL_MARGIN,
 } from './constants';
 import { applyElkPositions } from './position-application';
 import {
@@ -52,7 +55,14 @@ import type { ElkLayoutOptions } from './types';
  * For same-row connections (source and target on roughly the same Y within
  * 15px), builds a straight 2-point horizontal route.
  *
- * For different-row connections, builds a Z-shaped route through the midpoint.
+ * For different-row forward connections (target to the right of source),
+ * builds a Z-shaped route through the midpoint.
+ *
+ * **C6 — Backward neighbor edges:**
+ * For backward connections (target is to the LEFT of source, i.e. a loopback),
+ * builds a U-shaped route routing below (or above) the main path.  This
+ * mirrors the `routeLoopbacksBelow` approach for the full pipeline and
+ * prevents stale waypoints from cutting through the diagram content.
  */
 function rebuildNeighborEdges(
   elementRegistry: ElementRegistry,
@@ -72,6 +82,27 @@ function rebuildNeighborEdges(
       subsetIds.has(el.source.id) !== subsetIds.has(el.target.id)
   );
 
+  // Compute the scope bottom/top for backward routing
+  // (U-shape routes need to clear all elements in the diagram)
+  let scopeBottom = 0;
+  let scopeTop = Infinity;
+  for (const el of allElements) {
+    if (
+      isConnection(el.type) ||
+      el.type === 'bpmn:BoundaryEvent' ||
+      el.type === 'bpmn:Participant' ||
+      el.type === 'bpmn:Lane' ||
+      el.type === 'label'
+    ) {
+      continue;
+    }
+    const bottom = (el.y ?? 0) + (el.height ?? 0);
+    if (bottom > scopeBottom) scopeBottom = bottom;
+    const top = el.y ?? 0;
+    if (top < scopeTop) scopeTop = top;
+  }
+  if (scopeTop === Infinity) scopeTop = 0;
+
   for (const conn of neighborEdges) {
     const src = conn.source!;
     const tgt = conn.target!;
@@ -81,20 +112,79 @@ function rebuildNeighborEdges(
     const srcRight = src.x + (src.width || 0);
     const tgtLeft = tgt.x;
 
-    // Only rebuild if the target is to the right of the source
-    // (backwards/loopback edges have custom routing and shouldn't be touched)
-    if (tgtLeft <= srcRight) continue;
-
-    const sameRow = Math.abs(srcCy - tgtCy) <= SUBSET_NEIGHBOR_SAME_ROW_THRESHOLD;
-    if (sameRow) {
-      // Straight horizontal
-      modeling.updateWaypoints(conn, [
-        { x: Math.round(srcRight), y: srcCy },
-        { x: Math.round(tgtLeft), y: srcCy },
-      ]);
+    if (tgtLeft > srcRight) {
+      // Forward connection: target is to the right of source
+      const sameRow = Math.abs(srcCy - tgtCy) <= SUBSET_NEIGHBOR_SAME_ROW_THRESHOLD;
+      if (sameRow) {
+        // Straight horizontal
+        modeling.updateWaypoints(conn, [
+          { x: Math.round(srcRight), y: srcCy },
+          { x: Math.round(tgtLeft), y: srcCy },
+        ]);
+      } else {
+        // Z-shape through midpoint
+        modeling.updateWaypoints(conn, buildZShapeRoute(srcRight, srcCy, tgtLeft, tgtCy));
+      }
     } else {
-      // Z-shape through midpoint
-      modeling.updateWaypoints(conn, buildZShapeRoute(srcRight, srcCy, tgtLeft, tgtCy));
+      // C6: Backward connection — target is to the LEFT of or overlapping source.
+      // Build a U-shaped route that clears all diagram content by routing
+      // either below (target at same/lower Y) or above (target higher up).
+      const srcCx = Math.round(src.x + (src.width || 0) / 2);
+      const srcBottom = src.y + (src.height || 0);
+      const tgtCx = Math.round(tgt.x + (tgt.width || 0) / 2);
+      const tgtBottom = tgt.y + (tgt.height || 0);
+
+      const routeAbove = tgtCy < srcCy - SUBSET_NEIGHBOR_SAME_ROW_THRESHOLD;
+
+      let newWps: Array<{ x: number; y: number }>;
+      if (routeAbove) {
+        const aboveY = Math.round(scopeTop - LOOPBACK_ABOVE_MARGIN);
+        const exitX = Math.round(srcRight + LOOPBACK_HORIZONTAL_MARGIN);
+        const entryX = Math.round(tgtLeft - LOOPBACK_HORIZONTAL_MARGIN);
+        if (entryX < exitX) {
+          // Wide enough for proper U-shape
+          newWps = [
+            { x: Math.round(srcRight), y: srcCy },
+            { x: exitX, y: srcCy },
+            { x: exitX, y: aboveY },
+            { x: entryX, y: aboveY },
+            { x: entryX, y: tgtCy },
+            { x: Math.round(tgtLeft), y: tgtCy },
+          ];
+        } else {
+          // Source and target overlap in X — use centre-X routing (gateway style)
+          newWps = [
+            { x: srcCx, y: Math.round(src.y) },
+            { x: srcCx, y: aboveY },
+            { x: tgtCx, y: aboveY },
+            { x: tgtCx, y: Math.round(tgtBottom) },
+          ];
+        }
+      } else {
+        const belowY = Math.round(scopeBottom + LOOPBACK_BELOW_MARGIN);
+        const exitX = Math.round(srcRight + LOOPBACK_HORIZONTAL_MARGIN);
+        const entryX = Math.round(tgtLeft - LOOPBACK_HORIZONTAL_MARGIN);
+        if (entryX < exitX) {
+          // Wide enough for proper U-shape
+          newWps = [
+            { x: Math.round(srcRight), y: srcCy },
+            { x: exitX, y: srcCy },
+            { x: exitX, y: belowY },
+            { x: entryX, y: belowY },
+            { x: entryX, y: tgtCy },
+            { x: Math.round(tgtLeft), y: tgtCy },
+          ];
+        } else {
+          // Source and target overlap in X — use centre-X routing (gateway style)
+          newWps = [
+            { x: srcCx, y: Math.round(srcBottom) },
+            { x: srcCx, y: belowY },
+            { x: tgtCx, y: belowY },
+            { x: tgtCx, y: Math.round(tgt.y) },
+          ];
+        }
+      }
+      modeling.updateWaypoints(conn, newWps);
     }
   }
 }

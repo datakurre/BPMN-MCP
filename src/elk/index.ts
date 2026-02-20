@@ -94,6 +94,7 @@ import {
   routeLoopbacksBelow,
   routeSelfLoops,
   spaceParallelMessageFlows,
+  bundleParallelFlows,
 } from './edge-routing';
 import { repositionArtifacts } from './artifacts';
 import { routeBranchConnectionsThroughChannels } from './channel-routing';
@@ -477,6 +478,9 @@ function applyEdgeRoutes(ctx: LayoutContext): void {
  *                                 changes if earlier steps move elements)
  * snapAllConnectionsOrthogonal  — requires: all routes set; provides: strictly orthogonal waypoints
  *                                 (final snap pass; must run after all routing to fix residual diagonals)
+ * bundleParallelFlows           — requires: simplified routes; provides: offset parallel same-pair flows
+ *                                 (E4: must run after simplification to avoid redundant H-V-H merges;
+ *                                 before final orthogonal snap so offsets are preserved correctly)
  * ```
  */
 function repairAndSimplifyEdges(ctx: LayoutContext): void {
@@ -487,6 +491,11 @@ function repairAndSimplifyEdges(ctx: LayoutContext): void {
   simplifyCollinearWaypoints(ctx.elementRegistry, ctx.modeling);
   removeMicroBends(ctx.elementRegistry, ctx.modeling);
   routeLoopbacksBelow(ctx.elementRegistry, ctx.modeling);
+  // E4: Bundle parallel flows between the same source→target pair.
+  // Runs after loopback routing (which may produce multi-waypoint routes for
+  // backward flows) and before the final orthogonal snap so the small
+  // vertical offsets applied here are preserved by the snap pass.
+  bundleParallelFlows(ctx.elementRegistry, ctx.modeling);
   snapAllConnectionsOrthogonal(ctx.elementRegistry, ctx.modeling);
 }
 
