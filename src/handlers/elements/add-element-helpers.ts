@@ -3,12 +3,12 @@
  * resize containers, lane detection and snapping.
  *
  * Split from add-element.ts for file-size compliance.
+ * Collision-avoidance helpers are in add-element-collision.ts.
  */
 
 import { getVisibleElements, requireElement } from '../helpers';
 import { getService } from '../../bpmn-types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { STANDARD_BPMN_GAP } from '../../constants';
 
 /** BPMN type string constants for filtering and type checking. */
 const BPMN_PARTICIPANT_TYPE = 'bpmn:Participant';
@@ -194,55 +194,6 @@ export interface HostInfo {
   hostElementId: string;
   hostElementType: string;
   hostElementName?: string;
-}
-
-/**
- * Collision-avoidance: shift position so the new element doesn't overlap
- * or stack on top of an existing one.  Scans up to 20 iterations to find
- * an open slot by shifting right by `STANDARD_BPMN_GAP`.
- */
-export function avoidCollision(
-  elementRegistry: any,
-  x: number,
-  y: number,
-  elementWidth: number,
-  elementHeight: number
-): { x: number; y: number } {
-  const allElements = getVisibleElements(elementRegistry).filter(
-    (el: any) =>
-      !el.type?.includes('SequenceFlow') &&
-      !el.type?.includes('MessageFlow') &&
-      !el.type?.includes('Association') &&
-      el.type !== 'bpmn:Participant' &&
-      el.type !== 'bpmn:Lane' &&
-      el.type !== 'bpmn:Process'
-  );
-
-  let cx = x;
-  const halfW = elementWidth / 2;
-  const halfH = elementHeight / 2;
-
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const overlaps = allElements.some((el: any) => {
-      const elLeft = el.x ?? 0;
-      const elTop = el.y ?? 0;
-      const elRight = elLeft + (el.width ?? 0);
-      const elBottom = elTop + (el.height ?? 0);
-
-      // New element bounding box (bpmn-js uses center-based coords)
-      const newLeft = cx - halfW;
-      const newTop = y - halfH;
-      const newRight = cx + halfW;
-      const newBottom = y + halfH;
-
-      return newLeft < elRight && newRight > elLeft && newTop < elBottom && newBottom > elTop;
-    });
-
-    if (!overlaps) break;
-    cx += elementWidth + STANDARD_BPMN_GAP;
-  }
-
-  return { x: cx, y };
 }
 
 /**

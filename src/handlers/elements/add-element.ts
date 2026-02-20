@@ -22,10 +22,10 @@ import {
   shiftDownstreamElements,
   snapToLane,
   createAndPlaceElement,
-  avoidCollision,
   collectDownstreamElements,
   resizeParentContainers,
 } from './add-element-helpers';
+import { avoidCollision, avoidCollisionY } from './add-element-collision';
 import {
   autoConnectToElement,
   applyEventDefinitionShorthand,
@@ -278,21 +278,34 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     assignToLaneId = args.laneId;
   }
 
-  // Collision avoidance: shift right if position overlaps an existing element.
+  // Collision avoidance: shift if position overlaps an existing element.
   // Respects placementStrategy and collisionPolicy parameters.
+  // For afterElementId: nudge DOWNWARD (Y-axis) since X is already determined
+  //   by the after-element positioning logic (C2-1).
+  // For default placement: nudge rightward (X-axis) as before.
   const strategy = args.placementStrategy || 'auto';
   const collisionPolicy = args.collisionPolicy || 'shift';
   const usingDefaultPosition = args.x === undefined && args.y === undefined;
   const shouldAvoidCollisions =
-    collisionPolicy !== 'none' &&
-    strategy !== 'absolute' &&
-    usingDefaultPosition &&
-    !hostElementId &&
-    !afterElementId;
+    collisionPolicy !== 'none' && strategy !== 'absolute' && usingDefaultPosition && !hostElementId;
   if (shouldAvoidCollisions) {
-    const avoided = avoidCollision(elementRegistry, x, y, elementSize.width, elementSize.height);
-    x = avoided.x;
-    y = avoided.y;
+    if (afterElementId) {
+      // C2-1: For afterElementId, nudge downward to avoid parallel-branch overlap
+      const avoided = avoidCollisionY(
+        elementRegistry,
+        x,
+        y,
+        elementSize.width,
+        elementSize.height,
+        afterElementId
+      );
+      x = avoided.x;
+      y = avoided.y;
+    } else {
+      const avoided = avoidCollision(elementRegistry, x, y, elementSize.width, elementSize.height);
+      x = avoided.x;
+      y = avoided.y;
+    }
   }
 
   // Pre-create the business object with our descriptive ID so the

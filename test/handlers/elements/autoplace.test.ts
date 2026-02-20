@@ -163,4 +163,61 @@ describe('C2-3/C2-6: branch-aware placement for afterElementId', () => {
     const tgtLeft = taskEl.x;
     expect(Math.abs(wps[wps.length - 1].x - tgtLeft)).toBeLessThan(5);
   });
+
+  test('C2-1: adding after element nudges downward when computed position overlaps existing element', async () => {
+    // Build: Gateway with Task1 at a fixed position. Then manually add Task2
+    // at the SAME x,y (simulating an overlapping existing element).
+    // Then use afterElementId=gateway — collision avoidance should nudge down.
+    const diagramId = await createDiagram('C2-1 Collision Avoidance Y');
+
+    const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', {
+      name: 'Decision',
+      x: 300,
+      y: 200,
+    });
+
+    // Place an existing task at the position where afterElementId would put the new element
+    // (gateway right edge + gap, same Y center)
+    const existingTask = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Existing',
+      x: 410, // 300 + 50(gw half) + 50(gap) + 10 = roughly where new element would go
+      y: 200,
+    });
+    await connect(diagramId, gw, existingTask);
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    const existingEl = reg.get(existingTask);
+
+    // Now add a new element after the gateway — should NOT overlap with existingTask
+    const result = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'New Task',
+        afterElementId: gw,
+        autoConnect: false,
+      })
+    );
+
+    const newEl = reg.get(result.elementId as string);
+    expect(newEl).toBeDefined();
+
+    // New element must not overlap with the existing task
+    const newLeft = newEl.x - (newEl.width || 100) / 2;
+    const newRight = newEl.x + (newEl.width || 100) / 2;
+    const newTop = newEl.y - (newEl.height || 80) / 2;
+    const newBottom = newEl.y + (newEl.height || 80) / 2;
+
+    const exLeft = existingEl.x ?? 0;
+    const exRight = exLeft + (existingEl.width ?? 100);
+    const exTop = existingEl.y ?? 0;
+    const exBottom = exTop + (existingEl.height ?? 80);
+
+    const overlaps =
+      newLeft < exRight && newRight > exLeft && newTop < exBottom && newBottom > exTop;
+    expect(overlaps).toBe(false);
+
+    // New element should be below the existing element (Y-nudge, not X-nudge)
+    expect(newEl.y).toBeGreaterThanOrEqual(existingEl.y);
+  });
 });

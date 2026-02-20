@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build, Type-check, Lint, Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  layout-regression:
+    name: Layout Regression Gate
+    runs-on: ubuntu-latest
+    # Non-blocking on PRs until thresholds are stable (I7-7).
+    # Set continue-on-error: false when ready to enforce.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run layout comparison tests
+        run: npm test -- test/handlers/layout/svg-comparison.test.ts test/handlers/core/bpmn-comparison.test.ts
+
+      - name: Run crossing reduction tests
+        run: npm test -- test/handlers/layout/crossing-reduction.test.ts
+
+      - name: Run grid quantum tests
+        run: npm test -- test/handlers/layout/grid-quantum.test.ts
+
+      - name: Run lane layout tests
+        run: npm test -- test/handlers/layout/lane-layout.test.ts test/handlers/layout/lane-edge-routing.test.ts
