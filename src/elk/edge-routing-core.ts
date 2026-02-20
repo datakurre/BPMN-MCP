@@ -17,6 +17,21 @@ import {
   SELF_LOOP_MARGIN_V,
 } from './constants';
 
+// ── E2: Parallel message flow spacing constants ─────────────────────────────
+
+/**
+ * Maximum horizontal distance (px) between two message flow source X
+ * coordinates for them to be considered "parallel" and eligible for spacing.
+ */
+const MSG_FLOW_PARALLEL_THRESHOLD = 40;
+
+/**
+ * Vertical offset (px) between parallel message flow horizontal segments.
+ * Each flow in a parallel group gets an offset of i * MSG_FLOW_PARALLEL_OFFSET
+ * from the group's common midY, producing evenly-spaced horizontal segments.
+ */
+const MSG_FLOW_PARALLEL_OFFSET = 18;
+
 /**
  * Build a flat lookup of ELK edges (including nested containers) so we can
  * resolve edge sections by connection ID.
@@ -191,6 +206,28 @@ export function applyElkEdgeRoutes(
           deduped[0] = { x: Math.round(srcRight), y: srcCy };
           deduped[1] = { x: Math.round(tgtLeft), y: tgtCy };
         }
+      }
+
+      // D2: Add `.original` to connection endpoints.
+      // bpmn-js's CroppingConnectionDocking uses `.original` to store the
+      // pre-cropped ideal endpoint position when it clips connection paths to
+      // shape boundaries during interactive editing.  When waypoints are set
+      // programmatically (as we do here), bpmn-js does not apply cropping and
+      // `.original` is absent.  Setting `.original` equal to the actual
+      // waypoint position ensures compatibility with subsequent bpmn-js
+      // operations (e.g. when the user moves a connected element after layout):
+      // ManhattanLayout and DockingUtil will use the pre-saved original to
+      // re-compute the new cropped endpoint, preventing a wrong route being
+      // drawn from a stale (undefined) original.
+      if (deduped.length >= 2) {
+        (deduped[0] as Record<string, unknown>).original = {
+          x: deduped[0].x,
+          y: deduped[0].y,
+        };
+        (deduped[deduped.length - 1] as Record<string, unknown>).original = {
+          x: deduped[deduped.length - 1].x,
+          y: deduped[deduped.length - 1].y,
+        };
       }
 
       modeling.updateWaypoints(conn, deduped);
@@ -374,6 +411,123 @@ export function routeSelfLoops(elementRegistry: ElementRegistry, modeling: Model
       modeling.updateWaypoints(conn, waypoints);
     } catch {
       // Skip connections where bpmn-js rejects the waypoints
+    }
+  }
+}
+// ── E2: Parallel message flow spacing ──────────────────────────────────────
+
+/**
+ * E2: Space parallel message flows that have overlapping horizontal segments.
+ *
+ * When multiple message flows connect pools at similar horizontal positions,
+ * their dog-leg routes share approximately the same midY for the horizontal
+ * segment.  This makes parallel flows visually indistinguishable — they appear
+ * as a single thick line.
+ *
+ * This function groups message flows whose source X coordinates are within
+ * `MSG_FLOW_PARALLEL_THRESHOLD` pixels of each other and redistributes their
+ * horizontal segments to different Y positions, separated by
+ * `MSG_FLOW_PARALLEL_OFFSET` pixels per flow.
+ *
+ * ## Route shape preserved
+ * The 4-waypoint dog-leg structure is maintained:
+ *   (srcX, srcEdge) → (srcX, newMidY) → (tgtX, newMidY) → (tgtX, tgtEdge)
+ * Only the mid-Y is changed; source/target endpoint X positions and element
+ * boundary attachment are not affected.
+ *
+ * ## When to call
+ * Call after `applyElkEdgeRoutes()` and `routeSelfLoops()` so that all
+ * message flows have their initial dog-leg routes assigned.  Must run before
+ * `simplifyCollinearWaypoints()` to avoid collapsing the horizontal segments.
+ */
+export function spaceParallelMessageFlows(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling
+): void {
+  const messageFlows = elementRegistry.filter(
+    (el) => el.type === 'bpmn:MessageFlow' && !!el.waypoints && el.waypoints.length >= 3 // dog-leg has ≥3 points
+  );
+
+  if (messageFlows.length < 2) return;
+
+  // Group message flows by source-element X centre.
+  // Two flows are "parallel" if their source X centres are within threshold.
+  // Sort ascending by source X to get a stable group order.
+  const flows = messageFlows
+    .filter((f) => f.source && f.waypoints)
+    .map((f) => ({
+      flow: f,
+      srcX: f.source!.x + (f.source!.width || 0) / 2,
+    }))
+    .sort((a, b) => a.srcX - b.srcX);
+
+  if (flows.length < 2) return;
+
+  // Group into clusters where adjacent source X centres are within threshold
+  const groups: (typeof flows)[] = [];
+  let currentGroup: typeof flows = [flows[0]];
+  for (let i = 1; i < flows.length; i++) {
+    if (flows[i].srcX - currentGroup[0].srcX <= MSG_FLOW_PARALLEL_THRESHOLD) {
+      currentGroup.push(flows[i]);
+    } else {
+      if (currentGroup.length > 1) groups.push(currentGroup);
+      currentGroup = [flows[i]];
+    }
+  }
+  if (currentGroup.length > 1) groups.push(currentGroup);
+
+  // For each group, redistribute the horizontal segment Y positions
+  for (const group of groups) {
+    const n = group.length;
+    if (n < 2) continue;
+
+    // Compute the average midY across all flows in the group
+    const midYValues = group
+      .map(({ flow }) => {
+        const wps = flow.waypoints!;
+        // The horizontal segment is the middle portion of the dog-leg.
+        // For a 4-waypoint route [start, midStart, midEnd, end],
+        // midStart and midEnd share the same Y.  Pick the mean.
+        const midPoints = wps.slice(1, wps.length - 1);
+        if (midPoints.length === 0) return (wps[0].y + wps[wps.length - 1].y) / 2;
+        return midPoints.reduce((sum, wp) => sum + wp.y, 0) / midPoints.length;
+      })
+      .filter((y) => isFinite(y));
+
+    if (midYValues.length === 0) continue;
+    const avgMidY = midYValues.reduce((a, b) => a + b, 0) / midYValues.length;
+
+    // Evenly distribute: flow 0 → avgMidY + (n-1)/2*offset down, last → up
+    const totalSpread = (n - 1) * MSG_FLOW_PARALLEL_OFFSET;
+    const startMidY = avgMidY - totalSpread / 2;
+
+    for (let i = 0; i < n; i++) {
+      const { flow } = group[i];
+      const newMidY = Math.round(startMidY + i * MSG_FLOW_PARALLEL_OFFSET);
+      const wps = flow.waypoints!;
+
+      if (wps.length < 3) continue;
+
+      // Rebuild dog-leg with new midY, keeping source/target endpoints fixed
+      const startWp = wps[0]; // (srcX, srcEdge) — fixed
+      const endWp = wps[wps.length - 1]; // (tgtX, tgtEdge) — fixed
+
+      const newWaypoints: Array<{ x: number; y: number }> = [
+        { x: startWp.x, y: startWp.y },
+        { x: startWp.x, y: newMidY },
+        { x: endWp.x, y: newMidY },
+        { x: endWp.x, y: endWp.y },
+      ];
+
+      // Deduplicate in case source/target X or Y happen to be identical
+      const deduped = deduplicateWaypoints(newWaypoints, 0);
+      if (deduped.length < 2) continue;
+
+      try {
+        modeling.updateWaypoints(flow, deduped);
+      } catch {
+        // Skip flows where bpmn-js rejects the new waypoints
+      }
     }
   }
 }

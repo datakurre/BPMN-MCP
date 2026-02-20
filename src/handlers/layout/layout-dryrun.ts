@@ -5,7 +5,7 @@
 import type { LayoutDiagramArgs } from './layout-diagram';
 import { type ToolResult, type DiagramState } from '../../types';
 import { requireDiagram, jsonResult, getVisibleElements, getService } from '../helpers';
-import { elkLayout, elkLayoutSubset } from '../../elk/api';
+import { elkLayout, elkLayoutSubset, selectLayoutStrategy } from '../../elk/api';
 import {
   generateDiagramId,
   storeDiagram,
@@ -88,6 +88,9 @@ export async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolR
   const diagram = requireDiagram(diagramId);
   const { xml } = await diagram.modeler.saveXML({ format: true });
 
+  // K2: Analyse and report the recommended layout strategy.
+  const strategyAnalysis = selectLayoutStrategy(diagram);
+
   const tempId = generateDiagramId();
   const modeler = await createModelerFromXml(xml || '');
   storeDiagram(tempId, { modeler, xml: xml || '', name: `_dryrun_${diagramId}` });
@@ -110,6 +113,14 @@ export async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolR
       maxDisplacement: stats.maxDisplacement,
       avgDisplacement: stats.avgDisplacement,
       ...(crossingCount > 0 ? { crossingFlows: crossingCount } : {}),
+      // K2: Expose the recommended layout strategy so callers can understand
+      // which pipeline will be selected and why.
+      recommendedStrategy: {
+        strategy: strategyAnalysis.strategy,
+        reason: strategyAnalysis.reason,
+        confidence: strategyAnalysis.confidence,
+        stats: strategyAnalysis.stats,
+      },
       qualityMetrics: {
         avgFlowLength: qualityMetrics.avgFlowLength,
         orthogonalFlowPercent: qualityMetrics.orthogonalFlowPercent,

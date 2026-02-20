@@ -35,6 +35,7 @@ import type { DiagramState } from '../types';
 import type { ElkNode, ElkExtendedEdge, LayoutOptions } from 'elkjs';
 
 import type { BpmnElement, ElementRegistry, Modeling, Canvas } from '../bpmn-types';
+import { CachedElementRegistry } from './cached-registry';
 import {
   ELK_LAYOUT_OPTIONS,
   ORIGIN_OFFSET_X,
@@ -91,6 +92,7 @@ import {
   removeMicroBends,
   routeLoopbacksBelow,
   routeSelfLoops,
+  spaceParallelMessageFlows,
 } from './edge-routing';
 import { repositionArtifacts } from './artifacts';
 import { routeBranchConnectionsThroughChannels } from './channel-routing';
@@ -349,6 +351,40 @@ function finalisePoolsAndLanes(ctx: LayoutContext): void {
 /**
  * Final boundary event restore/reposition, then position boundary-only
  * leaf targets and align off-path end events to the boundary target row.
+ *
+ * ## B2: Why two restore+reposition cycles?
+ *
+ * Boundary event data is saved once in `ctx.boundarySnapshots` (before
+ * `applyElkPositions`).  It is then restored+repositioned **twice** in the
+ * pipeline:
+ *
+ * **Cycle 1 — `fixBoundaryEvents` (step 3):**
+ * `applyElkPositions` calls `modeling.moveElements` on each host task, which
+ * drags attached boundary events via bpmn-js's `DetachEventBehavior`.  The
+ * drag often places boundary events at the wrong host border (ELK knows host
+ * positions but not which border the BEs should sit on).  Cycle 1 restores
+ * the pre-ELK border and position for every boundary event.
+ *
+ * **Cycle 2 — `finaliseBoundaryTargets` (this function, step 10):**
+ * Between cycle 1 and cycle 2, six pipeline steps move host elements:
+ *   - `snapAndAlignLayers` (step 4) — Y-snaps hosts to a common row
+ *   - `gridSnapAndResolveOverlaps` (step 5) — quantises host X/Y
+ *   - `alignHappyPathAndOffPathEvents` (step 7) — nudges hosts along happy-path row
+ *   - `resolveOverlaps (2nd pass)` (step 8) — pushes hosts apart vertically
+ *   - `finalisePoolsAndLanes` (step 9) — repositions lanes, which shifts hosts
+ * Each of these moves the host element and, through bpmn-js's auto-drag,
+ * the attached boundary event.  After all host moves are complete, cycle 2
+ * re-snaps every boundary event to its correct border position.
+ *
+ * ## Consolidation potential (B2)
+ * Consolidating to a single cycle would require: (a) deferring all host
+ * moves until after cycle 1, then (b) running one final restore.  This is
+ * architecturally complex because `snapAndAlignLayers`, `gridSnapPass`, and
+ * `alignHappyPath` all modify host positions for good visual reasons and
+ * are not easily deferred.  The two-cycle approach is the simplest correct
+ * solution.  Future work: if D6 (command-stack integration for boundary
+ * events) is solved, boundary events could follow their host natively
+ * without any explicit restore cycles.
  */
 function finaliseBoundaryTargets(ctx: LayoutContext): void {
   // Re-restore after snap/grid passes may have moved host tasks
@@ -392,6 +428,11 @@ function applyEdgeRoutes(ctx: LayoutContext): void {
   // Must run immediately after applyElkEdgeRoutes so that subsequent
   // simplification passes do not see stale zero-length waypoints.
   routeSelfLoops(ctx.elementRegistry, ctx.modeling);
+
+  // E2: Space parallel message flows whose horizontal segments would otherwise
+  // overlap.  Must run after applyElkEdgeRoutes assigns initial dog-leg routes
+  // and before simplifyCollinearWaypoints which could merge the spaced segments.
+  spaceParallelMessageFlows(ctx.elementRegistry, ctx.modeling);
 
   const shouldGridSnap = ctx.options?.gridSnap !== false;
   if (shouldGridSnap) {
@@ -521,7 +562,14 @@ export async function elkLayout(
 
   const log = createLayoutLogger('elkLayout');
 
-  const elementRegistry = diagram.modeler.get('elementRegistry');
+  const rawElementRegistry = diagram.modeler.get('elementRegistry') as ElementRegistry;
+  // H4: Wrap with CachedElementRegistry to avoid repeated O(n) getAll() array
+  // allocations across the 20+ pipeline steps.  The element set does not change
+  // during layout (elements are moved but not added/removed), so caching getAll()
+  // once at layout start is safe.  invalidate() is called after applyNodePositions
+  // because positionEventSubprocesses could move event subprocesses into a
+  // configuration where the cache is still valid (no elements are added).
+  const elementRegistry: ElementRegistry = new CachedElementRegistry(rawElementRegistry);
   const modeling = diagram.modeler.get('modeling');
   const canvas = diagram.modeler.get('canvas');
 

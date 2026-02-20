@@ -7,7 +7,12 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleLayoutDiagram, handleCreateParticipant, handleAddElement, handleConnect } from '../../../src/handlers';
+import {
+  handleLayoutDiagram,
+  handleCreateParticipant,
+  handleAddElement,
+  handleConnect,
+} from '../../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
 
