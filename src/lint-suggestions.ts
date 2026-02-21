@@ -134,6 +134,8 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Convert to a single pool with lanes using create_bpmn_lanes (with mergeFrom). Roles within the same organization should use lanes, not separate pools',
   'bpmn-mcp/message-flow-crossing-excessive':
     'Reorder participants or reposition elements to reduce message flow crossings. Use move_bpmn_element or layout_bpmn_diagram',
+  'bpmn-mcp/layout-needs-alignment':
+    'Run layout_bpmn_diagram to auto-arrange elements, or use align_bpmn_elements to align specific groups{elementRef}',
   'bpmn-mcp/missing-di-shape':
     'Run layout_bpmn_diagram to regenerate diagram layout including missing DI shapes, or re-export with export_bpmn{elementRef}',
 };

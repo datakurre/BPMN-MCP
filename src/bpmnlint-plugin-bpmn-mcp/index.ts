@@ -65,6 +65,7 @@ import eventSubprocessMissingTrigger from './rules/event-subprocess-missing-trig
 import emptySubprocess from './rules/empty-subprocess';
 import danglingBoundaryEvent from './rules/dangling-boundary-event';
 import receiveTaskMissingMessage from './rules/receive-task-missing-message';
+import layoutNeedsAlignment from './rules/layout-needs-alignment';
 
 /**
  * All custom lint rules keyed by rule name (without plugin prefix).
@@ -129,6 +130,7 @@ export const rules: Record<string, any> = {
   'empty-subprocess': emptySubprocess,
   'dangling-boundary-event': danglingBoundaryEvent,
   'receive-task-missing-message': receiveTaskMissingMessage,
+  'layout-needs-alignment': layoutNeedsAlignment,
 };
 
 export const configs = {
@@ -189,6 +191,7 @@ export const configs = {
       'bpmn-mcp/empty-subprocess': 'warn',
       'bpmn-mcp/dangling-boundary-event': 'warn',
       'bpmn-mcp/receive-task-missing-message': 'warn',
+      'bpmn-mcp/layout-needs-alignment': 'warn',
     },
   },
 };
