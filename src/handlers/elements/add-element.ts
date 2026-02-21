@@ -288,6 +288,15 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   const usingDefaultPosition = args.x === undefined && args.y === undefined;
   const shouldAvoidCollisions =
     collisionPolicy !== 'none' && strategy !== 'absolute' && usingDefaultPosition && !hostElementId;
+
+  // Build a set of element IDs to exclude from collision checks.
+  // Parent containers (subprocesses) should not count as collision obstacles
+  // when placing a child element inside them.  Without this exclusion, the
+  // parent's bounding box triggers the avoidance shift, cascading new elements
+  // diagonally downward instead of in a horizontal chain.
+  const collisionExcludeIds = new Set<string>();
+  if (parentId) collisionExcludeIds.add(parentId);
+
   if (shouldAvoidCollisions) {
     if (afterElementId) {
       // C2-1: For afterElementId, nudge downward to avoid parallel-branch overlap
@@ -297,12 +306,20 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
         y,
         elementSize.width,
         elementSize.height,
-        afterElementId
+        afterElementId,
+        collisionExcludeIds.size > 0 ? collisionExcludeIds : undefined
       );
       x = avoided.x;
       y = avoided.y;
     } else {
-      const avoided = avoidCollision(elementRegistry, x, y, elementSize.width, elementSize.height);
+      const avoided = avoidCollision(
+        elementRegistry,
+        x,
+        y,
+        elementSize.width,
+        elementSize.height,
+        collisionExcludeIds.size > 0 ? collisionExcludeIds : undefined
+      );
       x = avoided.x;
       y = avoided.y;
     }

@@ -853,6 +853,11 @@ export function routeCrossLaneStaircase(
     const srcRight = src.x + (src.width || 0);
     const tgtLeft = tgt.x;
 
+    // Pre-compute lane indices (used in both the backward-flow check and later routing).
+    const srcLaneIdx = sortedLanes.findIndex((l) => l.id === srcLane.id);
+    const tgtLaneIdx = sortedLanes.findIndex((l) => l.id === tgtLane.id);
+    if (srcLaneIdx < 0 || tgtLaneIdx < 0) continue;
+
     // Handle backward cross-lane flows (F3).
     // These are cross-lane flows where the target is to the left of the source
     // (backward in the process flow). Route them around the pool content, using
@@ -895,10 +900,7 @@ export function routeCrossLaneStaircase(
     }
 
     // Determine which lanes are crossed (in top-to-bottom order)
-    const srcLaneIdx = sortedLanes.findIndex((l) => l.id === srcLane.id);
-    const tgtLaneIdx = sortedLanes.findIndex((l) => l.id === tgtLane.id);
-    if (srcLaneIdx < 0 || tgtLaneIdx < 0) continue;
-
+    // (srcLaneIdx and tgtLaneIdx were computed above the backward-flow check)
     const crossCount = Math.abs(tgtLaneIdx - srcLaneIdx);
 
     if (crossCount <= 1) {

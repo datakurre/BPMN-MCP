@@ -23,5 +23,6 @@ export {
   alignCloseEndEvents,
   alignHappyPath,
   pinHappyPathBranches,
+  ensureStartEventsAreLeftmost,
 } from './grid-snap-alignment';
 export { gridSnapExpandedSubprocesses } from './grid-snap-subprocess';

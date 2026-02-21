@@ -17,6 +17,8 @@ import {
 } from './constants';
 
 const BPMN_END_EVENT = 'bpmn:EndEvent';
+const BPMN_PROCESS = 'bpmn:Process';
+const BPMN_COLLABORATION = 'bpmn:Collaboration';
 
 /**
  * After grid snapping, re-centre gateways vertically to the midpoint
@@ -300,7 +302,7 @@ export function alignOffPathEndEvents(
   let parentFilter: BpmnElement | undefined = container;
   if (!parentFilter) {
     parentFilter = elementRegistry.filter(
-      (el) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+      (el) => el.type === BPMN_PROCESS || el.type === BPMN_COLLABORATION
     )[0];
   }
 
@@ -362,7 +364,7 @@ export function alignHappyPath(
   let parentFilter: BpmnElement | undefined = container;
   if (!parentFilter) {
     parentFilter = elementRegistry.filter(
-      (el) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+      (el) => el.type === BPMN_PROCESS || el.type === BPMN_COLLABORATION
     )[0];
   }
 
@@ -506,7 +508,7 @@ export function alignCloseEndEvents(
   let parentFilter: BpmnElement | undefined = container;
   if (!parentFilter) {
     parentFilter = elementRegistry.filter(
-      (el) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+      (el) => el.type === BPMN_PROCESS || el.type === BPMN_COLLABORATION
     )[0];
   }
 
@@ -583,7 +585,7 @@ export function pinHappyPathBranches(
   let parentFilter: BpmnElement | undefined = container;
   if (!parentFilter) {
     parentFilter = elementRegistry.filter(
-      (el) => el.type === 'bpmn:Process' || el.type === 'bpmn:Collaboration'
+      (el) => el.type === BPMN_PROCESS || el.type === BPMN_COLLABORATION
     )[0];
   }
 
@@ -622,6 +624,98 @@ export function pinHappyPathBranches(
       // Move on-path up and off-path down
       modeling.moveElements([onPathTarget], { x: 0, y: dy });
       modeling.moveElements([offPathTarget], { x: 0, y: -dy });
+    }
+  }
+}
+/**
+ * Ensure start events are in the leftmost column of their connected component.
+ *
+ * After `gridSnapPass`, ELK's column merging (controlled by
+ * `COLUMN_MERGE_TOLERANCE`) can pull a `bpmn:StartEvent` into a column
+ * occupied by mid-diagram elements, placing the start event to the right of
+ * elements it feeds.  This pass checks each start event and, if it is not in
+ * the leftmost column of its connected subgraph, repositions it to
+ * `minReachableX - layerGap - startEventWidth`.
+ *
+ * Handles diagrams with multiple independent subgraphs (e.g. a notification
+ * section alongside a main order flow): each start event is only compared
+ * against elements reachable from it via outgoing sequence flows.
+ *
+ * Runs after `alignHappyPath` so the main-flow row is established, and
+ * before edge routing so connection waypoints pick up the corrected position.
+ */
+export function ensureStartEventsAreLeftmost(
+  elementRegistry: ElementRegistry,
+  modeling: Modeling,
+  container?: BpmnElement
+): void {
+  const allElements: BpmnElement[] = elementRegistry.getAll();
+
+  // Scope to container if provided
+  let parentFilter: BpmnElement | undefined = container;
+  if (!parentFilter) {
+    parentFilter = allElements.find(
+      (el) => el.type === BPMN_PROCESS || el.type === BPMN_COLLABORATION
+    );
+  }
+
+  // Find start events in this scope
+  const startEvents = allElements.filter(
+    (el) => el.type === 'bpmn:StartEvent' && (!parentFilter || el.parent === parentFilter)
+  );
+  if (startEvents.length === 0) return;
+
+  // BFS: collect all elements reachable from a start event via outgoing flows.
+  // This identifies the start event's connected component.
+  function reachableFrom(start: BpmnElement): Set<string> {
+    const visited = new Set<string>();
+    const queue: BpmnElement[] = [start];
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      if (visited.has(cur.id)) continue;
+      visited.add(cur.id);
+      const outgoing = allElements.filter(
+        (conn) => isConnection(conn.type) && conn.source?.id === cur.id && conn.target
+      );
+      for (const conn of outgoing) {
+        if (conn.target && !visited.has(conn.target.id)) {
+          queue.push(conn.target);
+        }
+      }
+    }
+    return visited;
+  }
+
+  for (const se of startEvents) {
+    const seCx = se.x + (se.width || 0) / 2;
+    const reachable = reachableFrom(se);
+    reachable.delete(se.id); // exclude the start event itself
+
+    if (reachable.size === 0) continue;
+
+    // Find the minimum X-centre among all reachable elements
+    let minReachableX = Infinity;
+    for (const id of reachable) {
+      const el = elementRegistry.get(id);
+      if (!el || isConnection(el.type) || isArtifact(el.type) || isInfrastructure(el.type)) {
+        continue;
+      }
+      const cx = el.x + (el.width || 0) / 2;
+      if (cx < minReachableX) minReachableX = cx;
+    }
+    if (minReachableX === Infinity) continue;
+
+    // If the start event is already to the left of all reachable elements, it's fine
+    if (seCx <= minReachableX + MIN_MOVE_THRESHOLD) continue;
+
+    // Start event is to the right of elements it feeds — reposition it to the left.
+    // Place it one layer-gap before the leftmost reachable element.
+    const seW = se.width || 36;
+    const layerGap = 100; // approximate ELK_LAYER_SPACING
+    const targetCx = minReachableX - layerGap - seW / 2;
+    const dx = Math.round(targetCx - seCx);
+    if (Math.abs(dx) > MIN_MOVE_THRESHOLD) {
+      modeling.moveElements([se], { x: dx, y: 0 });
     }
   }
 }

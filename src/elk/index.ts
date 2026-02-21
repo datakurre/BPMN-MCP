@@ -106,6 +106,7 @@ import {
   alignOffPathEndEvents,
   alignCloseEndEvents,
   pinHappyPathBranches,
+  ensureStartEventsAreLeftmost,
 } from './grid-snap';
 import { detectCrossingFlows, reduceCrossings } from './crossing-detection';
 import { avoidElementIntersections } from './element-avoidance';
@@ -339,6 +340,9 @@ function alignHappyPathAndOffPathEvents(ctx: LayoutContext): void {
     pinHappyPathBranches(ctx.elementRegistry, ctx.modeling, ctx.happyPathEdgeIds, scope);
     // Snap end events within 15px of each other to a common Y baseline (cosmetic cleanup)
     alignCloseEndEvents(ctx.elementRegistry, ctx.modeling, scope);
+    // Ensure start events are in the leftmost column of their connected component.
+    // ELK column merging can pull a start event rightward into a mid-diagram column.
+    ensureStartEventsAreLeftmost(ctx.elementRegistry, ctx.modeling, scope);
   });
 }
 

@@ -12,8 +12,9 @@ const EXCLUDED_TYPES = ['SequenceFlow', 'MessageFlow', 'Association'];
 const EXCLUDED_EXACT = ['bpmn:Participant', 'bpmn:Lane', 'bpmn:Process'];
 
 /** Returns false if the element type should be included in collision checks. */
-function isCollisionCandidate(el: any, excludeId?: string): boolean {
+function isCollisionCandidate(el: any, excludeId?: string, excludeIds?: Set<string>): boolean {
   if (excludeId && el.id === excludeId) return false;
+  if (excludeIds && excludeIds.has(el.id)) return false;
   if (EXCLUDED_EXACT.includes(el.type)) return false;
   for (const t of EXCLUDED_TYPES) {
     if (el.type?.includes(t)) return false;
@@ -38,16 +39,19 @@ function boxesOverlap(cx: number, cy: number, halfW: number, halfH: number, el: 
  * Collision-avoidance: shift position RIGHT so the new element doesn't overlap
  * or stack on top of an existing one.  Scans up to 20 iterations to find
  * an open slot by shifting right by `STANDARD_BPMN_GAP`.
+ *
+ * @param excludeIds - Element IDs to exclude from collision checks (e.g. parent containers).
  */
 export function avoidCollision(
   elementRegistry: any,
   x: number,
   y: number,
   elementWidth: number,
-  elementHeight: number
+  elementHeight: number,
+  excludeIds?: Set<string>
 ): { x: number; y: number } {
   const candidates = getVisibleElements(elementRegistry).filter((el: any) =>
-    isCollisionCandidate(el)
+    isCollisionCandidate(el, undefined, excludeIds)
   );
 
   let cx = x;
@@ -69,6 +73,9 @@ export function avoidCollision(
  *
  * Used by C2-1 when adding an element after another element that may have
  * siblings placed at the same X coordinate.
+ *
+ * @param excludeId  - The afterElementId to exclude from checks (the anchor element).
+ * @param excludeIds - Additional element IDs to exclude (e.g. parent containers).
  */
 export function avoidCollisionY(
   elementRegistry: any,
@@ -76,10 +83,11 @@ export function avoidCollisionY(
   y: number,
   elementWidth: number,
   elementHeight: number,
-  excludeId?: string
+  excludeId?: string,
+  excludeIds?: Set<string>
 ): { x: number; y: number } {
   const candidates = getVisibleElements(elementRegistry).filter((el: any) =>
-    isCollisionCandidate(el, excludeId)
+    isCollisionCandidate(el, excludeId, excludeIds)
   );
 
   let cy = y;
