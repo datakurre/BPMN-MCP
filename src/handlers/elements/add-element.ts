@@ -346,6 +346,20 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     modeling.updateProperties(createdElement, { name: elementName });
   }
 
+  // bpmn:Group has a large default size (300×300 in bpmn-js) and its center
+  // is placed at the requested (x, y).  When x=100 or y=100 (the defaults),
+  // the top-left of the group lands at (x−150, y−150) = (−50, −50), pushing
+  // it into negative coordinate space and producing an invisible element.
+  // Clamp: if the created element's top-left is at a negative coordinate, move
+  // it so the top-left is at (max(x, 0), max(y, 0)).
+  if (elementType === 'bpmn:Group' && (createdElement.x < 0 || createdElement.y < 0)) {
+    const clampDx = createdElement.x < 0 ? -createdElement.x : 0;
+    const clampDy = createdElement.y < 0 ? -createdElement.y : 0;
+    if (clampDx > 0 || clampDy > 0) {
+      modeling.moveElements([createdElement], { x: clampDx, y: clampDy });
+    }
+  }
+
   // Register element in lane's flowNodeRef list if laneId was specified
   if (assignToLaneId) {
     const targetLane = elementRegistry.get(assignToLaneId);

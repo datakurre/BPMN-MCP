@@ -259,7 +259,6 @@ export function repositionLanes(
 
       const bandY = laneBandY.get(lane.id)!;
       const bandH = laneBandHeights.get(lane.id)!;
-      const bandCentreY = bandY + bandH / 2;
 
       const shapes: BpmnElement[] = [];
       for (const nodeId of nodeIds) {
@@ -271,19 +270,13 @@ export function repositionLanes(
 
       // Compute median Y-centre of the lane's nodes (they are likely
       // on the same row after ELK + centreElementsInPools)
-      const yCentres = shapes.map((s) => s.y + (s.height || 0) / 2);
-      yCentres.sort((a, b) => a - b);
-      const medianCentre = yCentres[Math.floor(yCentres.length / 2)];
+      const sortedYC = shapes.map((s) => s.y + (s.height || 0) / 2).sort((a, b) => a - b);
+      const dy = Math.round(bandY + bandH / 2 - sortedYC[Math.floor(sortedYC.length / 2)]);
 
-      const dy = Math.round(bandCentreY - medianCentre);
-
-      // Lane-boundary guard: clamp the shift so the topmost element never
-      // overshoots above bandY (can occur with multi-row content and upward shifts).
-      const topContentY = Math.min(...shapes.map((s) => s.y));
-      const bottomContentY = Math.max(...shapes.map((s) => s.y + (s.height || 0)));
-      let safeDy = topContentY + dy < bandY ? bandY - topContentY : dy;
-      // Bottom-boundary guard: clamp so no element overshoots below bandY + bandH.
-      if (bottomContentY + safeDy > bandY + bandH) safeDy = bandY + bandH - bottomContentY;
+      // Lane-boundary guards: clamp so no element overshoots above or below the band.
+      const topY = Math.min(...shapes.map((s) => s.y));
+      const botY = Math.max(...shapes.map((s) => s.y + (s.height || 0)));
+      const safeDy = Math.min(topY + dy < bandY ? bandY - topY : dy, bandY + bandH - botY);
       if (Math.abs(safeDy) > 1) modeling.moveElements(shapes, { x: 0, y: safeDy });
     }
 

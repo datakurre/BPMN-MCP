@@ -239,10 +239,30 @@ const GROUP_PADDING = 20;
  * position clamp.
  * Returns true if the group was repositioned.
  */
-function repositionGroup(group: BpmnElement, modeling: Modeling): boolean {
-  const children: BpmnElement[] = ((group as any).children ?? []).filter((el: BpmnElement) =>
+function repositionGroup(
+  group: BpmnElement,
+  modeling: Modeling,
+  elementRegistry?: ElementRegistry
+): boolean {
+  // First try direct shape children (elements placed inside the group container).
+  let children: BpmnElement[] = ((group as any).children ?? []).filter((el: BpmnElement) =>
     isLayoutableShape(el)
   );
+
+  // If no direct children, look for elements whose businessObject.categoryValueRef
+  // matches the group's categoryValueRef.  bpmn:Group scope is defined in the
+  // BPMN semantic model via categoryValueRef, not via direct parent/child containment,
+  // so elements can "belong" to a group without being its DOM children.
+  if (children.length === 0 && elementRegistry) {
+    const groupCatRef = (group.businessObject as any)?.categoryValueRef;
+    if (groupCatRef) {
+      children = elementRegistry.filter((el: BpmnElement) => {
+        const elCatRef = (el.businessObject as any)?.categoryValueRef;
+        return elCatRef === groupCatRef && isLayoutableShape(el);
+      });
+    }
+  }
+
   if (children.length === 0) return false;
 
   let minX = Infinity,
@@ -320,7 +340,7 @@ export function repositionArtifacts(elementRegistry: ElementRegistry, modeling: 
   // Groups are bounding boxes, not icons, so standard below/above placement is wrong.
   const artifacts = allArtifacts.filter((el) => {
     if (el.type !== 'bpmn:Group') return true;
-    const repositioned = repositionGroup(el, modeling);
+    const repositioned = repositionGroup(el, modeling, elementRegistry);
     if (!repositioned) {
       // No direct children — clamp to flow bounds so the group is at least visible
       clampGroupToFlowBounds(el, bounds, modeling);
