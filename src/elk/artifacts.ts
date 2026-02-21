@@ -235,7 +235,8 @@ const GROUP_PADDING = 20;
  * Reposition a bpmn:Group to surround its layoutable children.
  * Groups are bounding boxes, not icons — placing them below the flow is wrong.
  * If the group has children that were repositioned by ELK, resize to surround
- * them. If no layoutable children, leave the group in place (skip it).
+ * them. If no layoutable children, return false so the caller can apply a
+ * position clamp.
  * Returns true if the group was repositioned.
  */
 function repositionGroup(group: BpmnElement, modeling: Modeling): boolean {
@@ -267,17 +268,63 @@ function repositionGroup(group: BpmnElement, modeling: Modeling): boolean {
   return true;
 }
 
+/**
+ * Clamp a childless bpmn:Group into the visible flow bounds when it has been
+ * placed at negative coordinates or far outside the diagram.
+ *
+ * Groups without direct shape children (created standalone, not by
+ * dragging elements inside) often land at the default add-element
+ * position which may be well outside the main flow bounding box.
+ * Rather than leaving them invisible (negative Y) or off-screen,
+ * centre them on the flow bounding box so they are at least visible
+ * and can be manually repositioned.
+ */
+function clampGroupToFlowBounds(group: BpmnElement, bounds: FlowBounds, modeling: Modeling): void {
+  const gx = group.x ?? 0;
+  const gy = group.y ?? 0;
+  const gw = group.width ?? 200;
+  const gh = group.height ?? 100;
+
+  // Check if the group is outside or overlapping badly with the flow bounds
+  const isOutside = gy < 0 || gx < 0 || gy > bounds.maxY + 200 || gx > bounds.maxX + 200;
+  if (!isOutside) return;
+
+  // Place the group centred on the flow bounding box
+  const flowCx = (bounds.minX + bounds.maxX) / 2;
+  const flowCy = (bounds.minY + bounds.maxY) / 2;
+  const newX = Math.max(bounds.minX, flowCx - gw / 2);
+  const newY = Math.max(bounds.minY, flowCy - gh / 2);
+
+  const dx = Math.round(newX - gx);
+  const dy = Math.round(newY - gy);
+  if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+    try {
+      modeling.moveElements([group], { x: dx, y: dy });
+    } catch {
+      // Non-fatal: group stays at original position
+    }
+  }
+}
+
 export function repositionArtifacts(elementRegistry: ElementRegistry, modeling: Modeling): void {
   const allArtifacts = elementRegistry.filter((el) => isArtifact(el.type));
   if (allArtifacts.length === 0) return;
 
+  // Compute flow bounds FIRST so they are available for childless-group clamping.
+  const flowElements = elementRegistry.filter((el) => !!el.type && isLayoutableShape(el));
+  const bounds = computeFlowBounds(flowElements);
+
   // Handle bpmn:Group elements separately:
-  //   - Groups with children → resize to surround them
-  //   - Groups without children → skip (don't dump them below the flow)
+  //   - Groups with children → resize to surround them (repositionGroup)
+  //   - Groups without children → clamp to flow bounds if outside visible area
   // Groups are bounding boxes, not icons, so standard below/above placement is wrong.
   const artifacts = allArtifacts.filter((el) => {
     if (el.type !== 'bpmn:Group') return true;
-    repositionGroup(el, modeling);
+    const repositioned = repositionGroup(el, modeling);
+    if (!repositioned) {
+      // No direct children — clamp to flow bounds so the group is at least visible
+      clampGroupToFlowBounds(el, bounds, modeling);
+    }
     return false; // Always exclude groups from the icon-artifact pipeline
   });
   if (artifacts.length === 0) return;
@@ -289,8 +336,6 @@ export function repositionArtifacts(elementRegistry: ElementRegistry, modeling: 
       el.type === 'bpmn:DataOutputAssociation'
   );
 
-  const flowElements = elementRegistry.filter((el) => !!el.type && isLayoutableShape(el));
-  const bounds = computeFlowBounds(flowElements);
   const { linked, unlinked } = groupArtifactsByLinkedElement(artifacts, associations);
   const occupiedRects: OccupiedRect[] = [];
 
