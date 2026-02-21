@@ -511,6 +511,10 @@ export function routeLoopbacksBelow(elementRegistry: ElementRegistry, modeling: 
     }
 
     modeling.updateWaypoints(conn, deduplicateWaypoints(newWps));
+    // Tag this connection as a loopback route so avoidElementIntersections
+    // skips it — the U-shape intentionally passes below all flow elements
+    // and avoidance would create cascading waypoint oscillation.
+    (conn as any).__loopbackRoute = true;
   }
 }
 

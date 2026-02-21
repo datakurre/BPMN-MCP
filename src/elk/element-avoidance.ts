@@ -67,6 +67,16 @@ export function avoidElementIntersections(
     const target = conn.target;
     if (source?.type?.includes('Gateway') || target?.type?.includes('Gateway')) continue;
 
+    // Skip connections whose source or target is a boundary event.
+    // Boundary event routes are purpose-built by edge-routing-core.ts and
+    // avoidance rerouting creates waypoint oscillation patterns (cross-story issue).
+    if (source?.type === 'bpmn:BoundaryEvent' || target?.type === 'bpmn:BoundaryEvent') continue;
+
+    // Skip loopback routes tagged by routeLoopbacksBelow.
+    // These U-shaped routes intentionally pass below all flow elements;
+    // avoidance would try to reroute them creating cascading oscillation.
+    if ((conn as any).__loopbackRoute) continue;
+
     // Collect boundary events attached to source/target (they overlap by design)
     const attachedBoundaryIds = new Set<string>();
     for (const el of allElements) {

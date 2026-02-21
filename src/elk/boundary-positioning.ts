@@ -327,4 +327,50 @@ export function repositionBoundaryEvents(
   // When multiple events share a border, spread them evenly along that
   // edge to prevent overlap.
   spreadBoundaryEventsOnSameBorder(boundaryEvents, modeling);
+
+  // ── Post-positioning clamp ──
+  // After all repositioning and spreading, ensure boundary events on
+  // top/bottom borders do not clip outside the host's horizontal bounds,
+  // and events on left/right borders do not clip outside vertical bounds.
+  // Coordinate drift from modeling.moveElements in headless mode can push
+  // events slightly outside the host perimeter.
+  for (const be of boundaryEvents) {
+    const host = be.host;
+    if (!host) continue;
+
+    const beW = be.width || BPMN_EVENT_SIZE;
+    const beH = be.height || BPMN_EVENT_SIZE;
+    const border = detectCurrentBorder(be, host);
+    const hostLeft = host.x;
+    const hostRight = host.x + (host.width || BPMN_TASK_WIDTH);
+    const hostTop = host.y;
+    const hostBottom = host.y + (host.height || BPMN_TASK_HEIGHT);
+
+    let clampDx = 0;
+    let clampDy = 0;
+
+    if (border === 'top' || border === 'bottom') {
+      // Clamp X: event must stay within the host's horizontal span
+      if (be.x < hostLeft) {
+        clampDx = hostLeft - be.x;
+      } else if (be.x + beW > hostRight) {
+        clampDx = hostRight - (be.x + beW);
+      }
+    } else {
+      // left / right border: clamp Y: event must stay within vertical span
+      if (be.y < hostTop) {
+        clampDy = hostTop - be.y;
+      } else if (be.y + beH > hostBottom) {
+        clampDy = hostBottom - (be.y + beH);
+      }
+    }
+
+    if (Math.abs(clampDx) > 1 || Math.abs(clampDy) > 1) {
+      try {
+        modeling.moveElements([be], { x: clampDx, y: clampDy }, be.host, { attach: true });
+      } catch {
+        // Non-fatal: silently skip if bpmn-js rejects the clamp move
+      }
+    }
+  }
 }
