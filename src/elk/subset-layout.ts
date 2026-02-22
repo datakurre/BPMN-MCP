@@ -25,9 +25,7 @@ import {
 } from './constants';
 import { buildZShapeRoute } from '../geometry';
 import { applyElkPositions } from './position-application';
-import { snapSameLayerElements } from './snap-alignment';
 import { detectCrossingFlows } from './crossing-detection';
-import { resolveOverlaps } from './overlap-resolution';
 import { repositionArtifacts } from './artifacts';
 import type { ElkLayoutOptions } from './types';
 
@@ -355,12 +353,6 @@ export async function elkLayoutSubset(
   // Apply positions
   applyElkPositions(elementRegistry, modeling, result, offsetX, offsetY);
 
-  // C3: Snap same-layer elements to a common Y before routing.
-  // In the full pipeline this runs after applyElkPositions; in subset layout
-  // it aligns elements within the subset to clean row positions, preventing
-  // small Y-offsets from producing diagonal edge segments.
-  snapSameLayerElements(elementRegistry, modeling, sharedContainer ?? undefined);
-
   // Layout all connections touching the subset using ManhattanLayout.
   // After partial layout moves elements, all connections need proper routing
   // from bpmn-js's built-in orthogonal router.
@@ -380,13 +372,7 @@ export async function elkLayoutSubset(
   // subset may have stale waypoints that no longer connect properly.
   rebuildNeighborEdges(elementRegistry, modeling, idSet);
 
-  // C3: Resolve overlaps created by the subset layout.
-  // After ELK positions and grid alignment, subset elements may overlap
-  // with each other or with their neighbors.  This pass pushes overlapping
-  // elements apart (same logic as the full pipeline's overlap resolution).
-  resolveOverlaps(elementRegistry, modeling, sharedContainer ?? undefined);
-
-  // C3: Reposition artifacts linked to subset elements.
+  // Reposition artifacts linked to subset elements.
   // Data objects, data stores, and text annotations associated with moved
   // elements need to be re-anchored to their new positions.
   repositionArtifacts(elementRegistry, modeling);

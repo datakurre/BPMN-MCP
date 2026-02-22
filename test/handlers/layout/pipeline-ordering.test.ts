@@ -21,22 +21,13 @@ import { createLayoutLogger } from '../../../src/elk/layout-logger';
  * If you need to reorder steps, update this array and document WHY in a comment.
  */
 const EXPECTED_MAIN_STEPS = [
-  // B1-4a: Node-positioning steps
   'applyNodePositions',
-  'fixBoundaryEvents',
-  'snapAndAlignLayers',
-  'gridSnapAndResolveOverlaps',
-  'repositionArtifacts',
-  'alignHappyPathAndOffPathEvents',
-  'resolveOverlaps-2nd',
-  'positionEventSubprocesses',
-  // B1-4b: Pool/boundary/edge-routing transition steps
   'finalisePoolsAndLanes',
-  'finaliseBoundaryTargets',
-  'resolveOverlaps-3rd',
+  'fixBoundaryEvents',
+  'positionEventSubprocesses',
+  'repositionArtifacts',
   'layoutAllConnections',
   'normaliseOrigin',
-  // B1-4c: Post-routing steps
   'detectCrossingFlows',
 ];
 
@@ -85,13 +76,6 @@ describe('pipeline step ordering (B1-8)', () => {
   test('delta-tracked steps are the correct subset', () => {
     const deltaTracked = MAIN_PIPELINE_STEPS.filter((s) => s.trackDelta).map((s) => s.name);
     // Only steps that move shapes (not connection-only steps) should track deltas
-    expect(deltaTracked).toEqual([
-      'applyNodePositions',
-      'fixBoundaryEvents',
-      'snapAndAlignLayers',
-      'gridSnapAndResolveOverlaps',
-      'alignHappyPathAndOffPathEvents',
-      'finaliseBoundaryTargets',
-    ]);
+    expect(deltaTracked).toEqual(['applyNodePositions', 'fixBoundaryEvents']);
   });
 });

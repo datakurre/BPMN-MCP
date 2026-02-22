@@ -14,10 +14,36 @@ import {
   computeLayoutQualityMetrics,
   type ContainerSizingIssue,
 } from './layout-quality-metrics';
-import { snapWaypointsToPixelGrid } from '../../elk/grid-snap';
 export { checkDiIntegrity, repairMissingDiShapes } from './layout-di-repair';
 
 // ── Pixel grid snapping ────────────────────────────────────────────────────
+
+/** Snap intermediate waypoints of all connections to a pixel grid. */
+function snapWaypointsToPixelGrid(elementRegistry: any, modeling: any, quantum: number): void {
+  const connections = elementRegistry.filter(
+    (el: any) =>
+      (el.type?.includes('SequenceFlow') ||
+        el.type?.includes('MessageFlow') ||
+        el.type?.includes('Association')) &&
+      !!el.waypoints &&
+      el.waypoints.length >= 2
+  );
+  for (const conn of connections) {
+    const wps = conn.waypoints!;
+    const snapped = wps.map((wp: any, i: number) => {
+      // Preserve endpoints — they must stay on shape boundaries
+      if (i === 0 || i === wps.length - 1) return { x: wp.x, y: wp.y };
+      return {
+        x: Math.round(wp.x / quantum) * quantum,
+        y: Math.round(wp.y / quantum) * quantum,
+      };
+    });
+    const changed = snapped.some((wp: any, i: number) => wp.x !== wps[i].x || wp.y !== wps[i].y);
+    if (changed) {
+      modeling.updateWaypoints(conn, snapped);
+    }
+  }
+}
 
 /**
  * Apply pixel-level grid snapping to all shapes and connection waypoints.

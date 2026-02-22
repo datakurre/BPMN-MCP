@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:collaboration id="Collaboration_03zqop7">
-    <bpmn:participant id="Participant_00tgxil" name="Department A" processRef="Process_Two_Pool_Collaboration" />
+  <bpmn:collaboration id="Collaboration_1dotame">
+    <bpmn:participant id="Participant_0v0jnap" name="Department A" processRef="Process_Two_Pool_Collaboration" />
   </bpmn:collaboration>
   <bpmn:process id="Process_Two_Pool_Collaboration" name="Two Pool Collaboration" isExecutable="true" camunda:historyTimeToLive="P180D">
-    <bpmn:laneSet id="LaneSet_17bdyhw">
-      <bpmn:lane id="Lane_0gbuy5l" name="Department A">
+    <bpmn:laneSet id="LaneSet_1e2dk49">
+      <bpmn:lane id="Lane_07e30y8" name="Department A">
         <bpmn:flowNodeRef>StartEvent_StartA</bpmn:flowNodeRef>
       </bpmn:lane>
-      <bpmn:lane id="Lane_0p5008a" name="Department B" />
+      <bpmn:lane id="Lane_08hgi8o" name="Department B" />
     </bpmn:laneSet>
     <bpmn:startEvent id="StartEvent_StartA" name="Start A" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_03zqop7">
-      <bpmndi:BPMNShape id="Participant_00tgxil_di" bpmnElement="Participant_00tgxil" isHorizontal="true">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1dotame">
+      <bpmndi:BPMNShape id="Participant_0v0jnap_di" bpmnElement="Participant_0v0jnap" isHorizontal="true">
         <dc:Bounds x="192" y="92" width="350" height="500" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_0gbuy5l_di" bpmnElement="Lane_0gbuy5l" isHorizontal="true">
+      <bpmndi:BPMNShape id="Lane_07e30y8_di" bpmnElement="Lane_07e30y8" isHorizontal="true">
         <dc:Bounds x="222" y="92" width="320" height="266" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_0p5008a_di" bpmnElement="Lane_0p5008a" isHorizontal="true">
+      <bpmndi:BPMNShape id="Lane_08hgi8o_di" bpmnElement="Lane_08hgi8o" isHorizontal="true">
         <dc:Bounds x="222" y="358" width="320" height="234" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>

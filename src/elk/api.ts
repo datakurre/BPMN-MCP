@@ -11,16 +11,4 @@
 export { elkLayout, elkLayoutSubset } from './index';
 export { computeLaneCrossingMetrics } from './crossing-detection';
 export { isTrivialDiagram, applyDeterministicLayout } from './deterministic-layout';
-export { selectLayoutStrategy } from './strategy-selector';
-export type {
-  ElkLayoutOptions,
-  CrossingFlowsResult,
-  LaneCrossingMetrics,
-  GridLayer,
-} from './types';
-export type {
-  LayoutStrategy,
-  StrategyConfidence,
-  StrategyAnalysis,
-  DiagramStats,
-} from './strategy-selector';
+export type { ElkLayoutOptions, CrossingFlowsResult, LaneCrossingMetrics } from './types';

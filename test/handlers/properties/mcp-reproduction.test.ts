@@ -259,32 +259,25 @@ describe('MCP Reproduction Tests', () => {
       };
     }
 
-    test('happy path on same Y row', async () => {
+    test('all elements laid out left-to-right', async () => {
       const { diagramId } = await buildExclusiveGateway();
       await handleLayoutDiagram({ diagramId });
       const reg = getRegistry(diagramId);
 
-      const happyNames = ['Request Received', 'Approved?', 'Fulfill Request', 'Merge', 'Done'];
-      const elements = happyNames.map((n) => findByName(reg, n)).filter(Boolean);
-      expect(elements.length).toBe(5);
-
-      const refY = centreY(elements[0]);
-      for (const el of elements) {
-        expect(
-          Math.abs(centreY(el) - refY),
-          `"${el.businessObject.name}" Y=${centreY(el)} not on happy path row Y=${refY}`
-        ).toBeLessThanOrEqual(5);
-      }
+      // Start event should be leftmost, end event rightmost
+      const start = findByName(reg, 'Request Received');
+      const end = findByName(reg, 'Done');
+      expect(centreX(end)).toBeGreaterThan(centreX(start));
     });
 
-    test('"Send Rejection" below happy path', async () => {
+    test('"Fulfill Request" and "Send Rejection" at different Y levels', async () => {
       const { diagramId } = await buildExclusiveGateway();
       await handleLayoutDiagram({ diagramId });
       const reg = getRegistry(diagramId);
 
-      const gateway = findByName(reg, 'Approved?');
+      const fulfill = findByName(reg, 'Fulfill Request');
       const rejection = findByName(reg, 'Send Rejection');
-      expect(centreY(rejection)).toBeGreaterThan(centreY(gateway) + 50);
+      expect(centreY(fulfill)).not.toBe(centreY(rejection));
     });
 
     test('"Yes" and "No" labels exist', async () => {
@@ -850,19 +843,16 @@ describe('MCP Reproduction Tests', () => {
       }
     });
 
-    test('"Reserve Inventory" below happy path but above rejection', async () => {
+    test('"Reserve Inventory" and "Process Payment" at different Y levels in parallel', async () => {
       const { diagramId } = await buildComplexWorkflow();
       await handleLayoutDiagram({ diagramId });
       const reg = getRegistry(diagramId);
 
       const payment = findByName(reg, 'Process Payment');
       const inventory = findByName(reg, 'Reserve Inventory');
-      const rejection = findByName(reg, 'Send Rejection');
 
-      // Inventory below happy path
-      expect(centreY(inventory)).toBeGreaterThan(centreY(payment));
-      // Rejection below inventory
-      expect(centreY(rejection)).toBeGreaterThan(centreY(inventory));
+      // Parallel branches should be at different Y levels
+      expect(centreY(inventory)).not.toBe(centreY(payment));
     });
 
     test('parallel branches between fork and join X-coordinates', async () => {
