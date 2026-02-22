@@ -53,8 +53,6 @@ import { repositionBoundaryEvents } from './boundary-positioning';
 import {
   identifyBoundaryExceptionChains,
   repositionBoundaryEventTargets,
-  alignOffPathEndEventsToSecondRow,
-  pushBoundaryTargetsBelowHappyPath,
   repositionCompensationHandlers,
 } from './boundary-chains';
 import { repositionArtifacts } from './artifacts';
@@ -187,20 +185,6 @@ function fixBoundaryEvents(ctx: LayoutContext): void {
   repositionBoundaryEvents(ctx.elementRegistry, ctx.modeling, ctx.boundarySnapshots);
 
   repositionBoundaryEventTargets(ctx.elementRegistry, ctx.modeling, ctx.boundaryLeafTargetIds);
-
-  pushBoundaryTargetsBelowHappyPath(
-    ctx.elementRegistry,
-    ctx.modeling,
-    ctx.boundaryLeafTargetIds,
-    undefined
-  );
-
-  alignOffPathEndEventsToSecondRow(
-    ctx.elementRegistry,
-    ctx.modeling,
-    ctx.boundaryLeafTargetIds,
-    undefined
-  );
 
   repositionCompensationHandlers(ctx.elementRegistry, ctx.modeling);
 }

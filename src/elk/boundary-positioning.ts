@@ -21,8 +21,6 @@ import { BPMN_BOUNDARY_EVENT_TYPE, type BoundaryEventSnapshot } from './boundary
 /**
  * Detect which border a boundary event currently sits on relative to its host.
  * Returns 'top', 'bottom', 'left', or 'right' based on proximity.
- *
- * Exported so `boundary-chains.ts` can reuse it for `pushBoundaryTargetsBelowHappyPath`.
  */
 export function detectCurrentBorder(
   be: BpmnElement,

@@ -145,8 +145,6 @@ export const ARTIFACT_SEARCH_HEIGHT = 200;
 
 // ── Boundary event positioning constants ────────────────────────────────
 
-/** Y-distance buffer (px) for boundary event target row qualification. */
-export const BOUNDARY_TARGET_ROW_BUFFER = 10;
 /**
  * Fraction of host width/height used as margin on each side when
  * spreading multiple boundary events along the same border.

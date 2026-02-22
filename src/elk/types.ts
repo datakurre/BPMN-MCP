@@ -46,8 +46,6 @@ export interface BpmnElkOptions {
   'elk.layered.compaction.postCompaction.strategy'?: 'EDGE_LENGTH' | 'NONE' | 'CONSTRAINT_GRAPH';
   'elk.separateConnectedComponents'?: 'true' | 'false';
   'elk.layered.considerModelOrder.strategy'?: 'NODES_AND_EDGES' | 'NODES_ONLY' | 'NONE';
-  'elk.priority.straightness'?: string;
-  'elk.priority.direction'?: string;
   'elk.layered.wrapping.strategy'?: 'SINGLE_EDGE' | 'MULTI_EDGE' | 'OFF';
   'elk.layered.unnecessaryBendpoints'?: 'true' | 'false';
   'elk.layered.mergeEdges'?: 'true' | 'false';
