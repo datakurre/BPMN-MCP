@@ -86,83 +86,8 @@ export const ELEMENT_SIZES: Readonly<Record<string, { width: number; height: num
 /** Distance between element edge and external label. */
 export const ELEMENT_LABEL_DISTANCE = 10;
 
-/**
- * @deprecated No longer used — bottom label position now computed using
- * bpmn-js convention: centre at `element.bottom + DEFAULT_LABEL_SIZE.height / 2`.
- * Kept to avoid breaking any external callers; value is 0.
- */
-export const ELEMENT_LABEL_BOTTOM_EXTRA = 0;
-
 /** Default external label dimensions (matches bpmn-js). */
 export const DEFAULT_LABEL_SIZE = { width: 90, height: 20 };
-
-/**
- * Default label position priority (bottom first).
- * Matches bpmn-js `getExternalLabelMid()` which places all external labels
- * below the element by default.  Used for gateways and data objects/stores.
- */
-export const LABEL_POSITION_PRIORITY: readonly ('top' | 'bottom' | 'left' | 'right')[] = [
-  'bottom',
-  'top',
-  'left',
-  'right',
-];
-
-/**
- * Label position priority for events (start, end, intermediate).
- * Events prefer bottom labels because their connections typically exit
- * left/right, leaving the bottom clear.  bpmn-js places event labels
- * below by default.
- */
-export const EVENT_LABEL_POSITION_PRIORITY: readonly ('top' | 'bottom' | 'left' | 'right')[] = [
-  'bottom',
-  'top',
-  'left',
-  'right',
-];
-
-/**
- * Label position priority for boundary events.
- * Boundary events have outgoing flows that exit downward from the bottom
- * of the event, so 'bottom' labels would overlap the first vertical
- * segment of the outgoing flow.  Prefer 'left' to avoid this clash.
- */
-export const BOUNDARY_EVENT_LABEL_POSITION_PRIORITY: readonly (
-  | 'top'
-  | 'bottom'
-  | 'left'
-  | 'right'
-)[] = ['left', 'bottom', 'right', 'top'];
-
-/**
- * Extra scoring penalty when a label candidate overlaps connection
- * segments that are directly attached to the label's own element.
- * Higher than the generic +1 crossing penalty because own-flow overlap
- * is systematic (the flow always exits near the element) rather than
- * coincidental.
- */
-export const OWN_FLOW_CROSSING_PENALTY = 4;
-
-/** Indent offset for flow (connection) labels from midpoint (matches bpmn-js). */
-export const FLOW_LABEL_INDENT = 15;
-
-/**
- * Rendered length (px) of the sequence flow arrow head marker.
- *
- * bpmn-js defines the arrow as a `<marker>` with `viewBox="0 0 20 20"`,
- * `markerWidth="10"`, `markerHeight="10"` and a path `M 1 5 L 11 10 L 1 15 Z`.
- * At half-scale the rendered arrow spans ~5 px.  Subtracting this from the
- * effective flow length before computing the label midpoint makes labels
- * appear visually centred on the *visible* part of the connection line.
- */
-export const ARROW_HEAD_LENGTH = 5;
-
-/**
- * Proximity margin (px) for label-to-shape distance scoring.
- * Labels within this distance of a shape receive a proximity penalty
- * even when they don't overlap, improving readability.
- */
-export const LABEL_SHAPE_PROXIMITY_MARGIN = 10;
 
 // ── Pool/lane sizing utilities ─────────────────────────────────────────────
 

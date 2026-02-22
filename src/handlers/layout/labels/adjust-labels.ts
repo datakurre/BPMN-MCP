@@ -1,47 +1,31 @@
 /**
- * Post-processing function that adjusts external labels to avoid overlaps
- * with connections and other labels.
+ * Post-processing function that adjusts external labels to bpmn-js
+ * default positions (matching Camunda Modeler interactive placement).
+ *
+ * Uses the same formula as bpmn-js `getExternalLabelMid()`:
+ * - Events / Gateways / Data objects: label centre below the element
+ *   at (element.centerX, element.bottom + DEFAULT_LABEL_SIZE.height / 2)
+ * - Flows: label at the connection midpoint (placed by bpmn-js after
+ *   `modeling.layoutConnection()`)
+ *
+ * Boundary events with outgoing flows get their label placed to the left
+ * to avoid overlapping the downward-exiting flow.
  *
  * Entry points:
- * - `adjustDiagramLabels(diagram)` — adjusts all labels in a diagram
+ * - `adjustDiagramLabels(diagram)` — adjusts all element labels in a diagram
  * - `adjustElementLabel(diagram, elementId)` — adjusts a single element's label
+ * - `centerFlowLabels(diagram)` — centers flow labels on connection midpoints
+ * - `adjustFlowLabels(diagram)` — no-op (kept for API compatibility)
  */
 
 import { type DiagramState } from '../../../types';
 import type { BpmnElement } from '../../../bpmn-types';
-import {
-  type Point,
-  type Rect,
-  type LabelOrientation,
-  getLabelCandidatePositions,
-  scoreLabelPosition,
-  getLabelRect,
-} from './label-utils';
+import { DEFAULT_LABEL_SIZE, ELEMENT_LABEL_DISTANCE } from '../../../constants';
 import { getVisibleElements, syncXml, getService } from '../../helpers';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const BOUNDARY_EVENT_TYPE = 'bpmn:BoundaryEvent';
-
-/**
- * Check whether an element is on the main diagram plane (not inside a
- * collapsed subprocess drill-down plane).
- *
- * Collapsed subprocesses render their children on a separate internal
- * plane whose root element has undefined x/y coordinates.  These
- * children must be excluded from shape-rect collection to prevent
- * phantom proximity penalties from shapes on a different visual plane.
- */
-function isOnMainPlane(el: any): boolean {
-  let parent = el.parent;
-  while (parent) {
-    if (parent.x === undefined && parent.y === undefined && parent.type) {
-      return false;
-    }
-    parent = parent.parent;
-  }
-  return true;
-}
 
 /** Check whether an element type has an external label. */
 function hasExternalLabel(type: string): boolean {
@@ -53,205 +37,60 @@ function hasExternalLabel(type: string): boolean {
   );
 }
 
-/** Collect all connection segments from all visible connections. */
-function collectConnectionSegments(elements: any[]): [Point, Point][] {
-  const segments: [Point, Point][] = [];
-  for (const el of elements) {
-    if (
-      (el.type === 'bpmn:SequenceFlow' ||
-        el.type === 'bpmn:MessageFlow' ||
-        el.type === 'bpmn:Association') &&
-      el.waypoints?.length >= 2
-    ) {
-      for (let i = 0; i < el.waypoints.length - 1; i++) {
-        segments.push([
-          { x: el.waypoints[i].x, y: el.waypoints[i].y },
-          { x: el.waypoints[i + 1].x, y: el.waypoints[i + 1].y },
-        ]);
-      }
-    }
-  }
-  return segments;
+/**
+ * Compute the bpmn-js default label position for an element.
+ *
+ * Replicates `getExternalLabelMid()` from bpmn-js/lib/util/LabelUtil:
+ *   centre = (element.centerX, element.bottom + DEFAULT_LABEL_SIZE.height / 2)
+ *
+ * Returns the top-left corner of the label rect.
+ */
+function getDefaultLabelPosition(
+  element: { x: number; y: number; width: number; height: number },
+  labelWidth: number,
+  labelHeight: number
+): { x: number; y: number } {
+  const midX = element.x + element.width / 2;
+  const midY = element.y + element.height + DEFAULT_LABEL_SIZE.height / 2;
+  return {
+    x: Math.round(midX - labelWidth / 2),
+    y: Math.round(midY - labelHeight / 2),
+  };
 }
 
 /**
- * Collect segments from flows that are directly attached to a given element
- * (outgoing or incoming).  Used to apply a heavier penalty for boundary
- * event labels overlapping their own outgoing flows.
+ * Compute the left-side label position for boundary events.
+ *
+ * Boundary events have outgoing flows that exit downward, so placing the
+ * label at the bottom would overlap the flow. Instead, place it to the left.
  */
-function collectOwnFlowSegments(elementId: string, elements: any[]): [Point, Point][] {
-  const segments: [Point, Point][] = [];
-  for (const el of elements) {
-    if (
-      (el.type === 'bpmn:SequenceFlow' ||
-        el.type === 'bpmn:MessageFlow' ||
-        el.type === 'bpmn:Association') &&
-      el.waypoints?.length >= 2 &&
-      (el.source?.id === elementId || el.target?.id === elementId)
-    ) {
-      for (let i = 0; i < el.waypoints.length - 1; i++) {
-        segments.push([
-          { x: el.waypoints[i].x, y: el.waypoints[i].y },
-          { x: el.waypoints[i + 1].x, y: el.waypoints[i + 1].y },
-        ]);
-      }
-    }
-  }
-  return segments;
+function getBoundaryEventLabelPosition(
+  element: { x: number; y: number; width: number; height: number },
+  labelWidth: number,
+  labelHeight: number
+): { x: number; y: number } {
+  const midY = element.y + element.height / 2;
+  return {
+    x: Math.round(element.x - ELEMENT_LABEL_DISTANCE - labelWidth),
+    y: Math.round(midY - labelHeight / 2),
+  };
+}
+
+/**
+ * Check whether a boundary event has outgoing flows.
+ */
+function hasBoundaryOutgoingFlows(elementId: string, elements: any[]): boolean {
+  return elements.some(
+    (el) =>
+      (el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow') &&
+      el.source?.id === elementId
+  );
 }
 
 // ── Core adjustment logic ──────────────────────────────────────────────────
 
 /**
- * Determine the current label orientation relative to its element.
- * Compares the label's centre position to the element's bounding box
- * to classify as 'top', 'bottom', 'left', or 'right'.
- */
-function getCurrentLabelOrientation(el: any, label: any): LabelOrientation {
-  const labelMidY = label.y + (label.height || 20) / 2;
-  const labelMidX = label.x + (label.width || 90) / 2;
-
-  // Check vertical position first (most common for events)
-  if (labelMidY < el.y) return 'top';
-  if (labelMidY > el.y + el.height) return 'bottom';
-
-  // Horizontal position
-  if (labelMidX < el.x) return 'left';
-  return 'right';
-}
-
-/** Try to reposition a single element label. Returns updated rect if moved. */
-function tryRepositionLabel(
-  el: any,
-  shapeRects: Rect[],
-  connectionSegments: [Point, Point][],
-  labelRects: Map<string, Rect>,
-  modeling: any,
-  ownFlowSegments?: [Point, Point][]
-): Rect | null {
-  const label = el.label;
-  if (!label) return null;
-
-  const currentRect = getLabelRect(label);
-  const otherLabelRects = Array.from(labelRects.entries())
-    .filter(([id]) => id !== el.id)
-    .map(([, r]) => r);
-
-  let hostRect: Rect | undefined;
-  if (el.type === BOUNDARY_EVENT_TYPE && el.host) {
-    hostRect = { x: el.host.x, y: el.host.y, width: el.host.width, height: el.host.height };
-  }
-
-  const otherShapeRects = shapeRects.filter(
-    (sr) => sr.x !== el.x || sr.y !== el.y || sr.width !== el.width || sr.height !== el.height
-  );
-
-  const currentScore = scoreLabelPosition(
-    currentRect,
-    connectionSegments,
-    otherLabelRects,
-    hostRect,
-    otherShapeRects,
-    ownFlowSegments
-  );
-
-  const actualLabelSize = { width: label.width || 90, height: label.height || 20 };
-  const candidates = getLabelCandidatePositions(el, actualLabelSize);
-
-  // When current position has no overlaps, still check if the label is at
-  // the preferred orientation for this element type.  Events prefer bottom
-  // labels (matching bpmn-js convention), gateways prefer top.  After ELK
-  // layout moves elements, labels may end up at non-preferred orientations
-  // that happen to be overlap-free.
-  if (currentScore === 0) {
-    const currentOrientation = getCurrentLabelOrientation(el, el.label);
-    const preferredOrientation = candidates[0]?.orientation;
-
-    if (currentOrientation !== preferredOrientation && preferredOrientation) {
-      // Label is at a non-preferred orientation — try the preferred position
-      const preferredCandidate = candidates[0];
-      const preferredScore = scoreLabelPosition(
-        preferredCandidate.rect,
-        connectionSegments,
-        otherLabelRects,
-        hostRect,
-        otherShapeRects,
-        ownFlowSegments
-      );
-
-      if (preferredScore === 0) {
-        // Preferred position is also overlap-free — move there
-        const dx = preferredCandidate.rect.x - label.x;
-        const dy = preferredCandidate.rect.y - label.y;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-          modeling.moveShape(label, { x: dx, y: dy });
-          return preferredCandidate.rect;
-        }
-      }
-    }
-    return null;
-  }
-  let bestScore = currentScore;
-  let bestCandidate: (typeof candidates)[0] | null = null;
-
-  for (const candidate of candidates) {
-    const score = scoreLabelPosition(
-      candidate.rect,
-      connectionSegments,
-      otherLabelRects,
-      hostRect,
-      otherShapeRects,
-      ownFlowSegments
-    );
-    if (score < bestScore) {
-      bestScore = score;
-      bestCandidate = candidate;
-    }
-  }
-
-  if (!bestCandidate) return null;
-
-  const dx = bestCandidate.rect.x - label.x;
-  const dy = bestCandidate.rect.y - label.y;
-  if (dx === 0 && dy === 0) return null;
-
-  modeling.moveShape(label, { x: dx, y: dy });
-  return bestCandidate.rect;
-}
-
-/**
- * Normalise labels to canonical positions before the scoring pass.
- *
- * After ELK layout, some labels retain their bpmn-js default offset
- * (e.g. 7px below events) while others get displaced and later
- * corrected to the canonical candidate offset (15px below events).
- * This creates inconsistent vertical gaps for labels that should look
- * identical (e.g. Start vs End event).  Fix by snapping every label
- * that is already at its preferred orientation to the canonical
- * candidate position.
- */
-function normaliseLabelPositions(labelBearers: any[], modeling: any): void {
-  for (const el of labelBearers) {
-    const label = el.label;
-    if (!label) continue;
-    const orientation = getCurrentLabelOrientation(el, label);
-    const actualLabelSize = { width: label.width || 90, height: label.height || 20 };
-    const candidates = getLabelCandidatePositions(el, actualLabelSize);
-    const preferredCandidate = candidates[0];
-    if (!preferredCandidate || orientation !== preferredCandidate.orientation) continue;
-
-    // Snap to canonical position if more than 1px off
-    const dx = Math.round(preferredCandidate.rect.x - label.x);
-    const dy = Math.round(preferredCandidate.rect.y - label.y);
-    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-      modeling.moveShape(label as unknown as BpmnElement, { x: dx, y: dy });
-    }
-  }
-}
-
-/**
- * Adjust all external labels in a diagram to minimise overlap with
- * connections and other labels.
+ * Adjust all external labels in a diagram to bpmn-js default positions.
  *
  * Returns the number of labels that were moved.
  */
@@ -260,86 +99,37 @@ export async function adjustDiagramLabels(diagram: DiagramState): Promise<number
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const allElements = getVisibleElements(elementRegistry);
 
-  // Filter to main plane elements only — exclude shapes from collapsed
-  // subprocess drill-down planes that live in a different visual context.
-  const mainPlaneElements = allElements.filter(isOnMainPlane);
-
-  const connectionSegments = collectConnectionSegments(mainPlaneElements);
-
-  // Collect all shape rects (non-connections, non-labels) for overlap checking
-  const shapeRects: Rect[] = mainPlaneElements
-    .filter(
-      (el: any) =>
-        el.type &&
-        !el.type.includes('SequenceFlow') &&
-        !el.type.includes('MessageFlow') &&
-        !el.type.includes('Association') &&
-        el.type !== 'bpmn:Participant' &&
-        el.type !== 'bpmn:Lane' &&
-        el.width &&
-        el.height
-    )
-    .map((el: any) => ({ x: el.x, y: el.y, width: el.width, height: el.height }));
-
   // Collect all elements with external labels
-  const labelBearers = mainPlaneElements.filter(
+  const labelBearers = allElements.filter(
     (el: any) => hasExternalLabel(el.type) && el.label && el.businessObject?.name
   );
 
   if (labelBearers.length === 0) return 0;
 
-  normaliseLabelPositions(labelBearers, modeling);
-
-  // Collect current label rects for cross-label overlap checking
-  const labelRects = new Map<string, Rect>();
-  for (const el of labelBearers) {
-    if (el.label) {
-      labelRects.set(el.id, getLabelRect(el.label));
-    }
-  }
-
   let movedCount = 0;
 
   for (const el of labelBearers) {
-    // For boundary events, collect their own outgoing flow segments
-    // to apply a heavier overlap penalty (their outgoing flows exit
-    // downward, right where the default 'bottom' label would be).
-    const ownFlows =
-      el.type === BOUNDARY_EVENT_TYPE
-        ? collectOwnFlowSegments(el.id, mainPlaneElements)
-        : undefined;
-    const newRect = tryRepositionLabel(
-      el,
-      shapeRects,
-      connectionSegments,
-      labelRects,
-      modeling,
-      ownFlows
-    );
-    if (newRect) {
-      labelRects.set(el.id, newRect);
-      movedCount++;
-    }
-  }
-
-  // Centering pass: ensure top/bottom labels have their horizontal centre
-  // aligned with the element centre.  This catches labels that were moved
-  // by external code (boundary event repositioning, ELK layout) rather
-  // than by tryRepositionLabel above.
-  // Skip boundary events — their labels are deliberately placed at
-  // left/right to avoid overlapping their own outgoing flows.
-  for (const el of labelBearers) {
-    if (el.type === BOUNDARY_EVENT_TYPE) continue;
     const label = el.label;
     if (!label) continue;
-    const orientation = getCurrentLabelOrientation(el, label);
-    if (orientation !== 'top' && orientation !== 'bottom') continue;
 
-    const elementCenterX = el.x + el.width / 2;
-    const labelCenterX = label.x + (label.width || 90) / 2;
-    const dx = Math.round(elementCenterX - labelCenterX);
-    if (Math.abs(dx) > 1) {
-      modeling.moveShape(label as unknown as BpmnElement, { x: dx, y: 0 });
+    const labelWidth = label.width || DEFAULT_LABEL_SIZE.width;
+    const labelHeight = label.height || DEFAULT_LABEL_SIZE.height;
+
+    let target: { x: number; y: number };
+
+    // Boundary events with outgoing flows: place label to the left
+    if (el.type === BOUNDARY_EVENT_TYPE && hasBoundaryOutgoingFlows(el.id, allElements)) {
+      target = getBoundaryEventLabelPosition(el, labelWidth, labelHeight);
+    } else {
+      target = getDefaultLabelPosition(el, labelWidth, labelHeight);
+    }
+
+    const dx = target.x - label.x;
+    const dy = target.y - label.y;
+
+    // Only move if displacement is significant (> 1px)
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      modeling.moveShape(label as unknown as BpmnElement, { x: dx, y: dy });
       movedCount++;
     }
   }
@@ -368,86 +158,143 @@ export async function adjustElementLabel(
     return false;
   }
 
-  const allElements = getVisibleElements(elementRegistry);
-  const mainPlaneElements = allElements.filter(isOnMainPlane);
-  const connectionSegments = collectConnectionSegments(mainPlaneElements);
-
-  // Collect nearby shape rects for overlap checking
-  const shapeRects: Rect[] = mainPlaneElements
-    .filter(
-      (other: any) =>
-        other.id !== elementId &&
-        other.type &&
-        !other.type.includes('SequenceFlow') &&
-        !other.type.includes('MessageFlow') &&
-        !other.type.includes('Association') &&
-        other.type !== 'bpmn:Participant' &&
-        other.type !== 'bpmn:Lane' &&
-        other.width &&
-        other.height
-    )
-    .map((other: any) => ({ x: other.x, y: other.y, width: other.width, height: other.height }));
-
-  // Other labels
-  const otherLabelRects: Rect[] = mainPlaneElements
-    .filter((other: any) => other.id !== elementId && other.label && hasExternalLabel(other.type))
-    .map((other: any) => getLabelRect(other.label));
-
-  // Host rect for boundary events
-  let hostRect: Rect | undefined;
-  if (el.type === BOUNDARY_EVENT_TYPE && el.host) {
-    hostRect = { x: el.host.x, y: el.host.y, width: el.host.width, height: el.host.height };
-  }
-
-  // Own outgoing flow segments for boundary events
-  const ownFlowSegments =
-    el.type === BOUNDARY_EVENT_TYPE ? collectOwnFlowSegments(el.id, mainPlaneElements) : undefined;
-
   const label = el.label;
-  const currentRect = getLabelRect(label);
-  const currentScore = scoreLabelPosition(
-    currentRect,
-    connectionSegments,
-    otherLabelRects,
-    hostRect,
-    shapeRects,
-    ownFlowSegments
-  );
+  const labelWidth = label.width || DEFAULT_LABEL_SIZE.width;
+  const labelHeight = label.height || DEFAULT_LABEL_SIZE.height;
 
-  if (currentScore === 0) return false;
+  let target: { x: number; y: number };
 
-  const labelSz = { width: label.width || 90, height: label.height || 20 };
-  const candidates = getLabelCandidatePositions(el, labelSz);
-  let bestScore = currentScore;
-  let bestCandidate: (typeof candidates)[0] | null = null;
-
-  for (const candidate of candidates) {
-    const score = scoreLabelPosition(
-      candidate.rect,
-      connectionSegments,
-      otherLabelRects,
-      hostRect,
-      shapeRects,
-      ownFlowSegments
-    );
-    if (score < bestScore) {
-      bestScore = score;
-      bestCandidate = candidate;
-    }
+  if (
+    el.type === BOUNDARY_EVENT_TYPE &&
+    hasBoundaryOutgoingFlows(el.id, getVisibleElements(elementRegistry))
+  ) {
+    target = getBoundaryEventLabelPosition(el, labelWidth, labelHeight);
+  } else {
+    target = getDefaultLabelPosition(el, labelWidth, labelHeight);
   }
 
-  if (bestCandidate) {
-    const dx = bestCandidate.rect.x - label.x;
-    const dy = bestCandidate.rect.y - label.y;
-    if (dx !== 0 || dy !== 0) {
-      modeling.moveShape(label as BpmnElement, { x: dx, y: dy });
-      await syncXml(diagram);
-      return true;
-    }
+  const dx = target.x - label.x;
+  const dy = target.y - label.y;
+
+  if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+    modeling.moveShape(label as BpmnElement, { x: dx, y: dy });
+    await syncXml(diagram);
+    return true;
   }
 
   return false;
 }
 
-// Re-export flow label adjustment from split module
-export { adjustFlowLabels, centerFlowLabels } from './adjust-flow-labels';
+/**
+ * Center flow labels on their connection's midpoint.
+ *
+ * After layout recomputes waypoints, flow labels may be stranded far
+ * from their connection's current geometry. This pass repositions each
+ * labeled flow's label so its centre sits at the flow's path midpoint.
+ *
+ * Returns the number of flow labels moved.
+ */
+export async function centerFlowLabels(diagram: DiagramState): Promise<number> {
+  const modeling = getService(diagram.modeler, 'modeling');
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const allElements = getVisibleElements(elementRegistry);
+
+  const labeledFlows = allElements.filter(
+    (el: any) =>
+      (el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow') &&
+      el.label &&
+      el.businessObject?.name &&
+      el.waypoints &&
+      el.waypoints.length >= 2
+  );
+
+  let movedCount = 0;
+
+  for (const flow of labeledFlows) {
+    const label = flow.label!;
+    const waypoints = flow.waypoints!;
+
+    // Compute midpoint of the connection path
+    const midpoint = computeFlowMidpoint(waypoints);
+
+    const labelW = label.width || DEFAULT_LABEL_SIZE.width;
+    const labelH = label.height || DEFAULT_LABEL_SIZE.height;
+
+    // Position label centred on midpoint
+    const targetX = Math.round(midpoint.x - labelW / 2);
+    const targetY = Math.round(midpoint.y - labelH / 2);
+
+    const moveX = targetX - label.x;
+    const moveY = targetY - label.y;
+
+    // Only move if displacement is significant (> 2px)
+    if (Math.abs(moveX) > 2 || Math.abs(moveY) > 2) {
+      modeling.moveShape(label as unknown as BpmnElement, { x: moveX, y: moveY });
+      movedCount++;
+    }
+  }
+
+  if (movedCount > 0) await syncXml(diagram);
+  return movedCount;
+}
+
+/**
+ * Adjust flow labels — no-op kept for API compatibility.
+ *
+ * Flow labels are now positioned by `centerFlowLabels()` at the connection
+ * midpoint, which is the bpmn-js default. No additional nudging is needed.
+ *
+ * Returns 0.
+ */
+export async function adjustFlowLabels(_diagram: DiagramState): Promise<number> {
+  return 0;
+}
+
+// ── Flow midpoint computation ──────────────────────────────────────────────
+
+/**
+ * Compute the midpoint of a flow's waypoints for label placement.
+ *
+ * Walks 50% of the total path length to find the exact midpoint.
+ */
+function computeFlowMidpoint(waypoints: Array<{ x: number; y: number }>): {
+  x: number;
+  y: number;
+} {
+  if (waypoints.length === 2) {
+    return {
+      x: (waypoints[0].x + waypoints[1].x) / 2,
+      y: (waypoints[0].y + waypoints[1].y) / 2,
+    };
+  }
+
+  // Walk to 50% of total path length
+  let totalLength = 0;
+  for (let i = 1; i < waypoints.length; i++) {
+    const dx = waypoints[i].x - waypoints[i - 1].x;
+    const dy = waypoints[i].y - waypoints[i - 1].y;
+    totalLength += Math.sqrt(dx * dx + dy * dy);
+  }
+
+  const halfLength = totalLength / 2;
+  let walked = 0;
+  for (let i = 1; i < waypoints.length; i++) {
+    const dx = waypoints[i].x - waypoints[i - 1].x;
+    const dy = waypoints[i].y - waypoints[i - 1].y;
+    const segLen = Math.sqrt(dx * dx + dy * dy);
+    if (walked + segLen >= halfLength && segLen > 0) {
+      const t = (halfLength - walked) / segLen;
+      return {
+        x: waypoints[i - 1].x + dx * t,
+        y: waypoints[i - 1].y + dy * t,
+      };
+    }
+    walked += segLen;
+  }
+
+  // Fallback: geometric midpoint of first and last
+  return {
+    x: (waypoints[0].x + waypoints[waypoints.length - 1].x) / 2,
+    y: (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2,
+  };
+}

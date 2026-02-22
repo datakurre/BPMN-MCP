@@ -29,13 +29,13 @@
       <bpmndi:BPMNShape id="Event_1l18z3u_di" bpmnElement="Event_1l18z3u">
         <dc:Bounds x="192" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="172" y="157" width="77" height="14" />
+          <dc:Bounds x="171" y="153" width="78" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0bdlayk_di" bpmnElement="Event_0bdlayk">
         <dc:Bounds x="768" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="747" y="157" width="79" height="14" />
+          <dc:Bounds x="747" y="153" width="79" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_17tx0sz_di" bpmnElement="Activity_01aji74">

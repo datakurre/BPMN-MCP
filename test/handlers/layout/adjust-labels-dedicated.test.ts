@@ -6,7 +6,7 @@ import {
   adjustDiagramLabels,
   adjustFlowLabels,
 } from '../../../src/handlers/layout/labels/adjust-labels';
-import { rectsOverlap } from '../../../src/handlers/layout/labels/label-utils';
+import { rectsOverlap } from '../../../src/geometry';
 
 describe('adjust_bpmn_labels — dedicated', () => {
   beforeEach(() => {
