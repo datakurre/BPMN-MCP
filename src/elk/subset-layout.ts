@@ -23,20 +23,10 @@ import {
   LOOPBACK_ABOVE_MARGIN,
   LOOPBACK_HORIZONTAL_MARGIN,
 } from './constants';
+import { buildZShapeRoute } from '../geometry';
 import { applyElkPositions } from './position-application';
-import {
-  applyElkEdgeRoutes,
-  fixDisconnectedEdges,
-  simplifyCollinearWaypoints,
-  snapEndpointsToElementCentres,
-  rebuildOffRowGatewayRoutes,
-  separateOverlappingGatewayFlows,
-  removeMicroBends,
-  routeLoopbacksBelow,
-  buildZShapeRoute,
-} from './edge-routing';
-import { snapAllConnectionsOrthogonal, snapSameLayerElements } from './snap-alignment';
-import { detectCrossingFlows, reduceCrossings } from './crossing-detection';
+import { snapSameLayerElements } from './snap-alignment';
+import { detectCrossingFlows } from './crossing-detection';
 import { resolveOverlaps } from './overlap-resolution';
 import { repositionArtifacts } from './artifacts';
 import type { ElkLayoutOptions } from './types';
@@ -371,26 +361,24 @@ export async function elkLayoutSubset(
   // small Y-offsets from producing diagonal edge segments.
   snapSameLayerElements(elementRegistry, modeling, sharedContainer ?? undefined);
 
-  // Apply edge routes for the subset connections
-  applyElkEdgeRoutes(elementRegistry, modeling, result, offsetX, offsetY);
+  // Layout all connections touching the subset using ManhattanLayout.
+  // After partial layout moves elements, all connections need proper routing
+  // from bpmn-js's built-in orthogonal router.
+  const allConnections = elementRegistry.filter(
+    (el: BpmnElement) => isConnection(el.type) && !!el.source && !!el.target
+  );
+  for (const conn of allConnections) {
+    // Only re-route connections that touch the subset
+    const touchesSubset = idSet.has(conn.source!.id) || idSet.has(conn.target!.id);
+    if (touchesSubset) {
+      modeling.layoutConnection(conn);
+    }
+  }
 
   // Rebuild routes for edges connecting subset elements to their neighbors.
   // After partial layout moves elements, edges to/from elements outside the
   // subset may have stale waypoints that no longer connect properly.
   rebuildNeighborEdges(elementRegistry, modeling, idSet);
-
-  // ── Post-processing pipeline (scoped to affected connections) ──────────
-  // Run the same edge repair/simplification steps as the full pipeline,
-  // but only on connections touching the subset.  These are idempotent —
-  // they only modify connections that actually need fixing.
-  fixDisconnectedEdges(elementRegistry, modeling);
-  snapEndpointsToElementCentres(elementRegistry, modeling);
-  rebuildOffRowGatewayRoutes(elementRegistry, modeling);
-  separateOverlappingGatewayFlows(elementRegistry, modeling);
-  simplifyCollinearWaypoints(elementRegistry, modeling);
-  removeMicroBends(elementRegistry, modeling);
-  routeLoopbacksBelow(elementRegistry, modeling);
-  snapAllConnectionsOrthogonal(elementRegistry, modeling);
 
   // C3: Resolve overlaps created by the subset layout.
   // After ELK positions and grid alignment, subset elements may overlap
@@ -402,9 +390,6 @@ export async function elkLayoutSubset(
   // Data objects, data stores, and text annotations associated with moved
   // elements need to be re-anchored to their new positions.
   repositionArtifacts(elementRegistry, modeling);
-
-  // Attempt to reduce edge crossings by nudging waypoints
-  reduceCrossings(elementRegistry, modeling);
 
   // Report crossing flows for the laid-out region
   const crossingFlowsResult = detectCrossingFlows(elementRegistry);

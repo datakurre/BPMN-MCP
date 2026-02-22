@@ -2,19 +2,19 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_Customer_Onboarding" name="Customer Onboarding" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_ApplicationReceived" name="Application Received">
-      <bpmn:outgoing>Flow_0d7lc9k</bpmn:outgoing>
+      <bpmn:outgoing>Flow_05d0d9l</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:userTask id="UserTask_VerifyIdentity" name="Verify Identity">
-      <bpmn:incoming>Flow_0d7lc9k</bpmn:incoming>
-      <bpmn:outgoing>Flow_0xm9sfi</bpmn:outgoing>
+      <bpmn:incoming>Flow_05d0d9l</bpmn:incoming>
+      <bpmn:outgoing>Flow_1efmf81</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_0d7lc9k" sourceRef="StartEvent_ApplicationReceived" targetRef="UserTask_VerifyIdentity" />
+    <bpmn:sequenceFlow id="Flow_05d0d9l" sourceRef="StartEvent_ApplicationReceived" targetRef="UserTask_VerifyIdentity" />
     <bpmn:parallelGateway id="Gateway_Fork" name="Fork">
-      <bpmn:incoming>Flow_0xm9sfi</bpmn:incoming>
+      <bpmn:incoming>Flow_1efmf81</bpmn:incoming>
       <bpmn:outgoing>Flow_Fork_to_CreditCheck</bpmn:outgoing>
       <bpmn:outgoing>Flow_Fork_to_BackgroundCheck</bpmn:outgoing>
     </bpmn:parallelGateway>
-    <bpmn:sequenceFlow id="Flow_0xm9sfi" sourceRef="UserTask_VerifyIdentity" targetRef="Gateway_Fork" />
+    <bpmn:sequenceFlow id="Flow_1efmf81" sourceRef="UserTask_VerifyIdentity" targetRef="Gateway_Fork" />
     <bpmn:serviceTask id="ServiceTask_CreditCheck" name="Credit Check">
       <bpmn:incoming>Flow_Fork_to_CreditCheck</bpmn:incoming>
       <bpmn:outgoing>Flow_CreditCheck_to_Join</bpmn:outgoing>
@@ -28,19 +28,19 @@
     <bpmn:parallelGateway id="Gateway_Join" name="Join">
       <bpmn:incoming>Flow_CreditCheck_to_Join</bpmn:incoming>
       <bpmn:incoming>Flow_BackgroundCheck_to_Join</bpmn:incoming>
-      <bpmn:outgoing>Flow_0qywx9t</bpmn:outgoing>
+      <bpmn:outgoing>Flow_0t445v2</bpmn:outgoing>
     </bpmn:parallelGateway>
     <bpmn:sequenceFlow id="Flow_CreditCheck_to_Join" sourceRef="ServiceTask_CreditCheck" targetRef="Gateway_Join" />
     <bpmn:sequenceFlow id="Flow_BackgroundCheck_to_Join" sourceRef="CallActivity_BackgroundCheck" targetRef="Gateway_Join" />
     <bpmn:userTask id="UserTask_FinalReview" name="Final Review">
-      <bpmn:incoming>Flow_0qywx9t</bpmn:incoming>
-      <bpmn:outgoing>Flow_1b8h0fm</bpmn:outgoing>
+      <bpmn:incoming>Flow_0t445v2</bpmn:incoming>
+      <bpmn:outgoing>Flow_0vv1ben</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_0qywx9t" sourceRef="Gateway_Join" targetRef="UserTask_FinalReview" />
+    <bpmn:sequenceFlow id="Flow_0t445v2" sourceRef="Gateway_Join" targetRef="UserTask_FinalReview" />
     <bpmn:endEvent id="EndEvent_OnboardingComplete" name="Onboarding Complete">
-      <bpmn:incoming>Flow_1b8h0fm</bpmn:incoming>
+      <bpmn:incoming>Flow_0vv1ben</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_1b8h0fm" sourceRef="UserTask_FinalReview" targetRef="EndEvent_OnboardingComplete" />
+    <bpmn:sequenceFlow id="Flow_0vv1ben" sourceRef="UserTask_FinalReview" targetRef="EndEvent_OnboardingComplete" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Customer_Onboarding">
@@ -57,7 +57,7 @@
       <bpmndi:BPMNShape id="Gateway_Fork_di" bpmnElement="Gateway_Fork">
         <dc:Bounds x="453" y="107" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="467" y="83" width="22" height="14" />
+          <dc:Bounds x="421" y="125" width="22" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ServiceTask_CreditCheck_di" bpmnElement="ServiceTask_CreditCheck">
@@ -84,37 +84,41 @@
           <dc:Bounds x="1040" y="157" width="61" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_0d7lc9k_di" bpmnElement="Flow_0d7lc9k">
-        <di:waypoint x="228" y="132" />
-        <di:waypoint x="288" y="132" />
+      <bpmndi:BPMNEdge id="Flow_05d0d9l_di" bpmnElement="Flow_05d0d9l">
+        <di:waypoint x="210" y="114" />
+        <di:waypoint x="210" y="40" />
+        <di:waypoint x="338" y="40" />
+        <di:waypoint x="338" y="92" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0xm9sfi_di" bpmnElement="Flow_0xm9sfi">
-        <di:waypoint x="388" y="132" />
-        <di:waypoint x="453" y="132" />
+      <bpmndi:BPMNEdge id="Flow_1efmf81_di" bpmnElement="Flow_1efmf81">
+        <di:waypoint x="338" y="92" />
+        <di:waypoint x="338" y="60" />
+        <di:waypoint x="478" y="60" />
+        <di:waypoint x="478" y="107" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0y5p527_di" bpmnElement="Flow_Fork_to_CreditCheck">
+      <bpmndi:BPMNEdge id="Flow_065lzxd_di" bpmnElement="Flow_Fork_to_CreditCheck">
         <di:waypoint x="503" y="132" />
         <di:waypoint x="570" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_09hb6hp_di" bpmnElement="Flow_Fork_to_BackgroundCheck">
+      <bpmndi:BPMNEdge id="Flow_0z7nqmw_di" bpmnElement="Flow_Fork_to_BackgroundCheck">
         <di:waypoint x="478" y="157" />
         <di:waypoint x="478" y="250" />
         <di:waypoint x="570" y="250" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_11vbv9w_di" bpmnElement="Flow_CreditCheck_to_Join">
+      <bpmndi:BPMNEdge id="Flow_0xq77ya_di" bpmnElement="Flow_CreditCheck_to_Join">
         <di:waypoint x="670" y="132" />
         <di:waypoint x="745" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_16xqalx_di" bpmnElement="Flow_BackgroundCheck_to_Join">
+      <bpmndi:BPMNEdge id="Flow_04x2cy1_di" bpmnElement="Flow_BackgroundCheck_to_Join">
         <di:waypoint x="670" y="250" />
         <di:waypoint x="770" y="250" />
         <di:waypoint x="770" y="157" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0qywx9t_di" bpmnElement="Flow_0qywx9t">
+      <bpmndi:BPMNEdge id="Flow_0t445v2_di" bpmnElement="Flow_0t445v2">
         <di:waypoint x="795" y="132" />
         <di:waypoint x="870" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1b8h0fm_di" bpmnElement="Flow_1b8h0fm">
+      <bpmndi:BPMNEdge id="Flow_0vv1ben_di" bpmnElement="Flow_0vv1ben">
         <di:waypoint x="970" y="132" />
         <di:waypoint x="1052" y="132" />
       </bpmndi:BPMNEdge>

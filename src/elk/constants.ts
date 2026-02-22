@@ -112,10 +112,10 @@ export const NORMALISE_BOUNDARY_ORIGIN_Y = 105;
 export const NORMALISE_LARGE_THRESHOLD = 40;
 
 /**
- * Tolerance (px) for snapping near-orthogonal segments to strict orthogonal.
- * Covers ELK rounding offsets and gateway port placement differences.
+ * Maximum X-centre delta (px) for two elements to be considered in the same
+ * ELK layer during post-layout alignment passes.
  */
-export const ORTHO_SNAP_TOLERANCE = 15;
+export const SAME_LAYER_X_THRESHOLD = 50;
 
 /** Default vertical offset (px) below the flow for data objects/stores. */
 export const ARTIFACT_BELOW_OFFSET = 80;
@@ -224,26 +224,6 @@ export const COLLAPSED_POOL_GAP = 50;
  */
 export const INTER_POOL_GAP_EXTRA = 68;
 
-// ── Edge routing ────────────────────────────────────────────────────────
-
-/**
- * Tolerance (px) for snapping near-orthogonal segments within edge routes.
- * Covers ELK rounding and gateway port placement offsets.
- */
-export const SEGMENT_ORTHO_SNAP = 8;
-
-/**
- * Maximum distance (px) for an endpoint to be considered disconnected
- * from its source/target element boundary.
- */
-export const DISCONNECT_THRESHOLD = 20;
-
-/**
- * Minimum Y-difference (px) between source and target for a gateway
- * branch route to qualify as a different-row connection.
- */
-export const DIFFERENT_ROW_THRESHOLD = 10;
-
 // ── Movement guards ─────────────────────────────────────────────────────
 
 /**
@@ -325,38 +305,6 @@ export const BOUNDARY_TARGET_ROW_BUFFER = 10;
  */
 export const BOUNDARY_SPREAD_MARGIN_FACTOR = 0.1;
 
-// ── Edge routing — local constants promoted from inline values ──────────
-
-/**
- * Tolerance (px) for snapping edge endpoints to element boundaries.
- * Covers gaps introduced by grid snap moving elements after ELK routing.
- */
-export const ENDPOINT_SNAP_TOLERANCE = 15;
-
-/**
- * Tolerance (px) for snapping flow endpoints to element centre lines.
- * Only adjusts endpoints within this distance on the cross-axis.
- */
-export const CENTRE_SNAP_TOLERANCE = 15;
-
-/**
- * Minimum Y-centre difference (px) for two elements to be considered
- * "on a different row" in route rebuilding and simplification.
- */
-export const DIFFERENT_ROW_MIN_Y = 15;
-
-/**
- * Y-centre proximity (px) for treating source and target as "same row"
- * in disconnected-edge straight-flow rebuilding.
- */
-export const SAME_ROW_Y_TOLERANCE = 5;
-
-/**
- * X-centre proximity (px) for two branch targets to be considered
- * "in the same layer" during gateway branch symmetrisation.
- */
-export const SAME_LAYER_X_THRESHOLD = 50;
-
 // ── Boundary event target positioning ───────────────────────────────────
 
 /**
@@ -374,78 +322,6 @@ export const BOUNDARY_TARGET_X_OFFSET = 90;
  */
 export const BOUNDARY_PROXIMITY_TOLERANCE = 60;
 
-// ── Channel routing constants ───────────────────────────────────────────
-
-/**
- * X-proximity (px) of a vertical segment to the gateway centre X
- * to qualify as a gateway branch vertical segment for channel routing.
- */
-export const CHANNEL_GW_PROXIMITY = 40;
-
-/** Minimum channel width (px) for meaningful channel routing. */
-export const MIN_CHANNEL_WIDTH = 30;
-
-/** Fraction of channel width used as margin on each side (0.2 = 20%). */
-export const CHANNEL_MARGIN_FACTOR = 0.2;
-
-// ── Edge route simplification constants ─────────────────────────────────
-
-/**
- * Maximum deviation (px) for a waypoint to be considered a micro-bend.
- *
- * Three consecutive waypoints that are nearly collinear — all Y values
- * within this threshold (horizontal) or all X values within this threshold
- * (vertical) — indicate a "wiggle" caused by ELK rounding, grid snap, or
- * post-processing.  The middle point is removed to produce a cleaner route.
- */
-export const MICRO_BEND_TOLERANCE = 5;
-
-/**
- * Maximum length (px) of a short orthogonal segment to be merged.
- *
- * An H-V-H or V-H-V staircase where the middle segment is shorter than
- * this threshold is flattened into a single straight segment by snapping
- * the two surrounding bend points to the same axis.
- */
-export const SHORT_SEGMENT_THRESHOLD = 6;
-
-// ── Edge route repair constants ───────────────────────────────────────
-
-/** Vertical offset (px) for rerouting overlapping collinear flows. */
-export const COLLINEAR_DETOUR_OFFSET = 20;
-
-/**
- * Minimum Y gap (px) required between two near-parallel gateway flows
- * that exit the same gateway at slightly different Y values.
- * Flows within this gap but not fully collinear are separated so they
- * are visually distinct (each flow on its own routing channel).
- */
-export const MIN_GATEWAY_PARALLEL_GAP = 20;
-
-/**
- * Maximum Y difference (px) between gateway exit points for two flows
- * to be treated as "near-parallel" and subject to gap enforcement.
- * Gateway ports may be offset by up to ~12px from the centre due to
- * bpmn-js port placement logic.
- */
-export const MAX_GATEWAY_EXIT_Y_DIFF = 12;
-
-/** Vertical margin (px) below the lowest element for loopback routing. */
-export const LOOPBACK_BELOW_MARGIN = 30;
-
-/** Vertical margin (px) above the topmost element for above-loopback routing (E8). */
-export const LOOPBACK_ABOVE_MARGIN = 30;
-
-/** Horizontal margin (px) outside source/target for loopback vertical segments. */
-export const LOOPBACK_HORIZONTAL_MARGIN = 15;
-
-/**
- * Vertical margin (px) below the pool bottom for cross-lane backward flow
- * routing (F3). Backward cross-lane flows route below all pool lanes to avoid
- * overlapping the main process content.
- */
-export const CROSS_LANE_BACKWARD_MARGIN = 40;
-
 // ── Lane layout constants ───────────────────────────────────────────────
 
 /** Minimum lane height (px) inside a participant pool (horizontal lanes). */
@@ -462,6 +338,17 @@ export const LANE_VERTICAL_PADDING = 30;
 
 /** Horizontal padding (px) left/right of content within each lane column (F5). */
 export const LANE_HORIZONTAL_PADDING = 30;
+
+// ── Subset layout routing constants ─────────────────────────────────────
+
+/** Vertical margin (px) below the lowest element for loopback routing. */
+export const LOOPBACK_BELOW_MARGIN = 30;
+
+/** Vertical margin (px) above the topmost element for above-loopback routing. */
+export const LOOPBACK_ABOVE_MARGIN = 30;
+
+/** Horizontal margin (px) outside source/target for loopback vertical segments. */
+export const LOOPBACK_HORIZONTAL_MARGIN = 15;
 
 // ── Overlap resolution constants ────────────────────────────────────────
 
@@ -517,20 +404,6 @@ export const MAX_TRACE_DEPTH = 15;
  * only be straightened when the endpoints are very close to co-linear.
  */
 export const SUBSET_NEIGHBOR_SAME_ROW_THRESHOLD = 15;
-
-// ── Self-loop routing constants ─────────────────────────────────────────
-
-/**
- * Horizontal margin (px) beyond the element's right edge for self-loop routing.
- * The self-loop exits the right side, extends this far right, then loops below.
- */
-export const SELF_LOOP_MARGIN_H = 35;
-
-/**
- * Vertical margin (px) below the element's bottom edge for self-loop routing.
- * The loop descends this far below the element before turning back.
- */
-export const SELF_LOOP_MARGIN_V = 35;
 
 // ── ELK algorithm tuning ───────────────────────────────────────────────
 

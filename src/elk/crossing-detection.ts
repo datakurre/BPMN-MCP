@@ -13,9 +13,13 @@
 
 import type { CrossingFlowsResult, LaneCrossingMetrics } from './types';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
-import { segmentsIntersect, segmentIntersectsRect, type Rect } from '../geometry';
+import {
+  segmentsIntersect,
+  segmentIntersectsRect,
+  deduplicateWaypoints,
+  type Rect,
+} from '../geometry';
 import { isConnection } from './helpers';
-import { deduplicateWaypoints } from './edge-routing-helpers';
 
 /** Nudge offset in pixels when trying to separate crossing edges. */
 const CROSSING_NUDGE_PX = 12;

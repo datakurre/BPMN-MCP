@@ -13,7 +13,7 @@ import {
 } from '../helpers';
 import { getTypeSpecificHints } from '../hints';
 import { resizeParentContainers, collectDownstreamElements } from './add-element-helpers';
-import { buildZShapeRoute } from '../../elk/edge-routing-helpers';
+import { buildZShapeRoute } from '../../geometry';
 import { adjustElementLabel } from '../layout/labels/adjust-labels';
 
 /**

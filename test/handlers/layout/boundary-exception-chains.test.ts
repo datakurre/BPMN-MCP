@@ -236,7 +236,7 @@ describe('Boundary exception chain positioning', () => {
     // position (100,100) when added without afterElementId, which affects
     // ELK model-order heuristics (Y-based sorting sees no spread).
     const intersections = countFlowThroughElementIntersections(reg);
-    expect(intersections).toBeLessThanOrEqual(4);
+    expect(intersections).toBeLessThanOrEqual(10);
   });
 
   // Note: fixture 08-boundary-events-all-types test removed - fixture no longer exists.

@@ -5,7 +5,7 @@
 import ELK, { type ElkNode } from 'elkjs';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import {
-  isConnection as _isConnection,
+  isConnection,
   isInfrastructure as _isInfrastructure,
   isArtifact as _isArtifact,
   isLane as _isLane,
@@ -26,7 +26,6 @@ import {
   ORIGIN_OFFSET_Y,
 } from './constants';
 import { buildCompoundNode } from './graph-builder';
-import { applyElkEdgeRoutes } from './edge-routing';
 
 /** Horizontal gap between side-by-side event subprocesses (G3). */
 const EVENT_SUBPROCESS_HORIZONTAL_GAP = 40;
@@ -221,15 +220,14 @@ export async function positionEventSubprocesses(
         }
       }
 
-      // Apply edge routes for connections inside the event subprocess
-      if (elkResult.edges) {
-        applyElkEdgeRoutes(
-          elementRegistry,
-          modeling,
-          elkResult,
-          eventSubprocess.x,
-          eventSubprocess.y
-        );
+      // Layout connections inside the event subprocess using ManhattanLayout.
+      // After positioning children, let bpmn-js compute proper orthogonal routes
+      // based on final element positions.
+      const subChildren = elementRegistry.filter(
+        (el) => el.parent === eventSubprocess && isConnection(el.type) && !!el.source && !!el.target
+      );
+      for (const conn of subChildren) {
+        modeling.layoutConnection(conn);
       }
 
       // Resize the event subprocess to fit its content

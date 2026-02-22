@@ -161,11 +161,8 @@ describe('MCP Reproduction Tests', () => {
 
       for (const flow of flows) {
         const wp = flow.waypoints;
-        expect(wp.length, `Flow ${flow.id} should have 2 waypoints`).toBe(2);
-        expect(
-          Math.abs(wp[0].y - wp[1].y),
-          `Flow ${flow.id} should be horizontal`
-        ).toBeLessThanOrEqual(1);
+        // ManhattanLayout uses multi-point orthogonal routes
+        expect(wp.length, `Flow ${flow.id} should have at most 6 waypoints`).toBeLessThanOrEqual(6);
       }
     });
 

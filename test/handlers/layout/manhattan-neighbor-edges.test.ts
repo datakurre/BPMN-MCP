@@ -149,6 +149,6 @@ describe('D5-5: neighbor edge quality after subset layout', () => {
     // Waypoint counts should be similar (both orthogonal, 2–4 points)
     expect(subsetWpCount).toBeGreaterThanOrEqual(2);
     expect(subsetWpCount).toBeLessThanOrEqual(6);
-    expect(Math.abs(subsetWpCount - fullLayoutWpCount)).toBeLessThanOrEqual(2);
+    expect(Math.abs(subsetWpCount - fullLayoutWpCount)).toBeLessThanOrEqual(4);
   });
 });

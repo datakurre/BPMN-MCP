@@ -435,13 +435,15 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0cl91ul_di" bpmnElement="Flow_0cl91ul">
         <di:waypoint x="1458" y="198" />
-        <di:waypoint x="1458" y="265" />
-        <di:waypoint x="1530" y="265" />
+        <di:waypoint x="1458" y="220" />
+        <di:waypoint x="1548" y="220" />
+        <di:waypoint x="1548" y="247" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1jkljnk_di" bpmnElement="Flow_1jkljnk">
         <di:waypoint x="1628" y="198" />
-        <di:waypoint x="1628" y="265" />
-        <di:waypoint x="1700" y="265" />
+        <di:waypoint x="1628" y="220" />
+        <di:waypoint x="1718" y="220" />
+        <di:waypoint x="1718" y="247" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

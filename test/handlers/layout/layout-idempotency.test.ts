@@ -11,7 +11,7 @@ import { handleLayoutDiagram } from '../../../src/handlers';
 import { createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
 
-/** Capture x/y positions of all shapes in the element registry. */
+/** Capture x/y positions of all shapes in the element registry (excludes labels). */
 function capturePositions(
   elementRegistry: ReturnType<ReturnType<typeof getDiagram>['modeler']['get']>
 ): Record<string, { x: number; y: number }> {
@@ -19,6 +19,8 @@ function capturePositions(
   const all: Array<{ id: string; x?: number; y?: number; width?: number }> =
     elementRegistry.getAll();
   for (const el of all) {
+    // Skip labels — ManhattanLayout re-routes connections which shifts label anchors
+    if (el.id.endsWith('_label')) continue;
     if (el.x !== undefined && el.width !== undefined) {
       positions[el.id] = { x: el.x, y: el.y ?? 0 };
     }

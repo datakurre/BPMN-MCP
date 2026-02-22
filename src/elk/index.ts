@@ -17,18 +17,8 @@
  * 5. Grid snap pass (uniform columns + vertical spacing) → gridSnapPass()
  * 5.5. Align happy-path to single Y-centre → alignHappyPath()
  * 6. Reposition artifacts → repositionArtifacts()
- * 7. Apply ELK edge sections as waypoints → applyElkEdgeRoutes()
- * 7.5. Route branch connections through inter-column channels → routeBranchConnectionsThroughChannels()
- * 8. Repair disconnected edge endpoints → fixDisconnectedEdges()
- * 8.3. Snap endpoints to shape boundaries → croppingDockPass() (D1-3, replaces snapEndpointsToElementCentres)
- * 8.5. Simplify collinear waypoints → simplifyCollinearWaypoints()
- * 8.6. Remove micro-bends and short-segment staircases → removeMicroBends()
- * 8.7. Separate overlapping collinear gateway flows → separateOverlappingGatewayFlows()
- * 8.8. Route loopback (backward) flows below main path → routeLoopbacksBelow()
- * 9. Final orthogonal snap → snapAllConnectionsOrthogonal()
- * 9.5. Clamp intra-lane flow waypoints to lane bounds → clampFlowsToLaneBounds()
- * 10. Reduce edge crossings → reduceCrossings()
- * 11. Detect crossing flows → detectCrossingFlows()
+ * 7. Layout all connections via modeling.layoutConnection() (ManhattanLayout)
+ * 8. Detect crossing flows → detectCrossingFlows()
  */
 
 import type { DiagramState } from '../types';
@@ -61,12 +51,7 @@ import {
   normaliseOrigin,
   repositionAdHocSubprocessChildren,
 } from './position-application';
-import {
-  repositionLanes,
-  saveLaneNodeAssignments,
-  clampFlowsToLaneBounds,
-  routeCrossLaneStaircase,
-} from './lane-layout';
+import { repositionLanes, saveLaneNodeAssignments } from './lane-layout';
 import {
   repositionBoundaryEvents,
   saveBoundaryEventData,
@@ -77,27 +62,8 @@ import {
   pushBoundaryTargetsBelowHappyPath,
   repositionCompensationHandlers,
 } from './boundary-events';
-import {
-  snapSameLayerElements,
-  snapAllConnectionsOrthogonal,
-  snapExpandedSubprocesses,
-} from './snap-alignment';
-import {
-  applyElkEdgeRoutes,
-  fixDisconnectedEdges,
-  simplifyCollinearWaypoints,
-  simplifyGatewayBranchRoutes,
-  croppingDockPass,
-  rebuildOffRowGatewayRoutes,
-  separateOverlappingGatewayFlows,
-  removeMicroBends,
-  routeLoopbacksBelow,
-  routeSelfLoops,
-  spaceParallelMessageFlows,
-  bundleParallelFlows,
-} from './edge-routing';
+import { snapSameLayerElements, snapExpandedSubprocesses } from './snap-alignment';
 import { repositionArtifacts } from './artifacts';
-import { routeBranchConnectionsThroughChannels } from './channel-routing';
 import { detectHappyPath } from './happy-path';
 import {
   gridSnapPass,
@@ -108,8 +74,8 @@ import {
   pinHappyPathBranches,
   ensureStartEventsAreLeftmost,
 } from './grid-snap';
-import { detectCrossingFlows, reduceCrossings } from './crossing-detection';
-import { avoidElementIntersections } from './element-avoidance';
+import { detectCrossingFlows } from './crossing-detection';
+import { isConnection } from './helpers';
 import { resolveOverlaps } from './overlap-resolution';
 import type { ElkLayoutOptions, LayoutContext, PipelineStep } from './types';
 import { createLayoutLogger, type PositionSnapshot } from './layout-logger';
@@ -441,119 +407,28 @@ function finaliseBoundaryTargets(ctx: LayoutContext): void {
 }
 
 /**
- * Apply ELK edge routes, simplify gateway branch routes, and route
- * branch connections through inter-column channels.
+ * Layout all connections using bpmn-js's built-in ManhattanLayout.
+ *
+ * After ELK positions all elements, `modeling.layoutConnection()` computes
+ * proper orthogonal routes for every connection based on the final element
+ * positions.  This produces routes consistent with Camunda Modeler's
+ * interactive editing, using `CroppingConnectionDocking` for accurate
+ * endpoint placement on shape boundaries.
+ *
+ * Replaces the previous 9-step custom edge routing pipeline (applyElkEdgeRoutes,
+ * fixDisconnectedEdges, croppingDockPass, rebuildOffRowGatewayRoutes,
+ * separateOverlappingGatewayFlows, simplifyCollinearWaypoints, removeMicroBends,
+ * routeLoopbacksBelow, bundleParallelFlows, snapAllConnectionsOrthogonal).
  */
-function applyEdgeRoutes(ctx: LayoutContext): void {
-  applyElkEdgeRoutes(ctx.elementRegistry, ctx.modeling, ctx.result, ctx.offsetX, ctx.offsetY);
+function layoutAllConnections(ctx: LayoutContext): void {
+  const allConnections = ctx.elementRegistry.filter(
+    (el) => isConnection(el.type) && !!el.source && !!el.target
+  );
 
-  // Route self-loop connections (source === target) which ELK does not handle.
-  // Must run immediately after applyElkEdgeRoutes so that subsequent
-  // simplification passes do not see stale zero-length waypoints.
-  routeSelfLoops(ctx.elementRegistry, ctx.modeling);
-
-  // E2: Space parallel message flows whose horizontal segments would otherwise
-  // overlap.  Must run after applyElkEdgeRoutes assigns initial dog-leg routes
-  // and before simplifyCollinearWaypoints which could merge the spaced segments.
-  spaceParallelMessageFlows(ctx.elementRegistry, ctx.modeling);
-
-  const shouldGridSnap = ctx.options?.gridSnap !== false;
-  if (shouldGridSnap) {
-    const shouldSimplifyRoutes = ctx.options?.simplifyRoutes !== false;
-    if (shouldSimplifyRoutes) {
-      simplifyGatewayBranchRoutes(ctx.elementRegistry, ctx.modeling);
-    }
-
-    forEachScope(ctx.elementRegistry, (scope) => {
-      routeBranchConnectionsThroughChannels(ctx.elementRegistry, ctx.modeling, scope);
-    });
+  for (const conn of allConnections) {
+    ctx.modeling.layoutConnection(conn);
   }
 }
-
-/**
- * B4 — Edge routing sub-step dependency order (preserved in REPAIR_SIMPLIFY_SUBSTEPS).
- *
- * The sub-steps below have strict ordering dependencies.  Reordering
- * them will produce incorrect or degraded routes.
- *
- * ```
- * fixDisconnectedEdges          — requires: element positions; provides: connected endpoints
- * croppingDockPass              — requires: connected endpoints; provides: shape-boundary-aligned endpoints
- *                                 (D1-3: replaces snapEndpointsToElementCentres; uses CroppingConnectionDocking
- *                                 for accurate endpoint placement on circles/diamonds/rounded-rects)
- * rebuildOffRowGatewayRoutes    — requires: boundary-aligned endpoints; provides: L/Z-bend routes
- * separateOverlappingGatewayFlows — requires: L/Z-bend routes; provides: non-overlapping collinear flows
- * simplifyCollinearWaypoints    — requires: non-overlapping routes; provides: minimal-waypoint routes
- *                                 (must run after separation so the merged segments are clean)
- * removeMicroBends              — requires: simplified routes; provides: smooth orthogonal routes
- *                                 (must run after simplification to catch new near-collinear triples)
- * routeLoopbacksBelow           — requires: all positions finalised; provides: U-shape loopback routes
- *                                 (must run last because it uses the scope bottom/top boundary which
- *                                 changes if earlier steps move elements)
- * snapAllConnectionsOrthogonal  — requires: all routes set; provides: strictly orthogonal waypoints
- *                                 (final snap pass; must run after all routing to fix residual diagonals)
- * bundleParallelFlows           — requires: simplified routes; provides: offset parallel same-pair flows
- *                                 (E4: must run after simplification to avoid redundant H-V-H merges;
- *                                 before final orthogonal snap so offsets are preserved correctly)
- * ```
- *
- * B1-5: The sub-steps are now declared in `REPAIR_SIMPLIFY_SUBSTEPS` (see below).
- * The `repairAndSimplifyEdges` PipelineStep in `POST_ROUTING_STEPS` runs them
- * via a nested `PipelineRunner` that shares `ctx.log` for per-sub-step logging.
- */
-
-/**
- * B1-5: Sub-steps of the edge repair pipeline.
- *
- * Order is **B4-critical** — see the dependency chain comment on
- * `repairAndSimplifyEdges` for why each step must follow the previous one.
- * These are declared as a separate `PipelineStep[]` so that:
- *  - The ordering constraint is visible at declaration site.
- *  - `PipelineRunner` can individually log each sub-step via `ctx.log`.
- *  - The `pipeline-ordering.test.ts` (B1-8) can assert the sub-step order.
- */
-const REPAIR_SIMPLIFY_SUBSTEPS: PipelineStep[] = [
-  {
-    name: 'fixDisconnectedEdges',
-    run: (ctx) => fixDisconnectedEdges(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    // D1-3: Replace centre-snap with CroppingConnectionDocking for accurate
-    // shape-boundary endpoints (circles for events, diamonds for gateways).
-    // Falls back to snapEndpointsToElementCentres when connectionDocking is null.
-    name: 'croppingDockPass',
-    run: (ctx) => croppingDockPass(ctx.elementRegistry, ctx.modeling, ctx.connectionDocking),
-  },
-  {
-    name: 'rebuildOffRowGatewayRoutes',
-    run: (ctx) => rebuildOffRowGatewayRoutes(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    name: 'separateOverlappingGatewayFlows',
-    run: (ctx) => separateOverlappingGatewayFlows(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    name: 'simplifyCollinearWaypoints',
-    run: (ctx) => simplifyCollinearWaypoints(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    name: 'removeMicroBends',
-    run: (ctx) => removeMicroBends(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    name: 'routeLoopbacksBelow',
-    run: (ctx) => routeLoopbacksBelow(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    // E4: bundle parallel flows before final orthogonal snap
-    name: 'bundleParallelFlows',
-    run: (ctx) => bundleParallelFlows(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    name: 'snapAllConnectionsOrthogonal',
-    run: (ctx) => snapAllConnectionsOrthogonal(ctx.elementRegistry, ctx.modeling),
-  },
-];
 
 /**
  * B1-4a: Node-positioning steps (steps 2–8 in the pipeline).
@@ -638,8 +513,8 @@ const POOL_BOUNDARY_EDGE_STEPS: PipelineStep[] = [
   {
     // B7: third resolveOverlaps pass — finaliseBoundaryTargets can shift
     // boundary-event target tasks, potentially overlapping adjacent elements.
-    // Run before applyEdgeRoutes so edge waypoints are placed against stable
-    // element positions.
+    // Run before layoutAllConnections so edge waypoints are placed against
+    // stable element positions.
     name: 'resolveOverlaps-3rd',
     run: (ctx) => {
       forEachScope(ctx.elementRegistry, (scope) => {
@@ -648,8 +523,11 @@ const POOL_BOUNDARY_EDGE_STEPS: PipelineStep[] = [
     },
   },
   {
-    name: 'applyEdgeRoutes',
-    run: (ctx) => applyEdgeRoutes(ctx),
+    // Layout all connections using ManhattanLayout after all element positions
+    // are finalised.  This replaces the custom applyEdgeRoutes + 9-step repair
+    // pipeline with bpmn-js's built-in orthogonal routing.
+    name: 'layoutAllConnections',
+    run: (ctx) => layoutAllConnections(ctx),
   },
   {
     // B1-6: normaliseOrigin takes (elementRegistry, modeling) directly; wrapped
@@ -660,53 +538,16 @@ const POOL_BOUNDARY_EDGE_STEPS: PipelineStep[] = [
 ];
 
 /**
- * B1-4c: Post-routing steps (steps 13–18 in the pipeline).
+ * B1-4c: Post-routing steps.
  *
- * These run after all edge routes have been placed.  The nested sub-runner
- * inside `repairAndSimplifyEdges` preserves the B4 sub-step dependency chain.
- * `detectCrossingFlows` writes its result to `ctx.crossingFlowsResult` so
- * that `elkLayout()` can read it after the pipeline finishes.
+ * After ManhattanLayout routes all connections, only a read-only diagnostic
+ * step remains: detecting crossing flows for the return value.
+ *
+ * The previous repair sub-pipeline (9 sub-steps), lane clamping,
+ * crossing reduction (2×), and element avoidance (2×) have been removed —
+ * ManhattanLayout produces clean orthogonal routes that don't need repair.
  */
 const POST_ROUTING_STEPS: PipelineStep[] = [
-  {
-    // B1-5: sub-steps run via a nested PipelineRunner that shares ctx.log
-    name: 'repairAndSimplifyEdges',
-    run: (ctx) => {
-      const subRunner = new PipelineRunner(REPAIR_SIMPLIFY_SUBSTEPS, ctx.log);
-      return subRunner.run(ctx);
-    },
-  },
-  {
-    // B1-6: clampFlowsToLaneBounds takes (elementRegistry, modeling) directly.
-    name: 'clampFlowsToLaneBounds',
-    run: (ctx) => clampFlowsToLaneBounds(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    // B1-6: routeCrossLaneStaircase takes (elementRegistry, modeling) directly.
-    name: 'routeCrossLaneStaircase',
-    run: (ctx) => routeCrossLaneStaircase(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    name: 'reduceCrossings-1st',
-    run: (ctx) => reduceCrossings(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    name: 'avoidElementIntersections',
-    run: (ctx) => avoidElementIntersections(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    // B6: second reduceCrossings — avoidance detours may introduce new crossings.
-    name: 'reduceCrossings-2nd',
-    run: (ctx) => reduceCrossings(ctx.elementRegistry, ctx.modeling),
-  },
-  {
-    // B6a: final avoidance pass — the 2nd reduceCrossings can nudge waypoints
-    // back through element bounding boxes that the 1st avoidance pass had
-    // already cleared.  This lightweight pass re-applies avoidance so that
-    // the diagram is free of element intersections before detectCrossingFlows.
-    name: 'avoidElementIntersections-2nd',
-    run: (ctx) => avoidElementIntersections(ctx.elementRegistry, ctx.modeling),
-  },
   {
     // Read-only final step: writes result to ctx for return value extraction.
     name: 'detectCrossingFlows',
@@ -722,9 +563,6 @@ export const MAIN_PIPELINE_STEPS: readonly PipelineStep[] = [
   ...POOL_BOUNDARY_EDGE_STEPS,
   ...POST_ROUTING_STEPS,
 ];
-
-/** Sub-steps of the edge repair phase (for ordering tests / B1-8). */
-export const REPAIR_SIMPLIFY_PIPELINE_STEPS: readonly PipelineStep[] = REPAIR_SIMPLIFY_SUBSTEPS;
 
 // ── Main layout ─────────────────────────────────────────────────────────────
 
@@ -751,28 +589,19 @@ export const REPAIR_SIMPLIFY_PIPELINE_STEPS: readonly PipelineStep[] = REPAIR_SI
  *   → resolveOverlaps (2nd)     — requires: happy-path row; resolves overlaps from alignment
  *   → finalisePoolsAndLanes     — requires: all element x/y; provides: pool/lane bounds
  *   → finaliseBoundaryTargets   — requires: pool/lane bounds + happy-path row; provides: BE target x/y
- *   → applyEdgeRoutes           — requires: FINAL element x/y (after normaliseOrigin);
- *                                  provides: waypoints
- *                                  ⚠ normaliseOrigin runs inside this step, BEFORE edge routes
- *                                    are applied, so that element shifts carry waypoints with them
- *   → repairAndSimplifyEdges    — requires: waypoints; provides: clean orthogonal routes
- *   → clampFlowsToLaneBounds    — requires: lane bounds + waypoints; provides: clamped waypoints
- *   → routeCrossLaneStaircase   — requires: lane bounds + waypoints
- *   → reduceCrossings           — requires: waypoints
- *   → avoidElementIntersections — requires: element x/y + waypoints
- *   → reduceCrossings (2nd)     — avoidance detours may introduce new crossings
+ *   → resolveOverlaps (3rd)     — requires: BE targets; resolves overlaps from BE repositioning
+ *   → layoutAllConnections      — requires: FINAL element positions; provides: ManhattanLayout routes
+ *   → normaliseOrigin           — requires: all positions + routes; shifts everything to origin
  *   → detectCrossingFlows       — read-only; produces return value
  * ```
  *
  * ## Key invariants
  * - `saveBoundaryEventData` must be called BEFORE `applyElkPositions` because
  *   `modeling.moveElements` on host elements drags boundary events.
- * - `normaliseOrigin` must run AFTER `finalisePoolsAndLanes` and BEFORE
- *   `applyElkEdgeRoutes` so that the origin shift is applied to both element
- *   positions and their waypoints atomically.
- * - Edge repair (`repairAndSimplifyEdges`) must run AFTER edge routes are set.
- * - `reduceCrossings` runs twice intentionally: once after repair and once
- *   after `avoidElementIntersections`, because avoidance may introduce crossings.
+ * - `layoutAllConnections` must run AFTER all element positions are finalised
+ *   so that ManhattanLayout computes routes from stable positions.
+ * - `normaliseOrigin` runs AFTER `layoutAllConnections` so that the origin
+ *   shift is applied to both element positions and their waypoints atomically.
  *
  * ## Step list (for update commentary)
  * 1. Build ELK graph → run ELK layout
@@ -785,13 +614,10 @@ export const REPAIR_SIMPLIFY_PIPELINE_STEPS: readonly PipelineStep[] = REPAIR_SI
  * 8. Resolve overlaps (2nd pass — after happy-path alignment)
  * 9. Finalise pools, lanes, collapsed pools
  * 10. Finalise boundary targets + off-path alignment
- * 11. Apply edge routes (self-loops, ELK sections, channel routing) + normalise origin
- * 12. Repair + simplify edges
- * 13. Clamp lane flows + cross-lane staircase routing
- * 14. Reduce crossings (1st pass)
- * 15. Avoid element intersections
- * 16. Reduce crossings (2nd pass)
- * 17. Detect crossing flows (return value)
+ * 11. Resolve overlaps (3rd pass — after boundary target repositioning)
+ * 12. Layout all connections via ManhattanLayout
+ * 13. Normalise origin
+ * 14. Detect crossing flows (return value)
  */
 export async function elkLayout(
   diagram: DiagramState,
@@ -813,14 +639,6 @@ export async function elkLayout(
   const elementRegistry: ElementRegistry = new CachedElementRegistry(rawElementRegistry);
   const modeling = diagram.modeler.get('modeling');
   const canvas = diagram.modeler.get('canvas');
-
-  // D1-3: Get CroppingConnectionDocking service for accurate shape-boundary endpoints.
-  let connectionDocking: { getCroppedWaypoints: (conn: any) => any[] } | null = null;
-  try {
-    connectionDocking = diagram.modeler.get('connectionDocking') as typeof connectionDocking;
-  } catch {
-    // Service not available — croppingDockPass will fall back to snapEndpointsToElementCentres
-  }
 
   // Determine the layout root: scoped to a specific element, or the whole diagram
   const rootElement = resolveRootElement(elementRegistry, canvas, options);
@@ -886,7 +704,6 @@ export async function elkLayout(
   const ctx: LayoutContext = {
     elementRegistry,
     modeling,
-    connectionDocking,
     result,
     offsetX,
     offsetY,

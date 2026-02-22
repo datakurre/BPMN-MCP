@@ -18,7 +18,7 @@ import {
 } from '../helpers';
 import { handleSetEventDefinition } from '../properties/set-event-definition';
 import { getTypeSpecificHints, getNamingHint } from '../hints';
-import { buildZShapeRoute } from '../../elk/edge-routing-helpers';
+import { buildZShapeRoute } from '../../geometry';
 
 // ── Auto-connect ────────────────────────────────────────────────────────────
 

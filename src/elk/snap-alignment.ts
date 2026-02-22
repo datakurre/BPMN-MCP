@@ -4,13 +4,7 @@
 
 import { ELK_LAYER_SPACING } from '../constants';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
-import { cloneWaypoints } from '../geometry';
-import {
-  SAME_ROW_THRESHOLD,
-  ORTHO_SNAP_TOLERANCE,
-  SUBPROCESS_ROW_THRESHOLD,
-  MOVEMENT_THRESHOLD,
-} from './constants';
+import { SAME_ROW_THRESHOLD, SUBPROCESS_ROW_THRESHOLD, MOVEMENT_THRESHOLD } from './constants';
 import { isConnection, isInfrastructure, isLayoutableShape } from './helpers';
 
 /**
@@ -107,56 +101,6 @@ export function snapSameLayerElements(
           modeling.moveElements([el], { x: 0, y: dy });
         }
       }
-    }
-  }
-}
-
-/**
- * Final pass: snap all connection waypoints to strict orthogonal segments.
- *
- * After ELK routing + fallback routing, some segments may have small
- * X or Y offsets (< ORTHO_SNAP_TOLERANCE) that appear diagonal.
- * This pass snaps the smaller delta to zero, making each segment
- * strictly horizontal or vertical.
- *
- * Uses `modeling.updateWaypoints` to record changes on the command stack.
- */
-export function snapAllConnectionsOrthogonal(
-  elementRegistry: ElementRegistry,
-  modeling: Modeling
-): void {
-  const allConnections = elementRegistry.filter(
-    (el) => isConnection(el.type) && !!el.waypoints && el.waypoints.length >= 2
-  );
-
-  for (const conn of allConnections) {
-    const wps: Array<{ x: number; y: number }> = conn.waypoints!;
-    let changed = false;
-
-    // Build snapped copy of waypoints
-    const snapped = cloneWaypoints(wps);
-
-    for (let i = 1; i < snapped.length; i++) {
-      const prev = snapped[i - 1];
-      const curr = snapped[i];
-      const dx = Math.abs(curr.x - prev.x);
-      const dy = Math.abs(curr.y - prev.y);
-
-      // Skip already-orthogonal or truly diagonal segments (both deltas large)
-      if (dx < 1 || dy < 1) continue;
-      if (dx >= ORTHO_SNAP_TOLERANCE && dy >= ORTHO_SNAP_TOLERANCE) continue;
-
-      // Snap the smaller delta to zero
-      if (dx <= dy) {
-        curr.x = prev.x;
-      } else {
-        curr.y = prev.y;
-      }
-      changed = true;
-    }
-
-    if (changed) {
-      modeling.updateWaypoints(conn, snapped);
     }
   }
 }
