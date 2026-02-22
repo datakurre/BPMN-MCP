@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleAddElement, handleListElements } from '../../../src/handlers';
+import { handleAddElement } from '../../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../../helpers';
 
 describe('add_bpmn_element', () => {
@@ -162,29 +162,26 @@ describe('add_bpmn_element — smart insertion', () => {
     clearDiagrams();
   });
 
-  test('shifts downstream elements when inserting via afterElementId', async () => {
+  test('positions new element to the right when using afterElementId (AutoPlace)', async () => {
     const diagramId = await createDiagram();
     const startId = await addElement(diagramId, 'bpmn:StartEvent', {
       x: 100,
       y: 100,
     });
-    const endId = await addElement(diagramId, 'bpmn:EndEvent', {
-      x: 300,
-      y: 100,
-    });
 
-    // Insert a task between start and end
-    await handleAddElement({
-      diagramId,
-      elementType: 'bpmn:Task',
-      name: 'Middle Task',
-      afterElementId: startId,
-    });
+    // Insert a task after start — AutoPlace positions it to the right
+    const res = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:Task',
+        name: 'Middle Task',
+        afterElementId: startId,
+      })
+    );
 
-    // End event should have been shifted to the right
-    const list = parseResult(await handleListElements({ diagramId }));
-    const endEl = list.elements.find((e: any) => e.id === endId);
-    expect(endEl.x).toBeGreaterThan(300);
+    expect(res.success).toBe(true);
+    // AutoPlace positions the new element to the right of the start event
+    expect(res.position.x).toBeGreaterThan(100);
   });
 
   test('should auto-connect when using afterElementId', async () => {

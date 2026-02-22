@@ -2,22 +2,22 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_Customer_Onboarding" name="Customer Onboarding" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_ApplicationReceived" name="Application Received">
-      <bpmn:outgoing>Flow_ApplicationReceived_to_VerifyIdentity</bpmn:outgoing>
+      <bpmn:outgoing>Flow_0d7lc9k</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:userTask id="UserTask_VerifyIdentity" name="Verify Identity" camunda:assignee="id-verifier">
-      <bpmn:incoming>Flow_ApplicationReceived_to_VerifyIdentity</bpmn:incoming>
-      <bpmn:outgoing>Flow_VerifyIdentity_to_Fork</bpmn:outgoing>
-      <bpmn:dataOutputAssociation id="DataOutputAssociation_11ccwmo">
+      <bpmn:incoming>Flow_0d7lc9k</bpmn:incoming>
+      <bpmn:outgoing>Flow_0xm9sfi</bpmn:outgoing>
+      <bpmn:dataOutputAssociation id="DataOutputAssociation_1yaog8e">
         <bpmn:targetRef>DataObject_ApplicationData</bpmn:targetRef>
       </bpmn:dataOutputAssociation>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_ApplicationReceived_to_VerifyIdentity" sourceRef="StartEvent_ApplicationReceived" targetRef="UserTask_VerifyIdentity" />
+    <bpmn:sequenceFlow id="Flow_0d7lc9k" sourceRef="StartEvent_ApplicationReceived" targetRef="UserTask_VerifyIdentity" />
     <bpmn:parallelGateway id="Gateway_Fork" name="Fork">
-      <bpmn:incoming>Flow_VerifyIdentity_to_Fork</bpmn:incoming>
+      <bpmn:incoming>Flow_0xm9sfi</bpmn:incoming>
       <bpmn:outgoing>Flow_Fork_to_CreditCheck</bpmn:outgoing>
       <bpmn:outgoing>Flow_Fork_to_BackgroundCheck</bpmn:outgoing>
     </bpmn:parallelGateway>
-    <bpmn:sequenceFlow id="Flow_VerifyIdentity_to_Fork" sourceRef="UserTask_VerifyIdentity" targetRef="Gateway_Fork" />
+    <bpmn:sequenceFlow id="Flow_0xm9sfi" sourceRef="UserTask_VerifyIdentity" targetRef="Gateway_Fork" />
     <bpmn:serviceTask id="ServiceTask_CreditCheck" name="Credit Check" camunda:type="external" camunda:topic="credit-check">
       <bpmn:incoming>Flow_Fork_to_CreditCheck</bpmn:incoming>
       <bpmn:outgoing>Flow_CreditCheck_to_WaitForExternalCheck</bpmn:outgoing>
@@ -40,19 +40,19 @@
     <bpmn:sequenceFlow id="Flow_BackgroundCheck_to_Join" sourceRef="CallActivity_BackgroundCheck" targetRef="Gateway_Join" />
     <bpmn:userTask id="UserTask_FinalReview" name="Final Review" camunda:candidateGroups="senior-reviewers">
       <bpmn:incoming>Flow_NotifyManager_to_FinalReview</bpmn:incoming>
-      <bpmn:outgoing>Flow_FinalReview_to_OnboardingComplete</bpmn:outgoing>
-      <bpmn:property id="Property_0ubrjw2" name="__targetRef_placeholder" />
-      <bpmn:dataInputAssociation id="DataInputAssociation_1nh9sad">
+      <bpmn:outgoing>Flow_1b8h0fm</bpmn:outgoing>
+      <bpmn:property id="Property_00k2w15" name="__targetRef_placeholder" />
+      <bpmn:dataInputAssociation id="DataInputAssociation_09uf08z">
         <bpmn:sourceRef>DataStore_CustomerDatabase</bpmn:sourceRef>
-        <bpmn:targetRef>Property_0ubrjw2</bpmn:targetRef>
+        <bpmn:targetRef>Property_00k2w15</bpmn:targetRef>
       </bpmn:dataInputAssociation>
     </bpmn:userTask>
     <bpmn:endEvent id="EndEvent_OnboardingComplete" name="Onboarding Complete">
-      <bpmn:incoming>Flow_FinalReview_to_OnboardingComplete</bpmn:incoming>
+      <bpmn:incoming>Flow_1b8h0fm</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_FinalReview_to_OnboardingComplete" sourceRef="UserTask_FinalReview" targetRef="EndEvent_OnboardingComplete" />
-    <bpmn:dataObjectReference id="DataObject_ApplicationData" name="Application Data" dataObjectRef="DataObject_0fjpltt" />
-    <bpmn:dataObject id="DataObject_0fjpltt" />
+    <bpmn:sequenceFlow id="Flow_1b8h0fm" sourceRef="UserTask_FinalReview" targetRef="EndEvent_OnboardingComplete" />
+    <bpmn:dataObjectReference id="DataObject_ApplicationData" name="Application Data" dataObjectRef="DataObject_1qvxovo" />
+    <bpmn:dataObject id="DataObject_1qvxovo" />
     <bpmn:dataStoreReference id="DataStore_CustomerDatabase" name="Customer Database" />
     <bpmn:intermediateCatchEvent id="Event_WaitForExternalCheck" name="Wait for External Check">
       <bpmn:incoming>Flow_CreditCheck_to_WaitForExternalCheck</bpmn:incoming>
@@ -66,15 +66,15 @@
     </bpmn:intermediateThrowEvent>
     <bpmn:sequenceFlow id="Flow_Join_to_NotifyManager" sourceRef="Gateway_Join" targetRef="Event_NotifyManager" />
     <bpmn:sequenceFlow id="Flow_NotifyManager_to_FinalReview" sourceRef="Event_NotifyManager" targetRef="UserTask_FinalReview" />
-    <bpmn:serviceTask id="Activity_19r8ima" />
+    <bpmn:serviceTask id="Activity_1tluzgc" />
     <bpmn:textAnnotation id="Annotation_SLA24hForIdentityVerification" name="SLA: 24h for identity verification">
       <bpmn:text>SLA: 24h for identity verification</bpmn:text>
     </bpmn:textAnnotation>
-    <bpmn:association id="Flow_7t8zk3p" sourceRef="UserTask_VerifyIdentity" targetRef="Annotation_SLA24hForIdentityVerification" />
-    <bpmn:group id="Group_AutomatedChecks" categoryValueRef="CategoryValue_04mv7sz" name="Automated Checks" />
+    <bpmn:association id="Flow_wuis8bx" sourceRef="UserTask_VerifyIdentity" targetRef="Annotation_SLA24hForIdentityVerification" />
+    <bpmn:group id="Group_AutomatedChecks" categoryValueRef="CategoryValue_16mvpuz" name="Automated Checks" />
   </bpmn:process>
-  <bpmn:category id="Category_0puyqw0">
-    <bpmn:categoryValue id="CategoryValue_04mv7sz" value="Automated Checks" />
+  <bpmn:category id="Category_0jn01au">
+    <bpmn:categoryValue id="CategoryValue_16mvpuz" value="Automated Checks" />
   </bpmn:category>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Customer_Onboarding">
@@ -95,27 +95,27 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ServiceTask_CreditCheck_di" bpmnElement="ServiceTask_CreditCheck">
-        <dc:Bounds x="653" y="92" width="100" height="80" />
+        <dc:Bounds x="570" y="92" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="CallActivity_BackgroundCheck_di" bpmnElement="CallActivity_BackgroundCheck">
-        <dc:Bounds x="503" y="222" width="100" height="80" />
+        <dc:Bounds x="570" y="210" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_Join_di" bpmnElement="Gateway_Join">
-        <dc:Bounds x="899" y="107" width="50" height="50" />
+        <dc:Bounds x="816" y="107" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="913" y="83" width="21" height="14" />
+          <dc:Bounds x="830" y="83" width="21" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_FinalReview_di" bpmnElement="UserTask_FinalReview">
-        <dc:Bounds x="1095" y="92" width="100" height="80" />
+        <dc:Bounds x="1012" y="92" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_OnboardingComplete_di" bpmnElement="EndEvent_OnboardingComplete">
-        <dc:Bounds x="1227" y="114" width="36" height="36" />
+        <dc:Bounds x="1194" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1215" y="157" width="61" height="27" />
+          <dc:Bounds x="1182" y="157" width="61" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="DataObject_ApplicationData_di" bpmnElement="DataObject_ApplicationData">
@@ -125,90 +125,90 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="DataStore_CustomerDatabase_di" bpmnElement="DataStore_CustomerDatabase">
-        <dc:Bounds x="575" y="75" width="50" height="50" />
+        <dc:Bounds x="75" y="75" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="575" y="132" width="51" height="27" />
+          <dc:Bounds x="75" y="132" width="51" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_WaitForExternalCheck_di" bpmnElement="Event_WaitForExternalCheck">
-        <dc:Bounds x="808" y="114" width="36" height="36" />
+        <dc:Bounds x="725" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="784" y="157" width="85" height="27" />
+          <dc:Bounds x="701" y="157" width="85" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_NotifyManager_di" bpmnElement="Event_NotifyManager">
-        <dc:Bounds x="1004" y="114" width="36" height="36" />
+        <dc:Bounds x="921" y="114" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="985" y="157" width="75" height="14" />
+          <dc:Bounds x="902" y="157" width="75" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_19r8ima_di" bpmnElement="Activity_19r8ima">
-        <dc:Bounds x="703" y="142" width="100" height="80" />
+      <bpmndi:BPMNShape id="Activity_1tluzgc_di" bpmnElement="Activity_1tluzgc">
+        <dc:Bounds x="620" y="142" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Annotation_SLA24hForIdentityVerification_di" bpmnElement="Annotation_SLA24hForIdentityVerification">
-        <dc:Bounds x="1118" y="85" width="65" height="40" />
+        <dc:Bounds x="68" y="85" width="65" height="40" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Group_AutomatedChecks_di" bpmnElement="Group_AutomatedChecks">
-        <dc:Bounds x="1350" y="0" width="300" height="300" />
+        <dc:Bounds x="0" y="0" width="300" height="300" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1472" y="7" width="57" height="27" />
+          <dc:Bounds x="122" y="7" width="57" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="DataOutputAssociation_11ccwmo_di" bpmnElement="DataOutputAssociation_11ccwmo">
+      <bpmndi:BPMNEdge id="DataOutputAssociation_1yaog8e_di" bpmnElement="DataOutputAssociation_1yaog8e">
         <di:waypoint x="288" y="125" />
         <di:waypoint x="118" y="102" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0quqd2t_di" bpmnElement="Flow_ApplicationReceived_to_VerifyIdentity">
+      <bpmndi:BPMNEdge id="Flow_0d7lc9k_di" bpmnElement="Flow_0d7lc9k">
         <di:waypoint x="228" y="132" />
         <di:waypoint x="288" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0s6hj0s_di" bpmnElement="Flow_VerifyIdentity_to_Fork">
+      <bpmndi:BPMNEdge id="Flow_0xm9sfi_di" bpmnElement="Flow_0xm9sfi">
         <di:waypoint x="388" y="132" />
         <di:waypoint x="453" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1rnwfsx_di" bpmnElement="Flow_Fork_to_CreditCheck">
+      <bpmndi:BPMNEdge id="Flow_0y5p527_di" bpmnElement="Flow_Fork_to_CreditCheck">
         <di:waypoint x="503" y="132" />
-        <di:waypoint x="653" y="132" />
+        <di:waypoint x="570" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1b3xt6y_di" bpmnElement="Flow_Fork_to_BackgroundCheck">
+      <bpmndi:BPMNEdge id="Flow_09hb6hp_di" bpmnElement="Flow_Fork_to_BackgroundCheck">
         <di:waypoint x="478" y="157" />
-        <di:waypoint x="478" y="262" />
-        <di:waypoint x="503" y="262" />
+        <di:waypoint x="478" y="250" />
+        <di:waypoint x="570" y="250" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1biyali_di" bpmnElement="Flow_BackgroundCheck_to_Join">
-        <di:waypoint x="603" y="262" />
-        <di:waypoint x="924" y="262" />
-        <di:waypoint x="924" y="157" />
+      <bpmndi:BPMNEdge id="Flow_16xqalx_di" bpmnElement="Flow_BackgroundCheck_to_Join">
+        <di:waypoint x="670" y="250" />
+        <di:waypoint x="841" y="250" />
+        <di:waypoint x="841" y="157" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="DataInputAssociation_1nh9sad_di" bpmnElement="DataInputAssociation_1nh9sad">
-        <di:waypoint x="625" y="101" />
-        <di:waypoint x="1095" y="129" />
+      <bpmndi:BPMNEdge id="DataInputAssociation_09uf08z_di" bpmnElement="DataInputAssociation_09uf08z">
+        <di:waypoint x="125" y="101" />
+        <di:waypoint x="1012" y="130" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_05zvak3_di" bpmnElement="Flow_FinalReview_to_OnboardingComplete">
-        <di:waypoint x="1195" y="132" />
-        <di:waypoint x="1227" y="132" />
+      <bpmndi:BPMNEdge id="Flow_1b8h0fm_di" bpmnElement="Flow_1b8h0fm">
+        <di:waypoint x="1112" y="132" />
+        <di:waypoint x="1194" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_12m2v8p_di" bpmnElement="Flow_CreditCheck_to_WaitForExternalCheck">
-        <di:waypoint x="753" y="132" />
-        <di:waypoint x="808" y="132" />
+      <bpmndi:BPMNEdge id="Flow_0eh57xc_di" bpmnElement="Flow_CreditCheck_to_WaitForExternalCheck">
+        <di:waypoint x="670" y="132" />
+        <di:waypoint x="725" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_04j53pc_di" bpmnElement="Flow_WaitForExternalCheck_to_Join">
-        <di:waypoint x="844" y="132" />
-        <di:waypoint x="899" y="132" />
+      <bpmndi:BPMNEdge id="Flow_1kj6ab8_di" bpmnElement="Flow_WaitForExternalCheck_to_Join">
+        <di:waypoint x="761" y="132" />
+        <di:waypoint x="816" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_02qhst3_di" bpmnElement="Flow_Join_to_NotifyManager">
-        <di:waypoint x="949" y="132" />
-        <di:waypoint x="1004" y="132" />
+      <bpmndi:BPMNEdge id="Flow_19kibah_di" bpmnElement="Flow_Join_to_NotifyManager">
+        <di:waypoint x="866" y="132" />
+        <di:waypoint x="921" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0gk7azj_di" bpmnElement="Flow_NotifyManager_to_FinalReview">
-        <di:waypoint x="1040" y="132" />
-        <di:waypoint x="1095" y="132" />
+      <bpmndi:BPMNEdge id="Flow_13qp9ya_di" bpmnElement="Flow_NotifyManager_to_FinalReview">
+        <di:waypoint x="957" y="132" />
+        <di:waypoint x="1012" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Association_09kqy2k_di" bpmnElement="Flow_7t8zk3p">
-        <di:waypoint x="388" y="130" />
-        <di:waypoint x="1118" y="106" />
+      <bpmndi:BPMNEdge id="Association_16lzyov_di" bpmnElement="Flow_wuis8bx">
+        <di:waypoint x="288" y="126" />
+        <di:waypoint x="133" y="109" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

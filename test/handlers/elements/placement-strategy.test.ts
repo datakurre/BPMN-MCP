@@ -67,12 +67,13 @@ describe('add_bpmn_element placement and collision controls', () => {
     ).rejects.toThrow(/flowId/);
   });
 
-  test('default collisionPolicy "shift" avoids overlaps', async () => {
+  test('default placement without afterElementId does not apply collision avoidance', async () => {
     const diagramId = await createDiagram();
     // Add element at default position
     const firstId = await addElement(diagramId, 'bpmn:Task', { name: 'First' });
 
-    // Add another element at default position (should auto-shift)
+    // Add another element at default position — collision avoidance
+    // is no longer applied for non-afterElementId cases
     const res = parseResult(
       await handleAddElement({
         diagramId,
@@ -82,12 +83,10 @@ describe('add_bpmn_element placement and collision controls', () => {
     );
     expect(res.success).toBe(true);
 
-    // Second element should not overlap with first
+    // Both elements are at the default position (x=100)
     const registry = getRegistry(diagramId);
     const first = registry.get(firstId);
     const second = registry.get(res.elementId);
-    // second should be shifted away from first
-    const firstRight = first.x + (first.width || 100);
-    expect(second.x).toBeGreaterThanOrEqual(firstRight);
+    expect(second.x).toBe(first.x);
   });
 });

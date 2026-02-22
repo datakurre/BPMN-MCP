@@ -1,46 +1,17 @@
 /**
- * Positioning helpers for add-element: shift downstream elements,
- * resize containers, lane detection and snapping.
+ * Positioning helpers for add-element: resize containers,
+ * lane detection and snapping.
  *
  * Split from add-element.ts for file-size compliance.
- * Collision-avoidance helpers are in add-element-collision.ts.
  */
 
-import { getVisibleElements, requireElement } from '../helpers';
+import { requireElement } from '../helpers';
 import { getService } from '../../bpmn-types';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 /** BPMN type string constants for filtering and type checking. */
 const BPMN_PARTICIPANT_TYPE = 'bpmn:Participant';
 const BPMN_LANE_TYPE = 'bpmn:Lane';
-
-/**
- * Shift all non-flow elements at or to the right of `fromX` by `shiftAmount`,
- * excluding `excludeId`.  This prevents overlap when inserting a new element.
- */
-export function shiftDownstreamElements(
-  elementRegistry: any,
-  modeling: any,
-  fromX: number,
-  shiftAmount: number,
-  excludeId: string
-): void {
-  const allElements = getVisibleElements(elementRegistry).filter(
-    (el: any) =>
-      !el.type.includes('SequenceFlow') &&
-      !el.type.includes('MessageFlow') &&
-      !el.type.includes('Association') &&
-      el.type !== BPMN_PARTICIPANT_TYPE &&
-      el.type !== BPMN_LANE_TYPE &&
-      el.id !== excludeId
-  );
-  const toShift = allElements.filter((el: any) => el.x >= fromX);
-  for (const el of toShift) {
-    modeling.moveElements([el], { x: shiftAmount, y: 0 });
-  }
-
-  resizeParentContainers(elementRegistry, modeling);
-}
 
 // ── Parent container resizing ───────────────────────────────────────────────
 

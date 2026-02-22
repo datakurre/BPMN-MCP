@@ -7,13 +7,14 @@ describe('collision avoidance', () => {
     clearDiagrams();
   });
 
-  test('shifts element when default position overlaps existing element', async () => {
+  test('places element at default position even if it overlaps existing element', async () => {
     const diagramId = await createDiagram('collision-test');
 
     // Add first element at default position
     const _firstId = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
 
-    // Add second element also at default position — should be shifted
+    // Add second element also at default position — collision avoidance is
+    // no longer applied for non-afterElementId placement
     const result = parseResult(
       await handleAddElement({
         diagramId,
@@ -23,8 +24,8 @@ describe('collision avoidance', () => {
     );
 
     expect(result.success).toBe(true);
-    // The task should not be at the same position as the start event
-    expect(result.position.x).not.toBe(100);
+    // Without collision avoidance, both elements are at the default position
+    expect(result.position.x).toBe(100);
   });
 
   test('does not shift when position is explicitly given', async () => {

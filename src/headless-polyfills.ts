@@ -292,6 +292,13 @@ function applySvgElementPolyfills(win: any): void {
     };
   }
 
+  // getCTM is used by AutoPlace via Canvas.scrollToElement → Canvas.scroll.
+  if (SVGElement && !SVGElement.prototype.getCTM) {
+    SVGElement.prototype.getCTM = function () {
+      return new win.SVGMatrix();
+    };
+  }
+
   const transformProp = {
     get(this: any): any {
       if (!this._transform) {

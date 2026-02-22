@@ -14,21 +14,14 @@ import {
   getVisibleElements,
   getService,
 } from '../helpers';
-import { STANDARD_BPMN_GAP, getElementSize } from '../../constants';
+import { getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
 import { handleInsertElement } from './insert-element';
 import { handleLayoutDiagram } from '../layout/layout-diagram';
 import { handleDuplicateElement } from './duplicate-element';
+import { snapToLane, createAndPlaceElement } from './add-element-helpers';
+import { handleAutoPlaceAdd, assignToLaneFlowNodeRef } from './add-element-autoplace';
 import {
-  shiftDownstreamElements,
-  snapToLane,
-  createAndPlaceElement,
-  collectDownstreamElements,
-  resizeParentContainers,
-} from './add-element-helpers';
-import { avoidCollision, avoidCollisionY } from './add-element-collision';
-import {
-  autoConnectToElement,
   applyEventDefinitionShorthand,
   collectAddElementWarnings,
   buildAddElementResult,
@@ -116,37 +109,23 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
 
   // ── Validate incompatible argument combinations ────────────────────────
   if (args.elementType === 'bpmn:BoundaryEvent' && !args.hostElementId) {
-    throw illegalCombinationError(
-      'BoundaryEvent requires hostElementId to specify the element to attach to. ' +
-        'Use hostElementId to reference the task or subprocess this boundary event should be attached to.',
-      ['elementType', 'hostElementId']
-    );
+    throw illegalCombinationError('BoundaryEvent requires hostElementId.', [
+      'elementType',
+      'hostElementId',
+    ]);
   }
-
   if (args.elementType === 'bpmn:BoundaryEvent' && args.afterElementId) {
     throw illegalCombinationError(
-      'BoundaryEvent cannot use afterElementId — boundary events are positioned relative to their host element. ' +
-        'Use hostElementId instead.',
+      'BoundaryEvent cannot use afterElementId — use hostElementId instead.',
       ['elementType', 'afterElementId']
     );
   }
 
   if (args.flowId && args.afterElementId) {
-    throw illegalCombinationError(
-      'Cannot use both flowId and afterElementId. flowId inserts into an existing sequence flow; ' +
-        'afterElementId positions the element after another element. Choose one.',
-      ['flowId', 'afterElementId']
-    );
-  }
-
-  if (args.flowId && (args.x !== undefined || args.y !== undefined)) {
-    // Not an error — just ignored. flowId overrides x/y positioning.
-    // Documented in the tool description.
-  }
-
-  if (args.afterElementId && (args.x !== undefined || args.y !== undefined)) {
-    // Not an error — afterElementId auto-positions relative to the reference element.
-    // x/y are ignored. We capture this to include a warning in the response.
+    throw illegalCombinationError('Cannot use both flowId and afterElementId. Choose one.', [
+      'flowId',
+      'afterElementId',
+    ]);
   }
 
   if (args.eventDefinitionType && !args.elementType.includes('Event')) {
@@ -195,7 +174,8 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   } = args;
   // SubProcess defaults to expanded (true) unless explicitly set to false
   const isExpanded = elementType === 'bpmn:SubProcess' ? args.isExpanded !== false : undefined;
-  let { x = 100, y = 100 } = args;
+  let { x = 100 } = args;
+  let { y = 100 } = args;
   const diagram = requireDiagram(diagramId);
 
   const modeling = getService(diagram.modeler, 'modeling');
@@ -215,52 +195,32 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     }
   }
 
-  // Auto-position after another element if requested
-  if (afterElementId) {
-    const afterEl = elementRegistry.get(afterElementId);
-    if (afterEl) {
-      const afterSize = getElementSize(afterEl.type || elementType);
-      x = afterEl.x + (afterEl.width || afterSize.width) + STANDARD_BPMN_GAP;
-      y = afterEl.y + (afterEl.height || afterSize.height) / 2;
+  // Auto-position after another element using bpmn-js AutoPlace
+  // Note: AutoPlace doesn't support parentId (placing inside a subprocess),
+  // so we fall through to the standard path when parentId is specified.
+  if (afterElementId && !hostElementId && !parentId) {
+    return handleAutoPlaceAdd(
+      args,
+      diagram,
+      modeling,
+      elementRegistry,
+      afterElementId,
+      elementType,
+      elementName,
+      hostElementId,
+      isExpanded
+    );
+  }
 
-      // C2-3: Branch-aware Y positioning.
-      // If the anchor element already has outgoing connections with targets
-      // at the same X level, place the new element below the lowest existing
-      // target instead of stacking on top of them.  This is typical when the
-      // user adds a new outgoing branch from a gateway or a branching task.
-      const newSize = getElementSize(elementType);
-      const existingOutgoing = (afterEl.outgoing || []).filter(
-        (flow: any) =>
-          flow.type?.includes('SequenceFlow') && flow.target && flow.target.x >= x - newSize.width
-      );
-      if (existingOutgoing.length > 0) {
-        let maxBottom = 0;
-        for (const flow of existingOutgoing) {
-          const tgt = flow.target as any;
-          if (!tgt) continue;
-          const bottom = (tgt.y ?? 0) + (tgt.height ?? 0);
-          if (bottom > maxBottom) maxBottom = bottom;
-        }
-        // Place below the lowest existing branch with a gap
-        y = maxBottom + STANDARD_BPMN_GAP + newSize.height / 2;
-      }
+  // ── Standard path: boundary events, absolute positioning, default placement ──
 
-      // C2-2: BFS-based downstream shifting.
-      // Instead of shifting ALL elements at x >= computed_x (blanket approach),
-      // BFS-walk from afterEl along outgoing sequence flows and shift only reachable
-      // downstream elements.  This prevents displacing elements on unrelated parallel
-      // branches when adding a new element after one branch of a gateway.
-      const shiftAmount = newSize.width + STANDARD_BPMN_GAP;
-      const downstream = collectDownstreamElements(elementRegistry, afterEl, afterElementId);
-      if (downstream.length > 0) {
-        modeling.moveElements(downstream, { x: shiftAmount, y: 0 });
-        resizeParentContainers(elementRegistry, modeling);
-      } else {
-        // Fallback: if no outgoing flows found, use the blanket X-threshold shift
-        // to avoid newly placed element overlapping existing unconnected elements.
-        shiftDownstreamElements(elementRegistry, modeling, x, shiftAmount, afterElementId);
-      }
-    }
+  // When afterElementId is used in the standard path (e.g. with parentId),
+  // position the new element to the right of the after element
+  if (afterElementId && args.x === undefined && args.y === undefined) {
+    const afterEl = requireElement(elementRegistry, afterElementId);
+    const GAP = 50;
+    x = afterEl.x + (afterEl.width || 100) + GAP;
+    y = afterEl.y + (afterEl.height || 80) / 2;
   }
 
   // Generate a descriptive ID (named → UserTask_EnterName, collision → UserTask_<random7>_EnterName, unnamed → UserTask_<random7>)
@@ -285,53 +245,6 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     assignToLaneId = args.laneId;
   }
 
-  // Collision avoidance: shift if position overlaps an existing element.
-  // Respects placementStrategy and collisionPolicy parameters.
-  // For afterElementId: nudge DOWNWARD (Y-axis) since X is already determined
-  //   by the after-element positioning logic (C2-1).
-  // For default placement: nudge rightward (X-axis) as before.
-  const strategy = args.placementStrategy || 'auto';
-  const collisionPolicy = args.collisionPolicy || 'shift';
-  const usingDefaultPosition = args.x === undefined && args.y === undefined;
-  const shouldAvoidCollisions =
-    collisionPolicy !== 'none' && strategy !== 'absolute' && usingDefaultPosition && !hostElementId;
-
-  // Build a set of element IDs to exclude from collision checks.
-  // Parent containers (subprocesses) should not count as collision obstacles
-  // when placing a child element inside them.  Without this exclusion, the
-  // parent's bounding box triggers the avoidance shift, cascading new elements
-  // diagonally downward instead of in a horizontal chain.
-  const collisionExcludeIds = new Set<string>();
-  if (parentId) collisionExcludeIds.add(parentId);
-
-  if (shouldAvoidCollisions) {
-    if (afterElementId) {
-      // C2-1: For afterElementId, nudge downward to avoid parallel-branch overlap
-      const avoided = avoidCollisionY(
-        elementRegistry,
-        x,
-        y,
-        elementSize.width,
-        elementSize.height,
-        afterElementId,
-        collisionExcludeIds.size > 0 ? collisionExcludeIds : undefined
-      );
-      x = avoided.x;
-      y = avoided.y;
-    } else {
-      const avoided = avoidCollision(
-        elementRegistry,
-        x,
-        y,
-        elementSize.width,
-        elementSize.height,
-        collisionExcludeIds.size > 0 ? collisionExcludeIds : undefined
-      );
-      x = avoided.x;
-      y = avoided.y;
-    }
-  }
-
   // Pre-create the business object with our descriptive ID so the
   // exported XML ID matches the element ID returned to callers.
   const businessObject = createBusinessObject(diagram.modeler, elementType, descriptiveId);
@@ -353,12 +266,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     modeling.updateProperties(createdElement, { name: elementName });
   }
 
-  // bpmn:Group has a large default size (300×300 in bpmn-js) and its center
-  // is placed at the requested (x, y).  When x=100 or y=100 (the defaults),
-  // the top-left of the group lands at (x−150, y−150) = (−50, −50), pushing
-  // it into negative coordinate space and producing an invisible element.
-  // Clamp: if the created element's top-left is at a negative coordinate, move
-  // it so the top-left is at (max(x, 0), max(y, 0)).
+  // bpmn:Group at negative coordinates: clamp to (0, 0)
   if (elementType === 'bpmn:Group' && (createdElement.x < 0 || createdElement.y < 0)) {
     const clampDx = createdElement.x < 0 ? -createdElement.x : 0;
     const clampDy = createdElement.y < 0 ? -createdElement.y : 0;
@@ -369,29 +277,35 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
 
   // Register element in lane's flowNodeRef list if laneId was specified
   if (assignToLaneId) {
-    const targetLane = elementRegistry.get(assignToLaneId);
-    if (targetLane?.businessObject) {
-      const bo = targetLane.businessObject;
-      if (!bo.flowNodeRef) {
-        bo.flowNodeRef = [];
-      }
-      const refs = bo.flowNodeRef;
-      const elemBo = createdElement.businessObject;
-      if (elemBo && !refs.includes(elemBo)) {
-        refs.push(elemBo);
+    assignToLaneFlowNodeRef(elementRegistry, assignToLaneId, createdElement);
+  }
+
+  // Auto-connect when afterElementId is set in the standard path
+  // (this handles the parentId + afterElementId case where AutoPlace isn't used)
+  let connectionId: string | undefined;
+  const connectionsCreated: Array<{
+    id: string;
+    sourceId: string;
+    targetId: string;
+    type: string;
+  }> = [];
+  if (afterElementId && args.autoConnect !== false) {
+    const afterEl = elementRegistry.get(afterElementId);
+    if (afterEl) {
+      try {
+        const conn = modeling.connect(afterEl, createdElement, { type: 'bpmn:SequenceFlow' });
+        connectionId = conn.id;
+        connectionsCreated.push({
+          id: conn.id,
+          sourceId: afterElementId,
+          targetId: createdElement.id,
+          type: 'bpmn:SequenceFlow',
+        });
+      } catch {
+        // Auto-connect may fail for some element type combinations — non-fatal
       }
     }
   }
-
-  // Auto-connect to afterElement when requested (default: true for afterElementId)
-  const { connectionId, connectionsCreated } = autoConnectToElement(
-    elementRegistry,
-    modeling,
-    afterElementId,
-    createdElement,
-    elementName,
-    args.autoConnect
-  );
 
   await syncXml(diagram);
 

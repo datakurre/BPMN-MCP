@@ -202,6 +202,11 @@ export interface BpmnReplace {
   replaceElement(element: BpmnElement, target: Record<string, unknown>): BpmnElement;
 }
 
+/** The AutoPlace service — positions elements using Camunda Modeler-style placement. */
+export interface AutoPlace {
+  append(source: BpmnElement, shape: BpmnElement, hints?: Record<string, unknown>): BpmnElement;
+}
+
 // ── Typed service access ───────────────────────────────────────────────────
 
 /**
@@ -219,6 +224,7 @@ export interface ServiceMap {
   bpmnFactory: BpmnFactory;
   commandStack: CommandStack;
   bpmnReplace: BpmnReplace;
+  autoPlace: AutoPlace;
 }
 
 /**
