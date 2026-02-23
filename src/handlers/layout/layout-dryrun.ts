@@ -25,19 +25,8 @@ export async function runDryRunLayout(
   qualityMetrics: ReturnType<typeof computeLayoutQualityMetrics>;
   totalElements: number;
 }> {
-  const {
-    direction,
-    nodeSpacing,
-    layerSpacing,
-    scopeElementId,
-    preserveHappyPath,
-    compactness,
-    simplifyRoutes,
-    elementIds,
-  } = args;
-  const rawGridSnap = args.gridSnap;
-  const elkGridSnap = typeof rawGridSnap === 'boolean' ? rawGridSnap : undefined;
-  const pixelGridSnap = typeof rawGridSnap === 'number' ? rawGridSnap : undefined;
+  const { direction, nodeSpacing, layerSpacing, scopeElementId, compactness, elementIds } = args;
+  const pixelGridSnap = typeof args.gridSnap === 'number' ? args.gridSnap : undefined;
   const tempRegistry = getService(tempDiagram.modeler, 'elementRegistry');
 
   const originalPositions = new Map<string, { x: number; y: number }>();
@@ -60,10 +49,7 @@ export async function runDryRunLayout(
       nodeSpacing,
       layerSpacing,
       scopeElementId,
-      preserveHappyPath,
-      gridSnap: elkGridSnap,
       compactness,
-      simplifyRoutes,
     });
   }
   if (pixelGridSnap && pixelGridSnap > 0) applyPixelGridSnap(tempDiagram, pixelGridSnap);
@@ -110,13 +96,7 @@ export async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolR
       maxDisplacement: stats.maxDisplacement,
       avgDisplacement: stats.avgDisplacement,
       ...(crossingCount > 0 ? { crossingFlows: crossingCount } : {}),
-      qualityMetrics: {
-        avgFlowLength: qualityMetrics.avgFlowLength,
-        orthogonalFlowPercent: qualityMetrics.orthogonalFlowPercent,
-        elementDensity: qualityMetrics.elementDensity,
-        avgBendCount: qualityMetrics.avgBendCount,
-        alignedElementPercent: qualityMetrics.alignedElementPercent,
-      },
+      qualityMetrics,
       ...(isLargeChange
         ? {
             warning: `Layout would move ${stats.movedCount}/${totalElements} elements with max displacement of ${stats.maxDisplacement}px. Consider using scopeElementId or elementIds for a more targeted layout.`,

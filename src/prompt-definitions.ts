@@ -252,8 +252,6 @@ const addDecisionGatewayPattern: PromptDefinition = {
                 `     - conditionExpression: '\${${variable} == false}'\n` +
                 `     - label: "No"\n`) +
             `4. **Layout**: Run \`layout_bpmn_diagram\` with:\n` +
-            `   - preserveHappyPath: true (keeps the "Yes" path straight)\n` +
-            `   - simplifyRoutes: true (cleans up edge routing)\n` +
             `   - compactness: "spacious" (gives room for the loopback)\n` +
             `5. **Label cleanup**: Run \`layout_bpmn_diagram\` with labelsOnly: true to position flow labels clearly\n\n` +
             `**Layout geometry for decision gateway patterns:**\n` +

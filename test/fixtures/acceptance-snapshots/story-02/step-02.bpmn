@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:collaboration id="Collaboration_1srr9ih">
-    <bpmn:participant id="Participant_05emv5d" name="Customer" processRef="Process_Helpdesk_Process" />
-    <bpmn:participant id="Participant_07a0en1" name="Support System" />
+  <bpmn:collaboration id="Collaboration_0j7tx00">
+    <bpmn:participant id="Participant_0dt39u4" name="Customer" processRef="Process_Helpdesk_Process" />
+    <bpmn:participant id="Participant_1yg3dj2" name="Support System" />
   </bpmn:collaboration>
   <bpmn:process id="Process_Helpdesk_Process" name="Helpdesk Process" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_IssueReported" name="Issue Reported">
-      <bpmn:outgoing>Flow_0iqi2yr</bpmn:outgoing>
+      <bpmn:outgoing>Flow_0dr4f8u</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:sendTask id="SendTask_SubmitTicket" name="Submit Ticket">
-      <bpmn:incoming>Flow_0iqi2yr</bpmn:incoming>
-      <bpmn:outgoing>Flow_1jriilh</bpmn:outgoing>
+      <bpmn:incoming>Flow_0dr4f8u</bpmn:incoming>
+      <bpmn:outgoing>Flow_08t2f97</bpmn:outgoing>
     </bpmn:sendTask>
     <bpmn:intermediateCatchEvent id="Event_WaitForResponse" name="Wait for Response">
-      <bpmn:incoming>Flow_1jriilh</bpmn:incoming>
+      <bpmn:incoming>Flow_08t2f97</bpmn:incoming>
       <bpmn:incoming>Flow_RequestClarification_to_WaitForResponse</bpmn:incoming>
-      <bpmn:outgoing>Flow_03qt0t3</bpmn:outgoing>
+      <bpmn:outgoing>Flow_0ywp2bg</bpmn:outgoing>
       <bpmn:messageEventDefinition messageRef="Msg_SupportResponse" />
     </bpmn:intermediateCatchEvent>
     <bpmn:userTask id="UserTask_ReviewResolution" name="Review Resolution">
-      <bpmn:incoming>Flow_03qt0t3</bpmn:incoming>
-      <bpmn:outgoing>Flow_1sly86z</bpmn:outgoing>
+      <bpmn:incoming>Flow_0ywp2bg</bpmn:incoming>
+      <bpmn:outgoing>Flow_16hc4b6</bpmn:outgoing>
     </bpmn:userTask>
     <bpmn:exclusiveGateway id="Gateway_Resolved" name="Resolved?">
-      <bpmn:incoming>Flow_1sly86z</bpmn:incoming>
+      <bpmn:incoming>Flow_16hc4b6</bpmn:incoming>
       <bpmn:outgoing>Flow_Yes</bpmn:outgoing>
       <bpmn:outgoing>Flow_No</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:sequenceFlow id="Flow_0iqi2yr" sourceRef="StartEvent_IssueReported" targetRef="SendTask_SubmitTicket" />
-    <bpmn:sequenceFlow id="Flow_1jriilh" sourceRef="SendTask_SubmitTicket" targetRef="Event_WaitForResponse" />
-    <bpmn:sequenceFlow id="Flow_03qt0t3" sourceRef="Event_WaitForResponse" targetRef="UserTask_ReviewResolution" />
-    <bpmn:sequenceFlow id="Flow_1sly86z" sourceRef="UserTask_ReviewResolution" targetRef="Gateway_Resolved" />
+    <bpmn:sequenceFlow id="Flow_0dr4f8u" sourceRef="StartEvent_IssueReported" targetRef="SendTask_SubmitTicket" />
+    <bpmn:sequenceFlow id="Flow_08t2f97" sourceRef="SendTask_SubmitTicket" targetRef="Event_WaitForResponse" />
+    <bpmn:sequenceFlow id="Flow_0ywp2bg" sourceRef="Event_WaitForResponse" targetRef="UserTask_ReviewResolution" />
+    <bpmn:sequenceFlow id="Flow_16hc4b6" sourceRef="UserTask_ReviewResolution" targetRef="Gateway_Resolved" />
     <bpmn:endEvent id="EndEvent_Done" name="Done">
       <bpmn:incoming>Flow_Yes</bpmn:incoming>
     </bpmn:endEvent>
@@ -48,8 +48,8 @@
   </bpmn:process>
   <bpmn:message id="Msg_SupportResponse" name="SupportResponse" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1srr9ih">
-      <bpmndi:BPMNShape id="Participant_05emv5d_di" bpmnElement="Participant_05emv5d" isHorizontal="true">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_0j7tx00">
+      <bpmndi:BPMNShape id="Participant_0dt39u4_di" bpmnElement="Participant_0dt39u4" isHorizontal="true">
         <dc:Bounds x="162" y="82" width="858" height="250" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
@@ -89,41 +89,41 @@
         <dc:Bounds x="870" y="162" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_0iqi2yr_di" bpmnElement="Flow_0iqi2yr">
+      <bpmndi:BPMNEdge id="Flow_0dr4f8u_di" bpmnElement="Flow_0dr4f8u">
         <di:waypoint x="278" y="202" />
         <di:waypoint x="338" y="202" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1jriilh_di" bpmnElement="Flow_1jriilh">
+      <bpmndi:BPMNEdge id="Flow_08t2f97_di" bpmnElement="Flow_08t2f97">
         <di:waypoint x="438" y="202" />
         <di:waypoint x="498" y="202" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_03qt0t3_di" bpmnElement="Flow_03qt0t3">
+      <bpmndi:BPMNEdge id="Flow_0ywp2bg_di" bpmnElement="Flow_0ywp2bg">
         <di:waypoint x="534" y="202" />
         <di:waypoint x="594" y="202" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1sly86z_di" bpmnElement="Flow_1sly86z">
+      <bpmndi:BPMNEdge id="Flow_16hc4b6_di" bpmnElement="Flow_16hc4b6">
         <di:waypoint x="694" y="202" />
         <di:waypoint x="754" y="202" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_09cs3i4_di" bpmnElement="Flow_Yes">
+      <bpmndi:BPMNEdge id="Flow_1in8zeq_di" bpmnElement="Flow_Yes">
         <di:waypoint x="804" y="202" />
         <di:waypoint x="872" y="202" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="829" y="184" width="19" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_18rocx9_di" bpmnElement="Flow_No">
+      <bpmndi:BPMNEdge id="Flow_1s5t4x6_di" bpmnElement="Flow_No">
         <di:waypoint x="804" y="202" />
         <di:waypoint x="870" y="202" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="830" y="184" width="15" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1hg25v9_di" bpmnElement="Flow_RequestClarification_to_WaitForResponse">
+      <bpmndi:BPMNEdge id="Flow_0q52mn4_di" bpmnElement="Flow_RequestClarification_to_WaitForResponse">
         <di:waypoint x="870" y="202" />
         <di:waypoint x="534" y="202" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="Participant_07a0en1_di" bpmnElement="Participant_07a0en1" isHorizontal="true" isExpanded="false">
+      <bpmndi:BPMNShape id="Participant_1yg3dj2_di" bpmnElement="Participant_1yg3dj2" isHorizontal="true" isExpanded="false">
         <dc:Bounds x="162" y="372" width="692" height="60" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>

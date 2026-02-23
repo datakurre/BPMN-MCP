@@ -41,13 +41,11 @@ export interface LayoutDiagramArgs {
   nodeSpacing?: number;
   layerSpacing?: number;
   scopeElementId?: string;
-  preserveHappyPath?: boolean;
   compactness?: 'compact' | 'spacious';
-  simplifyRoutes?: boolean;
   /** Optional list of element IDs for partial re-layout. */
   elementIds?: string[];
-  /** Grid snap: boolean to enable/disable ELK grid snap, or number for pixel-level snapping. */
-  gridSnap?: boolean | number;
+  /** Pixel grid snap: snap element positions to the nearest multiple of this value. */
+  gridSnap?: number;
   /** When true, preview layout changes without applying them. */
   dryRun?: boolean;
   /**
@@ -104,14 +102,10 @@ async function executeLayout(
     nodeSpacing,
     layerSpacing,
     scopeElementId,
-    preserveHappyPath,
     compactness,
-    simplifyRoutes,
     layoutStrategy,
     elementIds,
   } = args;
-  const rawGridSnap = args.gridSnap;
-  const elkGridSnap = typeof rawGridSnap === 'boolean' ? rawGridSnap : undefined;
 
   // Deterministic layout for trivial diagrams (linear chains, single split-merge)
   if (layoutStrategy === 'deterministic' && !elementIds && !scopeElementId) {
@@ -135,10 +129,7 @@ async function executeLayout(
     nodeSpacing,
     layerSpacing,
     scopeElementId,
-    preserveHappyPath,
-    gridSnap: elkGridSnap,
     compactness,
-    simplifyRoutes,
     laneStrategy: args.laneStrategy,
   });
   return { layoutResult: result, usedDeterministic: false };

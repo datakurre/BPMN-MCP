@@ -18,7 +18,7 @@ import {
   BPMN_DUMMY_HEIGHT,
   CENTER_FACTOR,
   MOVEMENT_THRESHOLD,
-} from './constants';
+} from '../constants';
 import {
   isConnection as _isConnection,
   isInfrastructure as _isInfrastructure,

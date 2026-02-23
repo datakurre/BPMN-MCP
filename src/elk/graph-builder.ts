@@ -18,7 +18,7 @@ import {
   CONTAINER_DEFAULT_WIDTH,
   CONTAINER_DEFAULT_HEIGHT,
   MAX_TRACE_DEPTH,
-} from './constants';
+} from '../constants';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 
 // ── BPMN element type constants ────────────────────────────────────────

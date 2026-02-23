@@ -1,5 +1,5 @@
 /**
- * Tests for layout_bpmn_diagram options: compactness, simplifyRoutes.
+ * Tests for layout_bpmn_diagram options: compactness, routing.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -85,13 +85,13 @@ describe('layout_bpmn_diagram — compactness option', () => {
   });
 });
 
-describe('layout_bpmn_diagram — simplifyRoutes option', () => {
+describe('layout_bpmn_diagram — default routing', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  test('simplifyRoutes=false preserves ELK routing', async () => {
-    const diagramId = await createDiagram('NoSimplify');
+  test('layout produces valid result for gateway branches', async () => {
+    const diagramId = await createDiagram('DefaultRouting');
     const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
     const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Split?' });
     const t1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Branch A' });
@@ -106,12 +106,12 @@ describe('layout_bpmn_diagram — simplifyRoutes option', () => {
     await connect(diagramId, t2, join);
     await connect(diagramId, join, end);
 
-    const result = await handleLayoutDiagram({ diagramId, simplifyRoutes: false });
+    const result = await handleLayoutDiagram({ diagramId });
     const parsed = parseResult(result);
     expect(parsed.success).toBe(true);
   });
 
-  test('simplifyRoutes defaults to true', async () => {
+  test('layout with default options for simple flow', async () => {
     const diagramId = await createDiagram('DefaultSimplify');
     const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
     const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Split?' });

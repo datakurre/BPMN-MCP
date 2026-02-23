@@ -22,7 +22,7 @@ import {
   LOOPBACK_BELOW_MARGIN,
   LOOPBACK_ABOVE_MARGIN,
   LOOPBACK_HORIZONTAL_MARGIN,
-} from './constants';
+} from '../constants';
 import { buildZShapeRoute } from '../geometry';
 import { applyElkPositions } from './position-application';
 import { detectCrossingFlows } from './crossing-detection';

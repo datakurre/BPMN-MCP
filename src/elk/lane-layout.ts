@@ -25,12 +25,12 @@ export type LaneNodeAssignments = Map<string, Set<string>>;
 
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import {
-  MIN_LANE_HEIGHT,
-  MIN_LANE_WIDTH,
+  ELK_MIN_LANE_HEIGHT,
+  ELK_MIN_LANE_WIDTH,
   POOL_LABEL_BAND,
   LANE_VERTICAL_PADDING,
   LANE_HORIZONTAL_PADDING,
-} from './constants';
+} from '../constants';
 import { isConnection, isInfrastructure, isArtifact, isLane } from './helpers';
 
 /** Returns true for types that should not be assigned to lanes. */
@@ -223,7 +223,7 @@ export function repositionLanes(
     const laneBandHeights = new Map<string, number>();
     for (const lane of orderedLanes) {
       const contentH = laneContentHeight.get(lane.id) || 0;
-      const bandH = Math.max(contentH + LANE_VERTICAL_PADDING * 2, MIN_LANE_HEIGHT);
+      const bandH = Math.max(contentH + LANE_VERTICAL_PADDING * 2, ELK_MIN_LANE_HEIGHT);
       laneBandHeights.set(lane.id, bandH);
     }
 
@@ -398,12 +398,12 @@ function repositionLanesAsColumns(
     orderedLanes = optimizeLaneOrder(orderedLanes, laneNodeMap, elementRegistry);
   }
 
-  // Compute column (band) widths — content X-span + padding, minimum MIN_LANE_WIDTH
+  // Compute column (band) widths — content X-span + padding, minimum ELK_MIN_LANE_WIDTH
   const laneBandWidths = new Map<string, number>();
   for (const lane of orderedLanes) {
     const nodeIds = laneNodeMap.get(lane.id);
     if (!nodeIds || nodeIds.size === 0) {
-      laneBandWidths.set(lane.id, MIN_LANE_WIDTH);
+      laneBandWidths.set(lane.id, ELK_MIN_LANE_WIDTH);
       continue;
     }
     let minLeft = Infinity;
@@ -418,7 +418,10 @@ function repositionLanesAsColumns(
       }
     }
     const contentW = minLeft === Infinity ? 0 : maxRight - minLeft;
-    laneBandWidths.set(lane.id, Math.max(contentW + LANE_HORIZONTAL_PADDING * 2, MIN_LANE_WIDTH));
+    laneBandWidths.set(
+      lane.id,
+      Math.max(contentW + LANE_HORIZONTAL_PADDING * 2, ELK_MIN_LANE_WIDTH)
+    );
   }
 
   const totalLaneWidth = Array.from(laneBandWidths.values()).reduce((a, b) => a + b, 0);
@@ -476,7 +479,7 @@ function repositionLanesAsColumns(
   //   (a) repositionLanesAsColumns is only called during a full layout pass, which
   //       already bypasses the undo stack for element moves.
   //   (b) The BPMN XML export reads from di.bounds, which we also update.
-  const laneHeight = Math.max(poolHeight, MIN_LANE_HEIGHT);
+  const laneHeight = Math.max(poolHeight, ELK_MIN_LANE_HEIGHT);
 
   for (const lane of orderedLanes) {
     const targetX = laneBandX.get(lane.id)!;

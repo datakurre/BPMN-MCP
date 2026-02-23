@@ -15,7 +15,7 @@ import type { LayoutLogger } from './layout-logger';
  * from elkjs.  This interface documents every ELK option key used by the
  * BPMN-MCP layout engine with its accepted values and purpose, providing
  * self-documentation and IDE autocomplete for the `ELK_LAYOUT_OPTIONS`
- * constant in `src/elk/constants.ts`.
+ * constant in `src/constants.ts`.
  *
  * All values are strings because ELK's API only accepts strings.  Numeric
  * values are passed as `String(n)`, booleans as `'true'` / `'false'`.
@@ -85,24 +85,6 @@ export interface ElkLayoutOptions {
   layerSpacing?: number;
   /** Restrict layout to a specific subprocess or participant (scope). */
   scopeElementId?: string;
-  /** Pin the main (happy) path to a single row for visual clarity. */
-  preserveHappyPath?: boolean;
-  /**
-   * Grid snap: enable/disable post-ELK grid snap (default: true).
-   * Preserved for API compatibility but no longer has effect (Phase 3 removed
-   * the grid-snap subsystem — ELK's own alignment is trusted).
-   */
-  gridSnap?: boolean;
-  /**
-   * Grid quantum (px) for pixel-level snapping after layout.
-   * When set, shapes are snapped to the nearest multiple of this value.
-   */
-  gridQuantum?: number;
-  /**
-   * Simplify gateway branch routes (default: true).
-   * Preserved for API compatibility.
-   */
-  simplifyRoutes?: boolean;
   /**
    * Layout compactness preset.
    * - 'compact': tighter spacing (nodeSpacing=40, layerSpacing=50)

@@ -22,7 +22,7 @@ import {
   NORMALISE_LARGE_THRESHOLD,
   ORIGIN_OFFSET_X,
   ORIGIN_OFFSET_Y,
-} from './constants';
+} from '../constants';
 import { buildCompoundNode } from './graph-builder';
 
 /** Horizontal gap between side-by-side event subprocesses (G3). */

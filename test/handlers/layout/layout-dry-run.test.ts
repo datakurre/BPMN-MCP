@@ -117,13 +117,10 @@ describe('layout_bpmn_diagram dryRun', () => {
 
     const result = parseResult(await handleLayoutDiagram({ diagramId, dryRun: true }));
     expect(result.qualityMetrics).toBeDefined();
-    expect(typeof result.qualityMetrics.avgFlowLength).toBe('number');
-    expect(result.qualityMetrics.avgFlowLength).toBeGreaterThanOrEqual(0);
     expect(typeof result.qualityMetrics.orthogonalFlowPercent).toBe('number');
     expect(result.qualityMetrics.orthogonalFlowPercent).toBeGreaterThanOrEqual(0);
     expect(result.qualityMetrics.orthogonalFlowPercent).toBeLessThanOrEqual(100);
-    expect(result.qualityMetrics.elementDensity).toBeDefined();
-    expect(result.qualityMetrics.elementDensity['total']).toBeGreaterThanOrEqual(3);
+    expect(typeof result.qualityMetrics.avgBendCount).toBe('number');
   });
 });
 

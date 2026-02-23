@@ -14,7 +14,7 @@ import {
   CENTER_FACTOR,
   BOUNDARY_SPREAD_MARGIN_FACTOR,
   BOUNDARY_PROXIMITY_TOLERANCE,
-} from './constants';
+} from '../constants';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import { BPMN_BOUNDARY_EVENT_TYPE, type BoundaryEventSnapshot } from './boundary-save-restore';
 

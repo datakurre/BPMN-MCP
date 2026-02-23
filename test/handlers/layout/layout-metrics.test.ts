@@ -25,13 +25,9 @@ describe('layout quality metrics', () => {
     const res = parseResult(await handleLayoutDiagram({ diagramId }));
 
     expect(res.qualityMetrics).toBeDefined();
-    expect(res.qualityMetrics.avgFlowLength).toBeGreaterThan(0);
     expect(res.qualityMetrics.orthogonalFlowPercent).toBeGreaterThanOrEqual(0);
     expect(res.qualityMetrics.orthogonalFlowPercent).toBeLessThanOrEqual(100);
-    expect(res.qualityMetrics.elementDensity).toBeDefined();
-
-    // Simple linear flow → total density should include all flow nodes
-    expect(res.qualityMetrics.elementDensity['total']).toBeGreaterThanOrEqual(4);
+    expect(typeof res.qualityMetrics.avgBendCount).toBe('number');
   });
 
   test('linear flow has high orthogonal percentage', async () => {

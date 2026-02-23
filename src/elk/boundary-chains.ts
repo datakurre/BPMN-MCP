@@ -12,7 +12,7 @@ import {
   BPMN_EVENT_SIZE,
   BOUNDARY_TARGET_Y_OFFSET,
   BOUNDARY_TARGET_X_OFFSET,
-} from './constants';
+} from '../constants';
 import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 import { BPMN_BOUNDARY_EVENT_TYPE } from './boundary-save-restore';
 

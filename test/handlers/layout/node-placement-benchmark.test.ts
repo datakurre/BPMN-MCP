@@ -15,7 +15,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { handleLayoutDiagram } from '../../../src/handlers';
 import { clearDiagrams, importReference } from '../../helpers';
-import { ELK_LAYOUT_OPTIONS } from '../../../src/elk/constants';
+import { ELK_LAYOUT_OPTIONS } from '../../../src/constants';
 
 describe.skipIf(!!process.env.CI)('ELK node-placement strategy benchmarks', () => {
   // ── Types ──────────────────────────────────────────────────────────────────

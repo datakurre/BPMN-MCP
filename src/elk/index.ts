@@ -29,13 +29,11 @@ import {
   ORIGIN_OFFSET_X,
   ORIGIN_OFFSET_Y,
   ELK_CROSSING_THOROUGHNESS,
-} from './constants';
-import {
   ELK_COMPACT_NODE_SPACING,
   ELK_COMPACT_LAYER_SPACING,
   ELK_SPACIOUS_NODE_SPACING,
   ELK_SPACIOUS_LAYER_SPACING,
-} from '../constants.js';
+} from '../constants';
 import { buildContainerGraph } from './graph-builder';
 import {
   applyElkPositions,
@@ -175,7 +173,6 @@ function finalisePoolsAndLanes(ctx: LayoutContext): void {
  * so that all host element moves are complete before snapping BEs to borders.
  *
  * Previously two restore cycles were needed because intermediate steps
- * (snapAndAlignLayers, gridSnap, happyPath, resolveOverlaps, pools/lanes)
  * moved host elements between cycles.  With the simplified pipeline, only
  * finalisePoolsAndLanes moves hosts after ELK positions are applied, so a
  * single restore after pools/lanes suffices.

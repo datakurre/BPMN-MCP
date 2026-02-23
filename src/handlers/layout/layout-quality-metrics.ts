@@ -3,8 +3,7 @@
  *
  * Provides post-layout quality feedback including:
  * - Container (pool/lane) overflow detection with sizing recommendations
- * - Flow orthogonality and length metrics
- * - Element density per lane
+ * - Flow orthogonality and bend count metrics
  *
  * Extracted from layout-helpers.ts to keep file sizes under the max-lines limit.
  */
@@ -134,52 +133,38 @@ function computeChildExtent(children: any[]): { maxX: number; maxY: number } | n
 // ── Layout quality metrics ─────────────────────────────────────────────────
 
 export interface LayoutQualityMetrics {
-  /** Average length of sequence flows in pixels. */
-  avgFlowLength: number;
   /** Percentage of sequence flows that are orthogonal (straight or right-angle). */
   orthogonalFlowPercent: number;
-  /** Number of flow nodes (tasks, events, gateways) per lane, or total if no lanes. */
-  elementDensity: Record<string, number>;
   /**
-   * Average number of bends (waypoint direction changes) per sequence flow (K1c).
+   * Average number of bends (waypoint direction changes) per sequence flow.
    * A 2-waypoint straight flow has 0 bends; each additional waypoint adds a bend.
    */
   avgBendCount: number;
-  /**
-   * Percentage of flow elements whose Y-centre is within 2px of at least one
-   * other element's Y-centre — indicating they are aligned in the same row (K1d).
-   * High values (≥80%) indicate a well-aligned, regular grid layout.
-   */
-  alignedElementPercent: number;
 }
 
 /**
  * Compute layout quality metrics for post-layout feedback.
  *
- * Metrics include average flow length, orthogonal flow percentage,
- * and element density per lane (or overall).
+ * Simplified to the two most actionable metrics: orthogonal flow percentage
+ * and average bend count.
  */
 export function computeLayoutQualityMetrics(elementRegistry: any): LayoutQualityMetrics {
   const allElements = elementRegistry.getAll();
 
-  // --- Flow length and orthogonality ---
   const flows = allElements.filter(
     (el: any) => el.type === 'bpmn:SequenceFlow' && el.waypoints && el.waypoints.length >= 2
   );
 
-  let totalLength = 0;
   let orthogonalCount = 0;
   let totalBends = 0;
 
   for (const flow of flows) {
     const wps: Array<{ x: number; y: number }> = flow.waypoints;
-    let flowLength = 0;
     let isOrthogonal = true;
 
     for (let i = 1; i < wps.length; i++) {
       const dx = wps[i].x - wps[i - 1].x;
       const dy = wps[i].y - wps[i - 1].y;
-      flowLength += Math.sqrt(dx * dx + dy * dy);
 
       // Segment is orthogonal if horizontal or vertical (within 2px tolerance)
       if (Math.abs(dx) > 2 && Math.abs(dy) > 2) {
@@ -187,64 +172,17 @@ export function computeLayoutQualityMetrics(elementRegistry: any): LayoutQuality
       }
     }
 
-    totalLength += flowLength;
     if (isOrthogonal) orthogonalCount++;
     // Bends = number of direction changes = waypoints - 2 (minus start and end)
     totalBends += Math.max(0, wps.length - 2);
   }
 
-  const avgFlowLength = flows.length > 0 ? Math.round(totalLength / flows.length) : 0;
   const orthogonalFlowPercent =
     flows.length > 0 ? Math.round((orthogonalCount / flows.length) * 100) : 100;
   const avgBendCount = flows.length > 0 ? Math.round((totalBends / flows.length) * 10) / 10 : 0;
 
-  // --- Element density per lane (or total) ---
-  const density: Record<string, number> = {};
-  const flowNodes = allElements.filter(
-    (el: any) =>
-      el.type &&
-      !el.type.includes('SequenceFlow') &&
-      !el.type.includes('MessageFlow') &&
-      !el.type.includes('Association') &&
-      el.type !== 'bpmn:Participant' &&
-      el.type !== 'bpmn:Lane' &&
-      el.type !== 'label' &&
-      el.type !== 'bpmn:Collaboration' &&
-      el.type !== 'bpmn:Process'
-  );
-
-  const lanes = allElements.filter((el: any) => el.type === 'bpmn:Lane');
-  if (lanes.length > 0) {
-    for (const lane of lanes) {
-      const laneName = lane.businessObject?.name || lane.id;
-      const childIds = new Set((lane.children || []).map((c: any) => c.id));
-      density[laneName] = flowNodes.filter((n: any) => childIds.has(n.id)).length;
-    }
-  } else {
-    density['total'] = flowNodes.length;
-  }
-
-  // --- Alignment regularity (K1d) ---
-  // Count flow nodes whose Y-centre matches at least one other node within 2px.
-  // High aligned % → elements sit on clean shared rows → regular grid layout.
-  const ALIGN_TOLERANCE = 2;
-  let alignedCount = 0;
-  const yCentres = flowNodes.map((n: any) => n.y + (n.height || 0) / 2);
-  for (let i = 0; i < flowNodes.length; i++) {
-    const cy = yCentres[i];
-    const hasNeighbour = yCentres.some(
-      (other: number, j: number) => j !== i && Math.abs(other - cy) <= ALIGN_TOLERANCE
-    );
-    if (hasNeighbour) alignedCount++;
-  }
-  const alignedElementPercent =
-    flowNodes.length > 0 ? Math.round((alignedCount / flowNodes.length) * 100) : 100;
-
   return {
-    avgFlowLength,
     orthogonalFlowPercent,
-    elementDensity: density,
     avgBendCount,
-    alignedElementPercent,
   };
 }

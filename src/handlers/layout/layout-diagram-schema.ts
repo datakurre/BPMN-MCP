@@ -44,26 +44,15 @@ export const TOOL_DEFINITION = {
           'Optional list of element IDs for partial re-layout. Only these elements and their inter-connections are arranged, leaving the rest of the diagram unchanged.',
       },
       gridSnap: {
-        oneOf: [{ type: 'boolean' }, { type: 'number' }],
+        type: 'number',
         description:
-          'Optional grid snapping control. Pass a number (e.g. 10) to snap element positions to a pixel grid after layout. ' +
-          'Pass true to enable ELK-level grid snapping. Off by default.',
-      },
-      preserveHappyPath: {
-        type: 'boolean',
-        description:
-          'When true (default), detects the main path (start→end via default flows) and pins it to a single row. Set to false to let ELK freely arrange all branches.',
+          'Optional pixel grid snapping. Pass a number (e.g. 10) to snap element positions to a pixel grid after layout. Off by default.',
       },
       compactness: {
         type: 'string',
         enum: ['compact', 'spacious'],
         description:
           "Layout compactness preset. 'compact' uses tighter spacing (nodeSpacing=40, layerSpacing=50). 'spacious' uses generous spacing (nodeSpacing=80, layerSpacing=100). Explicit nodeSpacing/layerSpacing values override compactness presets. Default uses balanced spacing (nodeSpacing=50, layerSpacing=60).",
-      },
-      simplifyRoutes: {
-        type: 'boolean',
-        description:
-          "When true (default), simplifies gateway branch routes to clean L/Z-shaped paths. Set to false to preserve ELK's original crossing-minimised routing for complex diagrams.",
       },
       dryRun: {
         type: 'boolean',

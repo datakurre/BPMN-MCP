@@ -38,10 +38,10 @@ Modular `src/` layout, communicates over **stdio** using the MCP SDK. See [`docs
 | `src/bpmn-module.ts`            | BPMN tool module — registers BPMN tools and dispatch with the generic server                                                                                                      |
 | `src/types.ts`                  | Shared interfaces (`DiagramState`, `ToolResult`, tool arg types)                                                                                                                  |
 | `src/bpmn-types.ts`             | TypeScript interfaces for bpmn-js services (`Modeling`, `ElementRegistry`, etc.)                                                                                                  |
-| `src/constants.ts`              | Centralised magic numbers (`STANDARD_BPMN_GAP`, `ELEMENT_SIZES`)                                                                                                                  |
+| `src/constants.ts`              | Centralised magic numbers: element sizes, spacing, pool/lane sizing, ELK layout options — single source of truth for all constants                                                |
 | `src/headless-canvas.ts`        | jsdom setup, lazy `BpmnModeler` init                                                                                                                                              |
 | `src/headless-polyfills.ts`     | SVG/CSS polyfills for headless bpmn-js (SVGMatrix, getBBox, transform with DOM sync, etc.)                                                                                        |
-| `src/elk/`                      | ELK-based layout engine — Sugiyama layered algorithm via `elkjs` for automatic diagram arrangement, plus post-ELK grid snap, overlap resolution, and channel routing              |
+| `src/elk/`                      | ELK-based layout engine — Sugiyama layered algorithm via `elkjs` for automatic diagram arrangement, with boundary event positioning and lane layout                               |
 | `src/diagram-manager.ts`        | In-memory `Map<string, DiagramState>` store, modeler creation helpers                                                                                                             |
 | `src/tool-definitions.ts`       | Thin barrel collecting co-located `TOOL_DEFINITION` exports from handlers                                                                                                         |
 | `src/handlers/index.ts`         | Handler barrel + `dispatchToolCall` router + unified TOOL_REGISTRY                                                                                                                |
@@ -138,6 +138,7 @@ Individual ADRs are in [`agents/adrs/`](agents/adrs/):
 - [ADR-013](agents/adrs/ADR-013-element-id-naming.md) — 2-part element ID naming
 - [ADR-014](agents/adrs/ADR-014-post-elk-grid-snapping.md) — Post-ELK grid snapping
 - [ADR-015](agents/adrs/ADR-015-bpmn-in-tool-names.md) — All tool names include "bpmn"
+- [ADR-016](agents/adrs/ADR-016-elk-pipeline-anatomy.md) — ELK pipeline anatomy
 
 ## Key Gotchas
 
