@@ -1,16 +1,23 @@
 /**
  * Layout quality regression tests.
  *
- * These tests build known BPMN patterns and assert specific layout
- * properties after ELK layout:
+ * Merged from layout-quality.test.ts and layout-comparison.test.ts.
+ *
+ * Tests build known BPMN patterns and assert layout properties after ELK:
  * - All flows are strictly orthogonal (no diagonals)
  * - Same-row elements share Y within ±1 px
  * - Flow waypoints have minimal bend count
+ * - Quality metrics: bounding box, gap consistency, crossing count
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleLayoutDiagram } from '../../../src/handlers';
 import {
+  handleLayoutDiagram,
+  handleCreateCollaboration,
+  handleAddElement,
+} from '../../../src/handlers';
+import {
+  parseResult,
   createDiagram,
   addElement,
   clearDiagrams,
@@ -22,12 +29,10 @@ import { getDiagram } from '../../../src/diagram-manager';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Centre-Y of an element. */
 function centreY(el: any): number {
   return el.y + (el.height || 0) / 2;
 }
 
-/** Centre-X of an element. */
 function centreX(el: any): number {
   return el.x + (el.width || 0) / 2;
 }
@@ -39,7 +44,6 @@ function expectOrthogonal(conn: any) {
   for (let i = 1; i < wps.length; i++) {
     const dx = Math.abs(wps[i].x - wps[i - 1].x);
     const dy = Math.abs(wps[i].y - wps[i - 1].y);
-    // Each segment must be either horizontal (dy ≈ 0) or vertical (dx ≈ 0)
     const isHorizontal = dy < 1;
     const isVertical = dx < 1;
     expect(
@@ -405,36 +409,191 @@ describe('Layout quality regression', () => {
     }
   });
 
+  // ── Nested subprocess ────────────────────────────────────────────────
+
+  test('nested subprocess: elements inside subprocess laid out correctly', async () => {
+    const diagramId = await createDiagram('Nested SubProcess');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const sub = await addElement(diagramId, 'bpmn:SubProcess', { name: 'SubProcess' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+
+    const subStart = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:StartEvent',
+        name: 'Sub Start',
+        participantId: sub,
+      })
+    ).elementId;
+    const subTask = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Sub Task',
+        participantId: sub,
+      })
+    ).elementId;
+    const subEnd = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:EndEvent',
+        name: 'Sub End',
+        participantId: sub,
+      })
+    ).elementId;
+
+    await connect(diagramId, start, sub);
+    await connect(diagramId, sub, end);
+    await connect(diagramId, subStart, subTask);
+    await connect(diagramId, subTask, subEnd);
+
+    const res = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(res.success).toBe(true);
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    expect(centreX(reg.get(start))).toBeLessThan(centreX(reg.get(sub)));
+    expect(centreX(reg.get(sub))).toBeLessThan(centreX(reg.get(end)));
+    expect(centreX(reg.get(subStart))).toBeLessThan(centreX(reg.get(subTask)));
+    expect(centreX(reg.get(subTask))).toBeLessThan(centreX(reg.get(subEnd)));
+  });
+
+  // ── Collaboration ─────────────────────────────────────────────────────
+
+  test('collaboration: two pools with message flow', async () => {
+    const diagramId = await createDiagram('Collaboration');
+
+    const collab = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          { name: 'Customer', width: 800 },
+          { name: 'Supplier', width: 800 },
+        ],
+      })
+    );
+
+    const [custPool, suppPool] = collab.participantIds;
+
+    const custStart = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:StartEvent',
+        name: 'Place Order',
+        participantId: custPool,
+      })
+    ).elementId;
+    const custTask = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Submit',
+        participantId: custPool,
+      })
+    ).elementId;
+    const custEnd = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:EndEvent',
+        name: 'Done',
+        participantId: custPool,
+      })
+    ).elementId;
+    await connect(diagramId, custStart, custTask);
+    await connect(diagramId, custTask, custEnd);
+
+    const suppStart = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:StartEvent',
+        name: 'Receive',
+        participantId: suppPool,
+      })
+    ).elementId;
+    const suppTask = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Fulfill',
+        participantId: suppPool,
+      })
+    ).elementId;
+    const suppEnd = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:EndEvent',
+        name: 'Shipped',
+        participantId: suppPool,
+      })
+    ).elementId;
+    await connect(diagramId, suppStart, suppTask);
+    await connect(diagramId, suppTask, suppEnd);
+
+    await connect(diagramId, custTask, suppStart, { connectionType: 'bpmn:MessageFlow' });
+
+    const res = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(res.success).toBe(true);
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    expect(reg.get(custPool)).toBeDefined();
+    expect(reg.get(suppPool)).toBeDefined();
+    expect(centreX(reg.get(custStart))).toBeLessThan(centreX(reg.get(custTask)));
+    expect(centreX(reg.get(custTask))).toBeLessThan(centreX(reg.get(custEnd)));
+  });
+
+  // ── Happy path ────────────────────────────────────────────────────────
+
+  test('happy path with grid snap: main path stays on same row', async () => {
+    const diagramId = await createDiagram('Happy + Grid');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Review' });
+    const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'OK?' });
+    const endOk = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Approved' });
+    const rework = await addElement(diagramId, 'bpmn:UserTask', { name: 'Rework' });
+    const endFail = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Rejected' });
+
+    await connect(diagramId, start, task);
+    await connect(diagramId, task, gw);
+    await connect(diagramId, gw, endOk, { label: 'Yes' });
+    await connect(diagramId, gw, rework, { label: 'No', isDefault: true });
+    await connect(diagramId, rework, endFail);
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    const happyPathY = [start, task, gw, endOk].map((id) => centreY(reg.get(id)));
+    const refY = happyPathY[0];
+    for (const y of happyPathY) {
+      expect(Math.abs(y - refY)).toBeLessThanOrEqual(10);
+    }
+
+    const reworkY = centreY(reg.get(rework));
+    expect(Math.abs(reworkY - refY)).toBeGreaterThan(10);
+  });
+
   // ── Reference BPMN position tracking ─────────────────────────────────
 
   describe('reference position tracking', () => {
-    test('01-linear-flow: positions converge toward reference', async () => {
-      const { diagramId, registry } = await importReference('01-linear-flow');
-      await handleLayoutDiagram({ diagramId });
-      const { matchRate } = comparePositions(registry, '01-linear-flow', 10);
-      // Track progress — always passes
-      expect(matchRate).toBeGreaterThanOrEqual(0);
-    });
+    const REFERENCES = [
+      '01-linear-flow',
+      '02-exclusive-gateway',
+      '03-parallel-fork-join',
+      '04-nested-subprocess',
+      '05-collaboration',
+      '06-boundary-events',
+      '07-complex-workflow',
+      '08-collaboration-collapsed',
+      '09-complex-workflow',
+      '10-pool-with-lanes',
+    ];
 
-    test('02-exclusive-gateway: positions converge toward reference', async () => {
-      const { diagramId, registry } = await importReference('02-exclusive-gateway');
-      await handleLayoutDiagram({ diagramId });
-      const { matchRate } = comparePositions(registry, '02-exclusive-gateway', 10);
-      expect(matchRate).toBeGreaterThanOrEqual(0);
-    });
-
-    test('03-parallel-fork-join: positions converge toward reference', async () => {
-      const { diagramId, registry } = await importReference('03-parallel-fork-join');
-      await handleLayoutDiagram({ diagramId });
-      const { matchRate } = comparePositions(registry, '03-parallel-fork-join', 10);
-      expect(matchRate).toBeGreaterThanOrEqual(0);
-    });
-
-    test('06-boundary-events: positions converge toward reference', async () => {
-      const { diagramId, registry } = await importReference('06-boundary-events');
-      await handleLayoutDiagram({ diagramId });
-      const { matchRate } = comparePositions(registry, '06-boundary-events', 10);
-      expect(matchRate).toBeGreaterThanOrEqual(0);
-    });
+    for (const ref of REFERENCES) {
+      test(`${ref}: positions converge toward reference`, async () => {
+        const { diagramId, registry } = await importReference(ref);
+        await handleLayoutDiagram({ diagramId });
+        const { matchRate } = comparePositions(registry, ref, 10);
+        expect(matchRate).toBeGreaterThanOrEqual(0);
+      });
+    }
   });
 });
