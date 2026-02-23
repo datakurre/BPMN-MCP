@@ -190,6 +190,6 @@ Cross-cutting types needed by tests  → src/shared/index.ts (re-export barrel)
 
 7. **Export lint gate** — `export_bpmn` blocks export when error-level lint issues exist, unless `skipLint: true` is passed.
 
-8. **ELK auto-layout** — The `elkjs` Sugiyama layered algorithm provides automatic diagram arrangement with post-processing for grid snapping, overlap resolution, and channel routing.
+8. **ELK auto-layout** — The `elkjs` Sugiyama layered algorithm provides automatic diagram arrangement via an 8-step pipeline: boundary save/restore, ELK graph building and layout, position application, boundary chain handling, artifact positioning, and label adjustment. Edge routing is delegated to bpmn-js's built-in ManhattanLayout.
 
 9. **Label adjustment** — Geometry-based scoring positions external labels away from connection paths to reduce visual overlap.

@@ -139,6 +139,7 @@ Individual ADRs are in [`agents/adrs/`](agents/adrs/):
 - [ADR-014](agents/adrs/ADR-014-post-elk-grid-snapping.md) — Post-ELK grid snapping
 - [ADR-015](agents/adrs/ADR-015-bpmn-in-tool-names.md) — All tool names include "bpmn"
 - [ADR-016](agents/adrs/ADR-016-elk-pipeline-anatomy.md) — ELK pipeline anatomy
+- [ADR-017](agents/adrs/ADR-017-layout-simplification-outcome.md) — Layout simplification outcome
 
 ## Key Gotchas
 

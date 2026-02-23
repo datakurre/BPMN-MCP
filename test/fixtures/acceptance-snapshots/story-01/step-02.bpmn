@@ -2,27 +2,27 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_Order_Processing" name="Order Processing" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_OrderReceived" name="Order Received">
-      <bpmn:outgoing>Flow_0xyz7ox</bpmn:outgoing>
+      <bpmn:outgoing>Flow_1keuh49</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:userTask id="UserTask_ReviewOrder" name="Review Order">
-      <bpmn:incoming>Flow_0xyz7ox</bpmn:incoming>
-      <bpmn:outgoing>Flow_1ir13do</bpmn:outgoing>
+      <bpmn:incoming>Flow_1keuh49</bpmn:incoming>
+      <bpmn:outgoing>Flow_17c9j9a</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_0xyz7ox" sourceRef="StartEvent_OrderReceived" targetRef="UserTask_ReviewOrder" />
+    <bpmn:sequenceFlow id="Flow_1keuh49" sourceRef="StartEvent_OrderReceived" targetRef="UserTask_ReviewOrder" />
     <bpmn:serviceTask id="ServiceTask_CheckInventory" name="Check Inventory">
-      <bpmn:incoming>Flow_1ir13do</bpmn:incoming>
-      <bpmn:outgoing>Flow_0lrhnk4</bpmn:outgoing>
+      <bpmn:incoming>Flow_17c9j9a</bpmn:incoming>
+      <bpmn:outgoing>Flow_16wypa0</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_1ir13do" sourceRef="UserTask_ReviewOrder" targetRef="ServiceTask_CheckInventory" />
+    <bpmn:sequenceFlow id="Flow_17c9j9a" sourceRef="UserTask_ReviewOrder" targetRef="ServiceTask_CheckInventory" />
     <bpmn:userTask id="UserTask_ConfirmOrder" name="Confirm Order">
-      <bpmn:incoming>Flow_0lrhnk4</bpmn:incoming>
-      <bpmn:outgoing>Flow_1isqlxi</bpmn:outgoing>
+      <bpmn:incoming>Flow_16wypa0</bpmn:incoming>
+      <bpmn:outgoing>Flow_1jcqec9</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_0lrhnk4" sourceRef="ServiceTask_CheckInventory" targetRef="UserTask_ConfirmOrder" />
+    <bpmn:sequenceFlow id="Flow_16wypa0" sourceRef="ServiceTask_CheckInventory" targetRef="UserTask_ConfirmOrder" />
     <bpmn:endEvent id="EndEvent_OrderCompleted" name="Order Completed">
-      <bpmn:incoming>Flow_1isqlxi</bpmn:incoming>
+      <bpmn:incoming>Flow_1jcqec9</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_1isqlxi" sourceRef="UserTask_ConfirmOrder" targetRef="EndEvent_OrderCompleted" />
+    <bpmn:sequenceFlow id="Flow_1jcqec9" sourceRef="UserTask_ConfirmOrder" targetRef="EndEvent_OrderCompleted" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Order_Processing">
@@ -50,25 +50,25 @@
           <dc:Bounds x="744" y="153" width="85" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_0xyz7ox_di" bpmnElement="Flow_0xyz7ox">
+      <bpmndi:BPMNEdge id="Flow_1keuh49_di" bpmnElement="Flow_1keuh49">
         <di:waypoint x="210" y="114" />
         <di:waypoint x="210" y="40" />
         <di:waypoint x="338" y="40" />
         <di:waypoint x="338" y="92" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1ir13do_di" bpmnElement="Flow_1ir13do">
+      <bpmndi:BPMNEdge id="Flow_17c9j9a_di" bpmnElement="Flow_17c9j9a">
         <di:waypoint x="338" y="92" />
         <di:waypoint x="338" y="40" />
         <di:waypoint x="498" y="40" />
         <di:waypoint x="498" y="92" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0lrhnk4_di" bpmnElement="Flow_0lrhnk4">
+      <bpmndi:BPMNEdge id="Flow_16wypa0_di" bpmnElement="Flow_16wypa0">
         <di:waypoint x="498" y="92" />
         <di:waypoint x="498" y="40" />
         <di:waypoint x="658" y="40" />
         <di:waypoint x="658" y="92" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1isqlxi_di" bpmnElement="Flow_1isqlxi">
+      <bpmndi:BPMNEdge id="Flow_1jcqec9_di" bpmnElement="Flow_1jcqec9">
         <di:waypoint x="658" y="92" />
         <di:waypoint x="658" y="60" />
         <di:waypoint x="786" y="60" />

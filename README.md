@@ -88,7 +88,7 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 
 | Tool                  | Description                                               |
 | --------------------- | --------------------------------------------------------- |
-| `layout_bpmn_diagram` | Auto-layout using ELK layered algorithm with grid snap    |
+| `layout_bpmn_diagram` | Auto-layout using ELK layered algorithm                   |
 | `align_bpmn_elements` | Align or distribute elements (with optional compaction)   |
 | `adjust_bpmn_labels`  | Adjust external labels to reduce overlap with connections |
 

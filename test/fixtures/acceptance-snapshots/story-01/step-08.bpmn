@@ -21,13 +21,13 @@
           </camunda:formField>
         </camunda:formData>
       </bpmn:extensionElements>
-      <bpmn:outgoing>Flow_0xyz7ox</bpmn:outgoing>
+      <bpmn:outgoing>Flow_1keuh49</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:userTask id="UserTask_ReviewOrder" name="Review Order" camunda:formKey="embedded:app:forms/review.html" camunda:assignee="reviewer">
-      <bpmn:incoming>Flow_0xyz7ox</bpmn:incoming>
+      <bpmn:incoming>Flow_1keuh49</bpmn:incoming>
       <bpmn:outgoing>Flow_ReviewOrder_to_OrderValid</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_0xyz7ox" sourceRef="StartEvent_OrderReceived" targetRef="UserTask_ReviewOrder" />
+    <bpmn:sequenceFlow id="Flow_1keuh49" sourceRef="StartEvent_OrderReceived" targetRef="UserTask_ReviewOrder" />
     <bpmn:serviceTask id="ServiceTask_CheckInventory" name="Check Inventory" camunda:class="com.example.CheckInventory">
       <bpmn:extensionElements>
         <camunda:inputOutput>
@@ -37,17 +37,17 @@
         </camunda:inputOutput>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_OrderValid_to_CheckInventory</bpmn:incoming>
-      <bpmn:outgoing>Flow_0lrhnk4</bpmn:outgoing>
+      <bpmn:outgoing>Flow_16wypa0</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:userTask id="UserTask_ConfirmOrder" name="Confirm Order" camunda:candidateGroups="managers">
-      <bpmn:incoming>Flow_0lrhnk4</bpmn:incoming>
-      <bpmn:outgoing>Flow_1isqlxi</bpmn:outgoing>
+      <bpmn:incoming>Flow_16wypa0</bpmn:incoming>
+      <bpmn:outgoing>Flow_1jcqec9</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_0lrhnk4" sourceRef="ServiceTask_CheckInventory" targetRef="UserTask_ConfirmOrder" />
+    <bpmn:sequenceFlow id="Flow_16wypa0" sourceRef="ServiceTask_CheckInventory" targetRef="UserTask_ConfirmOrder" />
     <bpmn:endEvent id="EndEvent_OrderCompleted" name="Order Completed">
-      <bpmn:incoming>Flow_1isqlxi</bpmn:incoming>
+      <bpmn:incoming>Flow_1jcqec9</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_1isqlxi" sourceRef="UserTask_ConfirmOrder" targetRef="EndEvent_OrderCompleted" />
+    <bpmn:sequenceFlow id="Flow_1jcqec9" sourceRef="UserTask_ConfirmOrder" targetRef="EndEvent_OrderCompleted" />
     <bpmn:exclusiveGateway id="Gateway_OrderValid" name="Order Valid?" default="Flow_No">
       <bpmn:incoming>Flow_ReviewOrder_to_OrderValid</bpmn:incoming>
       <bpmn:outgoing>Flow_OrderValid_to_CheckInventory</bpmn:outgoing>
@@ -66,21 +66,21 @@
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_No" name="No" sourceRef="Gateway_OrderValid" targetRef="UserTask_HandleRejection" />
     <bpmn:sequenceFlow id="Flow_HandleRejection_to_OrderRejected" sourceRef="UserTask_HandleRejection" targetRef="EndEvent_OrderRejected" />
-    <bpmn:boundaryEvent id="Event_r1yh7u8" cancelActivity="false" attachedToRef="UserTask_ReviewOrder">
-      <bpmn:outgoing>Flow_xlpbjwx</bpmn:outgoing>
+    <bpmn:boundaryEvent id="Event_9rjars6" cancelActivity="false" attachedToRef="UserTask_ReviewOrder">
+      <bpmn:outgoing>Flow_calrz2x</bpmn:outgoing>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT24H</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:boundaryEvent>
     <bpmn:sendTask id="SendTask_SendReminder" name="Send Reminder">
-      <bpmn:incoming>Flow_xlpbjwx</bpmn:incoming>
-      <bpmn:outgoing>Flow_0tc876e</bpmn:outgoing>
+      <bpmn:incoming>Flow_calrz2x</bpmn:incoming>
+      <bpmn:outgoing>Flow_0elzwra</bpmn:outgoing>
     </bpmn:sendTask>
-    <bpmn:sequenceFlow id="Flow_xlpbjwx" sourceRef="Event_r1yh7u8" targetRef="SendTask_SendReminder" />
+    <bpmn:sequenceFlow id="Flow_calrz2x" sourceRef="Event_9rjars6" targetRef="SendTask_SendReminder" />
     <bpmn:endEvent id="EndEvent_ReminderSent" name="Reminder Sent">
-      <bpmn:incoming>Flow_0tc876e</bpmn:incoming>
+      <bpmn:incoming>Flow_0elzwra</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_0tc876e" sourceRef="SendTask_SendReminder" targetRef="EndEvent_ReminderSent" />
+    <bpmn:sequenceFlow id="Flow_0elzwra" sourceRef="SendTask_SendReminder" targetRef="EndEvent_ReminderSent" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Order_Processing">
@@ -124,7 +124,7 @@
           <dc:Bounds x="629" y="296" width="75" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_r1yh7u8_di" bpmnElement="Event_r1yh7u8">
+      <bpmndi:BPMNShape id="Event_9rjars6_di" bpmnElement="Event_9rjars6">
         <dc:Bounds x="270" y="140.6" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SendTask_SendReminder_di" bpmnElement="SendTask_SendReminder">
@@ -137,36 +137,36 @@
           <dc:Bounds x="459" y="291" width="74" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_0xyz7ox_di" bpmnElement="Flow_0xyz7ox">
+      <bpmndi:BPMNEdge id="Flow_1keuh49_di" bpmnElement="Flow_1keuh49">
         <di:waypoint x="210" y="127" />
         <di:waypoint x="210" y="53" />
         <di:waypoint x="338" y="53" />
         <di:waypoint x="338" y="105" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0lrhnk4_di" bpmnElement="Flow_0lrhnk4">
+      <bpmndi:BPMNEdge id="Flow_16wypa0_di" bpmnElement="Flow_16wypa0">
         <di:waypoint x="608" y="105" />
         <di:waypoint x="608" y="53" />
         <di:waypoint x="768" y="53" />
         <di:waypoint x="768" y="105" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1isqlxi_di" bpmnElement="Flow_1isqlxi">
+      <bpmndi:BPMNEdge id="Flow_1jcqec9_di" bpmnElement="Flow_1jcqec9">
         <di:waypoint x="768" y="105" />
         <di:waypoint x="768" y="73" />
         <di:waypoint x="896" y="73" />
         <di:waypoint x="896" y="127" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0noflf0_di" bpmnElement="Flow_ReviewOrder_to_OrderValid">
+      <bpmndi:BPMNEdge id="Flow_00oiblt_di" bpmnElement="Flow_ReviewOrder_to_OrderValid">
         <di:waypoint x="388" y="145" />
         <di:waypoint x="448" y="145" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1h32nl2_di" bpmnElement="Flow_OrderValid_to_CheckInventory">
+      <bpmndi:BPMNEdge id="Flow_1vpdr80_di" bpmnElement="Flow_OrderValid_to_CheckInventory">
         <di:waypoint x="498" y="145" />
         <di:waypoint x="558" y="145" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="519" y="138" width="19" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_14jb9ky_di" bpmnElement="Flow_No">
+      <bpmndi:BPMNEdge id="Flow_0c5el9p_di" bpmnElement="Flow_No">
         <di:waypoint x="473" y="170" />
         <di:waypoint x="473" y="275" />
         <di:waypoint x="488" y="275" />
@@ -174,17 +174,17 @@
           <dc:Bounds x="466" y="223" width="15" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0jry0dd_di" bpmnElement="Flow_HandleRejection_to_OrderRejected">
+      <bpmndi:BPMNEdge id="Flow_1ll7mhm_di" bpmnElement="Flow_HandleRejection_to_OrderRejected">
         <di:waypoint x="588" y="275" />
         <di:waypoint x="648" y="275" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1hg1z27_di" bpmnElement="Flow_xlpbjwx">
+      <bpmndi:BPMNEdge id="Flow_1jqosh4_di" bpmnElement="Flow_calrz2x">
         <di:waypoint x="288" y="141" />
         <di:waypoint x="288" y="73" />
         <di:waypoint x="378" y="73" />
         <di:waypoint x="378" y="230" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0tc876e_di" bpmnElement="Flow_0tc876e">
+      <bpmndi:BPMNEdge id="Flow_0elzwra_di" bpmnElement="Flow_0elzwra">
         <di:waypoint x="378" y="230" />
         <di:waypoint x="378" y="193" />
         <di:waypoint x="496" y="193" />

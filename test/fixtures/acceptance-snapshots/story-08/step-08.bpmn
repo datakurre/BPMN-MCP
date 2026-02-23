@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_Incremental_Build" name="Incremental Build" isExecutable="true" camunda:historyTimeToLive="P180D">
+    <bpmn:startEvent id="StartEvent_Start" name="Start">
+      <bpmn:outgoing>Flow_0fg9r9y</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="UserTask_ReviewRequest" name="Review Request">
+      <bpmn:incoming>Flow_0fg9r9y</bpmn:incoming>
+      <bpmn:outgoing>Flow_1nei7e7</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_0fg9r9y" sourceRef="StartEvent_Start" targetRef="UserTask_ReviewRequest" />
+    <bpmn:exclusiveGateway id="Gateway_Approved" name="Approved?">
+      <bpmn:incoming>Flow_1nei7e7</bpmn:incoming>
+      <bpmn:outgoing>Flow_0owwl8c</bpmn:outgoing>
+      <bpmn:outgoing>Flow_0v0qnxr</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_1nei7e7" sourceRef="UserTask_ReviewRequest" targetRef="Gateway_Approved" />
+    <bpmn:serviceTask id="ServiceTask_ProcessApproval" name="Process Approval">
+      <bpmn:incoming>Flow_0owwl8c</bpmn:incoming>
+      <bpmn:outgoing>Flow_1fc3kw1</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_0owwl8c" sourceRef="Gateway_Approved" targetRef="ServiceTask_ProcessApproval" />
+    <bpmn:serviceTask id="ServiceTask_HandleRejection" name="Handle Rejection">
+      <bpmn:incoming>Flow_0v0qnxr</bpmn:incoming>
+      <bpmn:outgoing>Flow_HandleRejection_to_Done</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_0v0qnxr" sourceRef="Gateway_Approved" targetRef="ServiceTask_HandleRejection" />
+    <bpmn:endEvent id="EndEvent_Done" name="Done">
+      <bpmn:incoming>Flow_1fc3kw1</bpmn:incoming>
+      <bpmn:incoming>Flow_HandleRejection_to_Done</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1fc3kw1" sourceRef="ServiceTask_ProcessApproval" targetRef="EndEvent_Done" />
+    <bpmn:sequenceFlow id="Flow_HandleRejection_to_Done" sourceRef="ServiceTask_HandleRejection" targetRef="EndEvent_Done" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Incremental_Build">
+      <bpmndi:BPMNShape id="StartEvent_Start_di" bpmnElement="StartEvent_Start">
+        <dc:Bounds x="82" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="88" y="125" width="24" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_ReviewRequest_di" bpmnElement="UserTask_ReviewRequest">
+        <dc:Bounds x="170" y="60" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Approved_di" bpmnElement="Gateway_Approved" isMarkerVisible="true">
+        <dc:Bounds x="325" y="75" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="323" y="51" width="54" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_ProcessApproval_di" bpmnElement="ServiceTask_ProcessApproval">
+        <dc:Bounds x="430" y="60" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_HandleRejection_di" bpmnElement="ServiceTask_HandleRejection">
+        <dc:Bounds x="430" y="170" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Done_di" bpmnElement="EndEvent_Done">
+        <dc:Bounds x="592" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="597" y="125" width="27" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0fg9r9y_di" bpmnElement="Flow_0fg9r9y">
+        <di:waypoint x="118" y="100" />
+        <di:waypoint x="170" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1nei7e7_di" bpmnElement="Flow_1nei7e7">
+        <di:waypoint x="270" y="100" />
+        <di:waypoint x="325" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0owwl8c_di" bpmnElement="Flow_0owwl8c">
+        <di:waypoint x="375" y="100" />
+        <di:waypoint x="430" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0v0qnxr_di" bpmnElement="Flow_0v0qnxr">
+        <di:waypoint x="350" y="125" />
+        <di:waypoint x="350" y="210" />
+        <di:waypoint x="430" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1fc3kw1_di" bpmnElement="Flow_1fc3kw1">
+        <di:waypoint x="530" y="100" />
+        <di:waypoint x="592" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_04aywod_di" bpmnElement="Flow_HandleRejection_to_Done">
+        <di:waypoint x="530" y="210" />
+        <di:waypoint x="560" y="210" />
+        <di:waypoint x="560" y="100" />
+        <di:waypoint x="592" y="100" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
