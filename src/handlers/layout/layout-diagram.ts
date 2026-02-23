@@ -300,7 +300,7 @@ export async function handleLayoutDiagram(
   }
 
   // Repair missing DI shapes before layout so ELK can position all elements
-  const repairs = await repairMissingDiShapes(diagram);
+  const repairs = repairMissingDiShapes(diagram);
 
   // Save pinned connection waypoints before layout so they can be restored
   // after the pipeline overwrites them. Mirroring element pinning, full
