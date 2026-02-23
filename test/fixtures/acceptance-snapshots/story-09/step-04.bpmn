@@ -22,12 +22,12 @@
     <bpmn:serviceTask id="Activity_1p2y7u9" name="Process Payment">
       <bpmn:incoming>Flow_0qgziru</bpmn:incoming>
       <bpmn:outgoing>Flow_00k1pv3</bpmn:outgoing>
-      <bpmn:outgoing>Flow_0fkvyu3</bpmn:outgoing>
+      <bpmn:outgoing>Flow_0bxocci</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:userTask id="UserTask_NewReviewStep" name="New Review Step">
-      <bpmn:incoming>Flow_0fkvyu3</bpmn:incoming>
+      <bpmn:incoming>Flow_0bxocci</bpmn:incoming>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_0fkvyu3" sourceRef="Activity_1p2y7u9" targetRef="UserTask_NewReviewStep" />
+    <bpmn:sequenceFlow id="Flow_0bxocci" sourceRef="Activity_1p2y7u9" targetRef="UserTask_NewReviewStep" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Conference_Registration_Process">
@@ -72,7 +72,7 @@
         <di:waypoint x="708" y="132" />
         <di:waypoint x="768" y="132" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0fkvyu3_di" bpmnElement="Flow_0fkvyu3">
+      <bpmndi:BPMNEdge id="Flow_0bxocci_di" bpmnElement="Flow_0bxocci">
         <di:waypoint x="548" y="132" />
         <di:waypoint x="580" y="132" />
         <di:waypoint x="580" y="250" />
