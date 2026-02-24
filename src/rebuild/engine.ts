@@ -34,8 +34,16 @@ import {
   resizeSubprocessToFit,
   stackPools,
   layoutMessageFlows,
+  getEventSubprocessIds,
+  positionEventSubprocesses,
 } from './container-layout';
 import { buildPatternLookups, computePositions } from './positioning';
+import {
+  applyLaneLayout,
+  buildElementToLaneMap,
+  getLanesForParticipant,
+  resizePoolToFit,
+} from './lane-layout';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -126,25 +134,61 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
     const containerOrigin =
       container.type === 'bpmn:SubProcess' ? { x: SUBPROCESS_PADDING + 18, y: origin.y } : origin;
 
+    // Detect event subprocesses to exclude from main flow positioning
+    const eventSubIds = getEventSubprocessIds(registry, container);
+
+    // Save lane assignments BEFORE rebuild — bpmn-js mutates
+    // flowNodeRef when elements are moved, so we need the original mapping
+    const savedLaneMap =
+      container.type === 'bpmn:Participant'
+        ? buildElementToLaneMap(getLanesForParticipant(registry, container))
+        : new Map<string, BpmnElement>();
+
     const result = rebuildContainer(
       registry,
       modeling,
       container,
       containerOrigin,
       gap,
-      branchSpacing
+      branchSpacing,
+      eventSubIds
     );
 
     totalRepositioned += result.repositionedCount;
     totalRerouted += result.reroutedCount;
+
+    // Position event subprocesses below main flow
+    if (eventSubIds.size > 0) {
+      totalRepositioned += positionEventSubprocesses(
+        eventSubIds,
+        registry,
+        modeling,
+        container,
+        gap,
+        containerOrigin.x
+      );
+    }
 
     // Resize expanded subprocesses to fit their contents
     if (container.type === 'bpmn:SubProcess' && containerNode.isExpanded) {
       resizeSubprocessToFit(modeling, registry, container, SUBPROCESS_PADDING);
     }
 
-    // Track participants for pool stacking
+    // Handle participants: lane layout + pool resizing + stacking
     if (container.type === 'bpmn:Participant') {
+      const lanes = getLanesForParticipant(registry, container);
+      if (lanes.length > 0) {
+        totalRepositioned += applyLaneLayout(
+          registry,
+          modeling,
+          container,
+          origin.y,
+          SUBPROCESS_PADDING,
+          savedLaneMap
+        );
+      } else {
+        resizePoolToFit(modeling, registry, container, SUBPROCESS_PADDING);
+      }
       rebuiltParticipants.push(container);
     }
   }
@@ -173,7 +217,8 @@ function rebuildContainer(
   container: BpmnElement,
   origin: { x: number; y: number },
   gap: number,
-  branchSpacing: number
+  branchSpacing: number,
+  additionalExcludeIds?: Set<string>
 ): RebuildResult {
   // Extract flow graph scoped to this container
   const graph = extractFlowGraph(registry, container);
@@ -185,13 +230,16 @@ function rebuildContainer(
   const boundaryInfos = identifyBoundaryEvents(registry, container);
   const exceptionChainIds = collectExceptionChainIds(boundaryInfos);
 
+  // Merge all exclude IDs (exception chains + event subprocesses)
+  const allExcludeIds = new Set([...exceptionChainIds, ...(additionalExcludeIds ?? [])]);
+
   // Topology analysis
   const backEdgeIds = detectBackEdges(graph);
   const sorted = topologicalSort(graph, backEdgeIds);
   const patterns = detectGatewayPatterns(graph, backEdgeIds);
   const { mergeToPattern, elementToBranch } = buildPatternLookups(patterns);
 
-  // Compute positions (skipping exception chain elements)
+  // Compute positions (skipping exception chain elements + event subprocesses)
   const positions = computePositions(
     graph,
     sorted,
@@ -201,7 +249,7 @@ function rebuildContainer(
     origin,
     gap,
     branchSpacing,
-    exceptionChainIds
+    allExcludeIds
   );
 
   // Apply positions

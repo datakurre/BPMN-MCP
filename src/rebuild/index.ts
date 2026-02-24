@@ -45,3 +45,11 @@ export { type RebuildOptions, type RebuildResult, rebuildLayout } from './engine
 
 // ── Container layout utilities (Phase 3) ───────────────────────────────────
 export { moveElementTo } from './container-layout';
+
+// ── Lane layout utilities (Phase 3) ────────────────────────────────────────
+export {
+  getLanesForParticipant,
+  buildElementToLaneMap,
+  applyLaneLayout,
+  resizePoolToFit,
+} from './lane-layout';

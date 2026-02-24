@@ -9,6 +9,9 @@
  * - Boundary event positioning + exception chains (3.4)
  * - Recursive subprocess rebuild (3.1)
  * - Collaboration pool stacking (3.2)
+ * - Lane assignment after rebuild (3.3)
+ * - Event subprocess positioning (3.5)
+ * - Collapsed pool stacking (3.6)
  */
 
 import { describe, test, expect, afterEach } from 'vitest';
@@ -750,6 +753,269 @@ describe('collaboration pool stacking (05-collaboration)', () => {
 
     const registry = getRegistry(diagramId);
     const msgFlow = registry.get('Flow_088h286')!;
+
+    expect(msgFlow.waypoints).toBeDefined();
+    expect(msgFlow.waypoints!.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3.3 — Lane assignment after rebuild
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('lane assignment after rebuild (10-pool-with-lanes)', () => {
+  // Fixture: Pool with Customer lane (Place Order, Send Order) and
+  //          System lane (Process Order, Order Completed)
+
+  test('elements in Customer lane share the same Y center', async () => {
+    const { diagramId } = await importReference('10-pool-with-lanes');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const startY = center(registry.get('Event_1c7q8yx')!).y;
+    const sendOrderY = center(registry.get('Activity_0umkpno')!).y;
+
+    expect(Math.abs(startY - sendOrderY)).toBeLessThan(2);
+  });
+
+  test('elements in System lane share the same Y center', async () => {
+    const { diagramId } = await importReference('10-pool-with-lanes');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const processOrderY = center(registry.get('Activity_1mlpqg7')!).y;
+    const completedY = center(registry.get('Event_0s80xky')!).y;
+
+    expect(Math.abs(processOrderY - completedY)).toBeLessThan(2);
+  });
+
+  test('System lane elements are below Customer lane elements', async () => {
+    const { diagramId } = await importReference('10-pool-with-lanes');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const customerY = center(registry.get('Event_1c7q8yx')!).y;
+    const systemY = center(registry.get('Activity_1mlpqg7')!).y;
+
+    expect(systemY).toBeGreaterThan(customerY + 50);
+  });
+
+  test('X ordering follows the flow topology', async () => {
+    const { diagramId } = await importReference('10-pool-with-lanes');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const start = registry.get('Event_1c7q8yx')!;
+    const sendOrder = registry.get('Activity_0umkpno')!;
+    const processOrder = registry.get('Activity_1mlpqg7')!;
+    const completed = registry.get('Event_0s80xky')!;
+
+    expect(start.x + start.width).toBeLessThan(sendOrder.x);
+    expect(sendOrder.x + sendOrder.width).toBeLessThan(processOrder.x);
+    expect(processOrder.x + processOrder.width).toBeLessThan(completed.x);
+  });
+
+  test('pool encompasses all elements', async () => {
+    const { diagramId } = await importReference('10-pool-with-lanes');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const pool = registry.get('Participant_1kju1v4')!;
+    const elementIds = ['Event_1c7q8yx', 'Activity_0umkpno', 'Activity_1mlpqg7', 'Event_0s80xky'];
+
+    for (const id of elementIds) {
+      const el = registry.get(id)!;
+      expect(el.x).toBeGreaterThanOrEqual(pool.x);
+      expect(el.y).toBeGreaterThanOrEqual(pool.y);
+      expect(el.x + el.width).toBeLessThanOrEqual(pool.x + pool.width);
+      expect(el.y + el.height).toBeLessThanOrEqual(pool.y + pool.height);
+    }
+  });
+
+  test('cross-lane connection has valid waypoints', async () => {
+    const { diagramId } = await importReference('10-pool-with-lanes');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const crossLaneFlow = registry.get('Flow_1pda693')!;
+
+    expect(crossLaneFlow.waypoints).toBeDefined();
+    expect(crossLaneFlow.waypoints!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('lanes are resized to fit within pool bounds', async () => {
+    const { diagramId } = await importReference('10-pool-with-lanes');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const pool = registry.get('Participant_1kju1v4')!;
+    const lane1 = registry.get('Lane_0wqxbtj')!;
+    const lane2 = registry.get('Lane_17acin1')!;
+
+    // Both lanes should be within the pool
+    expect(lane1.y).toBeGreaterThanOrEqual(pool.y);
+    expect(lane2.y + lane2.height).toBeLessThanOrEqual(pool.y + pool.height + 1);
+
+    // Lanes should tile vertically (no gap, no overlap)
+    expect(Math.abs(lane1.y + lane1.height - lane2.y)).toBeLessThan(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3.5 — Event subprocess positioning
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('event subprocess positioning (11-event-subprocess)', () => {
+  // Fixture: Main flow (Start → Main Task → Done) with
+  //          event subprocess (Error Handler) containing internal flow
+
+  test('main flow elements are in left-to-right order', async () => {
+    const { diagramId } = await importReference('11-event-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const start = registry.get('Start_1')!;
+    const task = registry.get('Task_1')!;
+    const end = registry.get('End_1')!;
+
+    expect(start.x + start.width).toBeLessThan(task.x);
+    expect(task.x + task.width).toBeLessThan(end.x);
+  });
+
+  test('main flow elements share the same Y center', async () => {
+    const { diagramId } = await importReference('11-event-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const startY = center(registry.get('Start_1')!).y;
+    const taskY = center(registry.get('Task_1')!).y;
+    const endY = center(registry.get('End_1')!).y;
+
+    expect(Math.abs(startY - taskY)).toBeLessThan(2);
+    expect(Math.abs(taskY - endY)).toBeLessThan(2);
+  });
+
+  test('event subprocess is positioned below the main flow', async () => {
+    const { diagramId } = await importReference('11-event-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const mainTask = registry.get('Task_1')!;
+    const eventSub = registry.get('EventSub_1')!;
+
+    // Event subprocess should be entirely below the main flow
+    expect(eventSub.y).toBeGreaterThan(mainTask.y + mainTask.height);
+  });
+
+  test('event subprocess internal elements are in left-to-right order', async () => {
+    const { diagramId } = await importReference('11-event-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const esStart = registry.get('EventSub_Start')!;
+    const esTask = registry.get('EventSub_Task')!;
+    const esEnd = registry.get('EventSub_End')!;
+
+    expect(esStart.x + esStart.width).toBeLessThan(esTask.x);
+    expect(esTask.x + esTask.width).toBeLessThan(esEnd.x);
+  });
+
+  test('event subprocess internal elements are inside its bounds', async () => {
+    const { diagramId } = await importReference('11-event-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const eventSub = registry.get('EventSub_1')!;
+    const internalIds = ['EventSub_Start', 'EventSub_Task', 'EventSub_End'];
+
+    for (const id of internalIds) {
+      const el = registry.get(id)!;
+      expect(el.x).toBeGreaterThan(eventSub.x);
+      expect(el.y).toBeGreaterThan(eventSub.y);
+      expect(el.x + el.width).toBeLessThan(eventSub.x + eventSub.width);
+      expect(el.y + el.height).toBeLessThan(eventSub.y + eventSub.height);
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3.6 — Collapsed pool stacking
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('collapsed pool stacking (08-collaboration-collapsed)', () => {
+  test('expanded pool has its flow in left-to-right order', async () => {
+    const { diagramId } = await importReference('08-collaboration-collapsed');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const start = registry.get('Event_1k64fqs')!;
+    const sendOrder = registry.get('Activity_0umkpno')!;
+    const end = registry.get('Event_0fdolr2')!;
+
+    expect(start.x + start.width).toBeLessThan(sendOrder.x);
+    expect(sendOrder.x + sendOrder.width).toBeLessThan(end.x);
+  });
+
+  test('collapsed pool is below expanded pool', async () => {
+    const { diagramId } = await importReference('08-collaboration-collapsed');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const expandedPool = registry.get('Participant_1kju1v4')!;
+    const collapsedPool = registry.get('Participant_0yixlru')!;
+
+    expect(collapsedPool.y).toBeGreaterThanOrEqual(expandedPool.y + expandedPool.height);
+  });
+
+  test('collapsed pool retains small height', async () => {
+    const { diagramId } = await importReference('08-collaboration-collapsed');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const collapsedPool = registry.get('Participant_0yixlru')!;
+
+    // Collapsed pool should be thin (original is 60px)
+    expect(collapsedPool.height).toBeLessThanOrEqual(80);
+  });
+
+  test('message flow has valid waypoints after rebuild', async () => {
+    const { diagramId } = await importReference('08-collaboration-collapsed');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const msgFlow = registry.get('Flow_0pay6fu')!;
 
     expect(msgFlow.waypoints).toBeDefined();
     expect(msgFlow.waypoints!.length).toBeGreaterThanOrEqual(2);

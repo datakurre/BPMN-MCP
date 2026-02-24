@@ -259,6 +259,79 @@ export function stackPools(
   return repositioned;
 }
 
+// ── Event subprocess positioning ───────────────────────────────────────────
+
+/**
+ * Detect event subprocesses (triggeredByEvent=true) among direct
+ * children of a container.
+ */
+export function getEventSubprocessIds(
+  registry: ElementRegistry,
+  container: BpmnElement
+): Set<string> {
+  const ids = new Set<string>();
+  const allElements: BpmnElement[] = registry.getAll();
+
+  for (const el of allElements) {
+    if (el.parent !== container) continue;
+    if (el.type === 'bpmn:SubProcess' && el.businessObject?.triggeredByEvent === true) {
+      ids.add(el.id);
+    }
+  }
+
+  return ids;
+}
+
+/**
+ * Position event subprocesses below the main flow bounding box.
+ *
+ * Called after the main flow is positioned.  Event subprocesses have
+ * already been rebuilt internally (inside-out) and resized, so their
+ * width/height are known.
+ */
+export function positionEventSubprocesses(
+  eventSubprocessIds: Set<string>,
+  registry: ElementRegistry,
+  modeling: Modeling,
+  container: BpmnElement,
+  gap: number,
+  originX: number
+): number {
+  if (eventSubprocessIds.size === 0) return 0;
+
+  // Find the bottom of the main flow (exclude event subprocesses)
+  const allElements: BpmnElement[] = registry.getAll();
+  let maxBottomY = 0;
+
+  for (const el of allElements) {
+    if (el.parent !== container) continue;
+    if (eventSubprocessIds.has(el.id)) continue;
+    if (el.type === 'bpmn:SequenceFlow' || el.type === 'label') continue;
+    if (el.type === 'bpmn:Lane' || el.type === 'bpmn:LaneSet') continue;
+    maxBottomY = Math.max(maxBottomY, el.y + el.height);
+  }
+
+  // Position event subprocesses below the main flow, left-to-right
+  let repositioned = 0;
+  let currentX = originX;
+
+  for (const id of eventSubprocessIds) {
+    const el = registry.get(id);
+    if (!el) continue;
+
+    const targetY = maxBottomY + gap + el.height / 2;
+    const targetX = currentX + el.width / 2;
+
+    if (moveElementTo(modeling, el, { x: targetX, y: targetY })) {
+      repositioned++;
+    }
+
+    currentX += el.width + gap;
+  }
+
+  return repositioned;
+}
+
 // ── Message flow layout ────────────────────────────────────────────────────
 
 /**
