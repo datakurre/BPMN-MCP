@@ -1,11 +1,9 @@
 /**
- * Rebuild-based layout engine — Phase 1: Topology Analyser.
+ * Rebuild-based layout engine.
  *
- * Public API for graph analysis that determines rebuild order.
- * Pure graph algorithms, fully testable in isolation.
- *
- * Phase 2+ (rebuild engine, containers, artifacts) will be added
- * in subsequent iterations.
+ * Phase 1: Topology Analyser — pure graph algorithms for analysis.
+ * Phase 2: Rebuild Engine — core positioning algorithm.
+ * Phase 3+ (containers, artifacts) will be added in subsequent iterations.
  */
 
 // ── Flow graph extraction ──────────────────────────────────────────────────
@@ -41,3 +39,6 @@ export {
   identifyBoundaryEvents,
   identifyBoundaryEventsFromElements,
 } from './boundary';
+
+// ── Rebuild engine (Phase 2) ───────────────────────────────────────────────
+export { type RebuildOptions, type RebuildResult, rebuildLayout } from './engine';
