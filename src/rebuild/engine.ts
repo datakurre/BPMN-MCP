@@ -6,24 +6,36 @@
  * all business properties, IDs, and connections.
  *
  * Algorithm:
- *   1. Extract flow graph and detect back-edges (Phase 1 topology)
- *   2. Topological sort with layer assignment
- *   3. Detect gateway split/merge patterns
- *   4. Forward pass: compute target positions left-to-right
- *   5. Apply positions via modeling.moveElements
- *   6. Layout all connections (forward flows + back-edges)
- *
- * Phase 2: handles linear chains, gateway splits/merges, and back-edges.
- * Phase 3+ will add container (subprocess/pool/lane) support.
+ *   1. Build container hierarchy and process inside-out
+ *   2. Per container: extract flow graph and detect back-edges
+ *   3. Topological sort with layer assignment
+ *   4. Detect gateway split/merge patterns
+ *   5. Forward pass: compute target positions left-to-right
+ *   6. Apply positions via modeling.moveElements
+ *   7. Position boundary events and exception chains
+ *   8. Resize expanded subprocesses to fit contents
+ *   9. Layout all connections (forward flows + back-edges + exception chains)
+ *   10. Stack pools vertically for collaborations
  */
 
 import type { DiagramState } from '../types';
 import { type BpmnElement, type ElementRegistry, type Modeling, getService } from '../bpmn-types';
 import { STANDARD_BPMN_GAP } from '../constants';
-import { extractFlowGraph, type FlowGraph, type FlowNode } from './topology';
+import { extractFlowGraph, type FlowGraph } from './topology';
 import { detectBackEdges } from './back-edges';
-import { topologicalSort, type LayeredNode } from './topo-sort';
-import { detectGatewayPatterns, type GatewayPattern } from './patterns';
+import { topologicalSort } from './topo-sort';
+import { detectGatewayPatterns } from './patterns';
+import { buildContainerHierarchy, getContainerRebuildOrder } from './containers';
+import { identifyBoundaryEvents } from './boundary';
+import {
+  moveElementTo,
+  collectExceptionChainIds,
+  positionBoundaryEventsAndChains,
+  resizeSubprocessToFit,
+  stackPools,
+  layoutMessageFlows,
+} from './container-layout';
+import { buildPatternLookups, computePositions } from './positioning';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +71,15 @@ const DEFAULT_ORIGIN = { x: 180, y: 200 };
  */
 const DEFAULT_BRANCH_SPACING = 130;
 
+/**
+ * Padding (px) inside an expanded subprocess around its internal
+ * elements.  Applied on all four sides.
+ */
+const SUBPROCESS_PADDING = 40;
+
+/** Gap (px) between stacked participant pools. */
+const POOL_GAP = 68;
+
 // ── Main rebuild function ──────────────────────────────────────────────────
 
 /**
@@ -67,6 +88,9 @@ const DEFAULT_BRANCH_SPACING = 130;
  *
  * Does NOT create or delete elements — only moves them.  All business
  * properties, IDs, and connections are preserved.
+ *
+ * Handles containers (subprocesses, participants) by rebuilding
+ * inside-out: deepest containers first, then their parents.
  *
  * @param diagram  The diagram state to rebuild.
  * @param options  Optional configuration for origin, gap, and branch spacing.
@@ -81,23 +105,93 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
   const gap = options?.gap ?? STANDARD_BPMN_GAP;
   const branchSpacing = options?.branchSpacing ?? DEFAULT_BRANCH_SPACING;
 
-  // ── Phase 1: topology analysis ─────────────────────────────────────────
+  // Build container hierarchy for recursive processing
+  const hierarchy = buildContainerHierarchy(registry);
+  const rebuildOrder = getContainerRebuildOrder(hierarchy);
 
-  const graph = extractFlowGraph(registry);
+  let totalRepositioned = 0;
+  let totalRerouted = 0;
+
+  // Track which participants we've rebuilt (for pool stacking)
+  const rebuiltParticipants: BpmnElement[] = [];
+
+  // Process containers inside-out (deepest first)
+  for (const containerNode of rebuildOrder) {
+    const container = containerNode.element;
+
+    // Skip Collaboration root — it doesn't hold flow nodes directly
+    if (container.type === 'bpmn:Collaboration') continue;
+
+    // Use subprocess-internal origin for subprocesses
+    const containerOrigin =
+      container.type === 'bpmn:SubProcess' ? { x: SUBPROCESS_PADDING + 18, y: origin.y } : origin;
+
+    const result = rebuildContainer(
+      registry,
+      modeling,
+      container,
+      containerOrigin,
+      gap,
+      branchSpacing
+    );
+
+    totalRepositioned += result.repositionedCount;
+    totalRerouted += result.reroutedCount;
+
+    // Resize expanded subprocesses to fit their contents
+    if (container.type === 'bpmn:SubProcess' && containerNode.isExpanded) {
+      resizeSubprocessToFit(modeling, registry, container, SUBPROCESS_PADDING);
+    }
+
+    // Track participants for pool stacking
+    if (container.type === 'bpmn:Participant') {
+      rebuiltParticipants.push(container);
+    }
+  }
+
+  // Stack pools vertically for collaborations
+  if (rebuiltParticipants.length > 1) {
+    totalRepositioned += stackPools(rebuiltParticipants, modeling, POOL_GAP);
+  }
+
+  // Layout message flows after all pools are positioned
+  totalRerouted += layoutMessageFlows(registry, modeling);
+
+  return { repositionedCount: totalRepositioned, reroutedCount: totalRerouted };
+}
+
+// ── Container rebuild ──────────────────────────────────────────────────────
+
+/**
+ * Rebuild the layout of a single container scope (Process, Participant,
+ * or SubProcess).  Positions flow nodes, boundary events, and exception
+ * chains within the container.
+ */
+function rebuildContainer(
+  registry: ElementRegistry,
+  modeling: Modeling,
+  container: BpmnElement,
+  origin: { x: number; y: number },
+  gap: number,
+  branchSpacing: number
+): RebuildResult {
+  // Extract flow graph scoped to this container
+  const graph = extractFlowGraph(registry, container);
   if (graph.nodes.size === 0) {
     return { repositionedCount: 0, reroutedCount: 0 };
   }
 
+  // Identify boundary events and collect exception chain IDs to skip
+  const boundaryInfos = identifyBoundaryEvents(registry, container);
+  const exceptionChainIds = collectExceptionChainIds(boundaryInfos);
+
+  // Topology analysis
   const backEdgeIds = detectBackEdges(graph);
   const sorted = topologicalSort(graph, backEdgeIds);
   const patterns = detectGatewayPatterns(graph, backEdgeIds);
-
-  // ── Build pattern lookup tables ────────────────────────────────────────
-
   const { mergeToPattern, elementToBranch } = buildPatternLookups(patterns);
 
-  // ── Forward pass: compute target positions ─────────────────────────────
-
+  // Compute positions (skipping exception chain elements)
   const positions = computePositions(
     graph,
     sorted,
@@ -106,11 +200,11 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
     elementToBranch,
     origin,
     gap,
-    branchSpacing
+    branchSpacing,
+    exceptionChainIds
   );
 
-  // ── Apply positions ────────────────────────────────────────────────────
-
+  // Apply positions
   let repositionedCount = 0;
   for (const [id, target] of positions) {
     const element = registry.get(id);
@@ -120,258 +214,21 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
     }
   }
 
-  // ── Layout connections ─────────────────────────────────────────────────
+  // Layout main flow connections
+  let reroutedCount = layoutConnections(graph, backEdgeIds, registry, modeling);
 
-  const reroutedCount = layoutConnections(graph, backEdgeIds, registry, modeling);
+  // Position boundary events and exception chains
+  const boundaryResult = positionBoundaryEventsAndChains(
+    boundaryInfos,
+    positions,
+    registry,
+    modeling,
+    gap
+  );
+  repositionedCount += boundaryResult.repositionedCount;
+  reroutedCount += boundaryResult.reroutedCount;
 
   return { repositionedCount, reroutedCount };
-}
-
-// ── Pattern lookup construction ────────────────────────────────────────────
-
-/** Build merge-gateway and branch-element lookup tables from patterns. */
-function buildPatternLookups(patterns: GatewayPattern[]): {
-  mergeToPattern: Map<string, GatewayPattern>;
-  elementToBranch: Map<string, { pattern: GatewayPattern; branchIndex: number }>;
-} {
-  const mergeToPattern = new Map<string, GatewayPattern>();
-  const elementToBranch = new Map<string, { pattern: GatewayPattern; branchIndex: number }>();
-
-  for (const pattern of patterns) {
-    if (pattern.mergeId) {
-      mergeToPattern.set(pattern.mergeId, pattern);
-    }
-    for (let bi = 0; bi < pattern.branches.length; bi++) {
-      for (const id of pattern.branches[bi]) {
-        elementToBranch.set(id, { pattern, branchIndex: bi });
-      }
-    }
-  }
-
-  return { mergeToPattern, elementToBranch };
-}
-
-// ── Position computation ───────────────────────────────────────────────────
-
-/**
- * Compute target center positions for all elements in the flow graph.
- *
- * Elements are positioned in topological order:
- * - Start nodes at the origin column
- * - Branch elements with symmetric vertical offset
- * - Merge gateways aligned after all branches
- * - Other elements to the right of their predecessor
- */
-function computePositions(
-  graph: FlowGraph,
-  sorted: LayeredNode[],
-  backEdgeIds: Set<string>,
-  mergeToPattern: Map<string, GatewayPattern>,
-  elementToBranch: Map<string, { pattern: GatewayPattern; branchIndex: number }>,
-  origin: { x: number; y: number },
-  gap: number,
-  branchSpacing: number
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-
-  // Pre-place start nodes at the origin column, stacked vertically
-  let startY = origin.y;
-  for (const startId of graph.startNodeIds) {
-    if (graph.nodes.has(startId)) {
-      positions.set(startId, { x: origin.x, y: startY });
-      startY += branchSpacing;
-    }
-  }
-
-  // Process remaining elements in topological order
-  for (const { elementId } of sorted) {
-    if (positions.has(elementId)) continue;
-
-    const node = graph.nodes.get(elementId);
-    if (!node) continue;
-
-    if (mergeToPattern.has(elementId)) {
-      positionMerge(positions, mergeToPattern.get(elementId)!, node.element, gap, graph);
-    } else if (elementToBranch.has(elementId)) {
-      const { pattern, branchIndex } = elementToBranch.get(elementId)!;
-      positionBranchElement(
-        positions,
-        pattern,
-        branchIndex,
-        elementId,
-        node.element,
-        gap,
-        branchSpacing,
-        graph
-      );
-    } else {
-      positionAfterPredecessor(positions, node, node.element, gap, backEdgeIds);
-    }
-  }
-
-  return positions;
-}
-
-/**
- * Position an element to the right of its rightmost positioned predecessor,
- * at the same Y as that predecessor.  Ignores back-edge predecessors.
- */
-function positionAfterPredecessor(
-  positions: Map<string, { x: number; y: number }>,
-  node: FlowNode,
-  element: BpmnElement,
-  gap: number,
-  backEdgeIds: Set<string>
-): void {
-  // Collect positioned forward predecessors
-  const predecessors: Array<{ element: BpmnElement; pos: { x: number; y: number } }> = [];
-  for (let i = 0; i < node.incoming.length; i++) {
-    if (backEdgeIds.has(node.incomingFlowIds[i])) continue;
-    const predId = node.incoming[i].element.id;
-    const pos = positions.get(predId);
-    if (pos) {
-      predecessors.push({ element: node.incoming[i].element, pos });
-    }
-  }
-
-  if (predecessors.length === 0) {
-    // Fallback for disconnected elements
-    positions.set(element.id, { x: DEFAULT_ORIGIN.x, y: DEFAULT_ORIGIN.y });
-    return;
-  }
-
-  // Use the rightmost predecessor for X placement and Y alignment
-  let best = predecessors[0];
-  let maxRight = best.pos.x + best.element.width / 2;
-  for (const p of predecessors) {
-    const rightEdge = p.pos.x + p.element.width / 2;
-    if (rightEdge > maxRight) {
-      maxRight = rightEdge;
-      best = p;
-    }
-  }
-
-  positions.set(element.id, {
-    x: maxRight + gap + element.width / 2,
-    y: best.pos.y,
-  });
-}
-
-/**
- * Position a branch element with symmetric vertical offset from the
- * split gateway.
- *
- * Vertical offsets for N branches (centered on split gateway Y):
- *   2 branches → ±branchSpacing/2
- *   3 branches → -branchSpacing, 0, +branchSpacing
- *   N branches → (i - (N-1)/2) * branchSpacing
- */
-function positionBranchElement(
-  positions: Map<string, { x: number; y: number }>,
-  pattern: GatewayPattern,
-  branchIndex: number,
-  elementId: string,
-  element: BpmnElement,
-  gap: number,
-  branchSpacing: number,
-  graph: FlowGraph
-): void {
-  const splitPos = positions.get(pattern.splitId);
-  if (!splitPos) {
-    positions.set(elementId, { x: DEFAULT_ORIGIN.x, y: DEFAULT_ORIGIN.y });
-    return;
-  }
-
-  // Symmetric branch Y offset
-  const numBranches = pattern.branches.length;
-  const branchOffset = (branchIndex - (numBranches - 1) / 2) * branchSpacing;
-  const branchY = splitPos.y + branchOffset;
-
-  // X based on position within the branch
-  const branch = pattern.branches[branchIndex];
-  const indexInBranch = branch.indexOf(elementId);
-
-  let prevRight: number;
-  if (indexInBranch <= 0) {
-    // First element in branch: predecessor is the split gateway
-    const splitNode = graph.nodes.get(pattern.splitId);
-    prevRight = splitPos.x + (splitNode?.element.width ?? 50) / 2;
-  } else {
-    // Previous element in the same branch
-    const prevId = branch[indexInBranch - 1];
-    const prevPos = positions.get(prevId);
-    const prevNode = graph.nodes.get(prevId);
-    prevRight = (prevPos?.x ?? splitPos.x) + (prevNode?.element.width ?? 100) / 2;
-  }
-
-  positions.set(elementId, {
-    x: prevRight + gap + element.width / 2,
-    y: branchY,
-  });
-}
-
-/**
- * Position a merge gateway after all branches of its split pattern.
- *
- * X: to the right of the rightmost branch endpoint + gap.
- * Y: same as the split gateway (centered between branches).
- */
-function positionMerge(
-  positions: Map<string, { x: number; y: number }>,
-  pattern: GatewayPattern,
-  element: BpmnElement,
-  gap: number,
-  graph: FlowGraph
-): void {
-  const splitPos = positions.get(pattern.splitId);
-  if (!splitPos) {
-    positions.set(element.id, { x: DEFAULT_ORIGIN.x, y: DEFAULT_ORIGIN.y });
-    return;
-  }
-
-  // Find the maximum right edge across all branch endpoints
-  const splitNode = graph.nodes.get(pattern.splitId);
-  let maxRight = splitPos.x + (splitNode?.element.width ?? 50) / 2;
-
-  for (const branch of pattern.branches) {
-    if (branch.length > 0) {
-      const lastId = branch[branch.length - 1];
-      const lastPos = positions.get(lastId);
-      const lastNode = graph.nodes.get(lastId);
-      if (lastPos && lastNode) {
-        const rightEdge = lastPos.x + lastNode.element.width / 2;
-        if (rightEdge > maxRight) maxRight = rightEdge;
-      }
-    }
-  }
-
-  positions.set(element.id, {
-    x: maxRight + gap + element.width / 2,
-    y: splitPos.y,
-  });
-}
-
-// ── Element movement ───────────────────────────────────────────────────────
-
-/**
- * Move an element so its centre is at the given target position.
- * Returns true if the element was actually moved (delta ≥ 1px).
- */
-function moveElementTo(
-  modeling: Modeling,
-  element: BpmnElement,
-  targetCenter: { x: number; y: number }
-): boolean {
-  const currentCenterX = element.x + element.width / 2;
-  const currentCenterY = element.y + element.height / 2;
-
-  const dx = Math.round(targetCenter.x - currentCenterX);
-  const dy = Math.round(targetCenter.y - currentCenterY);
-
-  if (dx === 0 && dy === 0) return false;
-
-  modeling.moveElements([element], { x: dx, y: dy });
-  return true;
 }
 
 // ── Connection layout ──────────────────────────────────────────────────────

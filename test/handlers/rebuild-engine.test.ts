@@ -1,11 +1,14 @@
 /**
- * Unit tests for the rebuild-based layout engine — Phase 2: Rebuild Engine.
+ * Unit tests for the rebuild-based layout engine — Phase 2 + Phase 3.
  *
  * Tests against existing fixture BPMN files to verify:
  * - Linear chain rebuild (2.2)
  * - Gateway fan-out positioning (2.3)
  * - Gateway merge positioning (2.4)
  * - Back-edge connection layout (2.5)
+ * - Boundary event positioning + exception chains (3.4)
+ * - Recursive subprocess rebuild (3.1)
+ * - Collaboration pool stacking (3.2)
  */
 
 import { describe, test, expect, afterEach } from 'vitest';
@@ -447,5 +450,308 @@ describe('rebuildLayout with custom options', () => {
     // Branch spacing should now be 200px
     expect(Math.abs(sortedYs[1] - sortedYs[0])).toBe(200);
     expect(Math.abs(sortedYs[2] - sortedYs[1])).toBe(200);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3.4 — Boundary event positioning and exception chains
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('boundary event positioning (06-boundary-events)', () => {
+  test('boundary event is at the bottom center of its host', async () => {
+    const { diagramId } = await importReference('06-boundary-events');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const host = registry.get('Activity_1betloc')!; // Review Application
+    const be = registry.get('Event_1w9t4mj')!; // Timeout
+
+    const beC = center(be);
+    const hostCenterX = host.x + host.width / 2;
+    const hostBottom = host.y + host.height;
+
+    // Boundary event center X should be at host center X
+    expect(Math.abs(beC.x - hostCenterX)).toBeLessThan(2);
+
+    // Boundary event center Y should be at host bottom edge
+    expect(Math.abs(beC.y - hostBottom)).toBeLessThan(2);
+  });
+
+  test('exception chain elements are below the host', async () => {
+    const { diagramId } = await importReference('06-boundary-events');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const host = registry.get('Activity_1betloc')!; // Review Application
+    const escalate = registry.get('Activity_1wslow0')!; // Escalate
+    const escalated = registry.get('Event_0tvw53g')!; // Escalated
+
+    // Exception chain elements should be below the host
+    expect(escalate.y).toBeGreaterThan(host.y + host.height);
+    expect(escalated.y).toBeGreaterThan(host.y + host.height);
+  });
+
+  test('exception chain elements are in left-to-right order', async () => {
+    const { diagramId } = await importReference('06-boundary-events');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const be = registry.get('Event_1w9t4mj')!; // Timeout
+    const escalate = registry.get('Activity_1wslow0')!; // Escalate
+    const escalated = registry.get('Event_0tvw53g')!; // Escalated
+
+    // Left-to-right: boundary event < escalate < escalated
+    expect(escalate.x).toBeGreaterThan(be.x + be.width);
+    expect(escalated.x).toBeGreaterThan(escalate.x + escalate.width);
+  });
+
+  test('exception chain elements share the same Y', async () => {
+    const { diagramId } = await importReference('06-boundary-events');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const escalateC = center(registry.get('Activity_1wslow0')!);
+    const escalatedC = center(registry.get('Event_0tvw53g')!);
+
+    // Both exception chain elements at the same Y
+    expect(Math.abs(escalateC.y - escalatedC.y)).toBeLessThan(2);
+  });
+
+  test('main flow elements are on the standard Y axis', async () => {
+    const { diagramId } = await importReference('06-boundary-events');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const mainIds = ['Event_1mzoegj', 'Activity_1betloc', 'Activity_0af6hcw', 'Event_1d7wnd9'];
+    const mainYs = mainIds.map((id) => center(registry.get(id)!).y);
+
+    // All main flow elements at the same Y
+    for (const y of mainYs) {
+      expect(Math.abs(y - mainYs[0])).toBeLessThan(2);
+    }
+  });
+
+  test('exception chain connections have valid waypoints', async () => {
+    const { diagramId } = await importReference('06-boundary-events');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const flowIds = ['Flow_07ye61t', 'Flow_01lbwye'];
+
+    for (const flowId of flowIds) {
+      const conn = registry.get(flowId)!;
+      expect(conn.waypoints).toBeDefined();
+      expect(conn.waypoints!.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test('result counts include boundary events and exception chains', async () => {
+    const { diagramId } = await importReference('06-boundary-events');
+    const diagram = getDiagram(diagramId)!;
+
+    const result = rebuildLayout(diagram);
+
+    // Should reposition main flow (4) + boundary event (1) + exception chain (2) = 7
+    expect(result.repositionedCount).toBeGreaterThanOrEqual(5);
+    // Main flow (3 flows) + exception chain (2 flows from boundary + within chain)
+    expect(result.reroutedCount).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3.1 — Recursive subprocess rebuild
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('recursive subprocess rebuild (04-nested-subprocess)', () => {
+  test('internal elements are on the same horizontal line', async () => {
+    const { diagramId } = await importReference('04-nested-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const internalIds = ['Event_0c0rtvp', 'Activity_19zstl3', 'Event_1w6m3i5'];
+    const ys = internalIds.map((id) => center(registry.get(id)!).y);
+
+    for (const y of ys) {
+      expect(Math.abs(y - ys[0])).toBeLessThan(2);
+    }
+  });
+
+  test('internal elements are in left-to-right order', async () => {
+    const { diagramId } = await importReference('04-nested-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const internalIds = ['Event_0c0rtvp', 'Activity_19zstl3', 'Event_1w6m3i5'];
+    const xs = internalIds.map((id) => registry.get(id)!.x);
+
+    for (let i = 1; i < xs.length; i++) {
+      expect(xs[i]).toBeGreaterThan(xs[i - 1]);
+    }
+  });
+
+  test('subprocess is resized to fit internal elements', async () => {
+    const { diagramId } = await importReference('04-nested-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const subprocess = registry.get('Activity_1cgwbmf')!;
+    const internalIds = ['Event_0c0rtvp', 'Activity_19zstl3', 'Event_1w6m3i5'];
+
+    // All internal elements should be inside the subprocess bounds
+    for (const id of internalIds) {
+      const el = registry.get(id)!;
+      expect(el.x).toBeGreaterThan(subprocess.x);
+      expect(el.y).toBeGreaterThan(subprocess.y);
+      expect(el.x + el.width).toBeLessThan(subprocess.x + subprocess.width);
+      expect(el.y + el.height).toBeLessThan(subprocess.y + subprocess.height);
+    }
+  });
+
+  test('top-level elements are on the same Y line', async () => {
+    const { diagramId } = await importReference('04-nested-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const start = center(registry.get('Event_00a3pyb')!);
+    const subprocess = center(registry.get('Activity_1cgwbmf')!);
+    const end = center(registry.get('Event_0pnzs42')!);
+
+    expect(Math.abs(start.y - subprocess.y)).toBeLessThan(2);
+    expect(Math.abs(subprocess.y - end.y)).toBeLessThan(2);
+  });
+
+  test('top-level elements are in left-to-right order', async () => {
+    const { diagramId } = await importReference('04-nested-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const start = registry.get('Event_00a3pyb')!;
+    const subprocess = registry.get('Activity_1cgwbmf')!;
+    const end = registry.get('Event_0pnzs42')!;
+
+    expect(start.x + start.width).toBeLessThan(subprocess.x);
+    expect(subprocess.x + subprocess.width).toBeLessThan(end.x);
+  });
+
+  test('internal connections have valid waypoints', async () => {
+    const { diagramId } = await importReference('04-nested-subprocess');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const flowIds = ['Flow_15oeebl', 'Flow_0nvusvs'];
+
+    for (const flowId of flowIds) {
+      const conn = registry.get(flowId)!;
+      expect(conn.waypoints).toBeDefined();
+      expect(conn.waypoints!.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3.2 — Collaboration pool stacking
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('collaboration pool stacking (05-collaboration)', () => {
+  test('each pool has its internal flow in left-to-right order', async () => {
+    const { diagramId } = await importReference('05-collaboration');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+
+    // Customer pool elements
+    const customerIds = ['Event_0tndxmk', 'Activity_0ry0qlf', 'Event_1ou3j4g'];
+    const customerXs = customerIds.map((id) => registry.get(id)!.x);
+    for (let i = 1; i < customerXs.length; i++) {
+      expect(customerXs[i]).toBeGreaterThan(customerXs[i - 1]);
+    }
+
+    // System pool elements
+    const systemIds = ['Event_0156z5p', 'Activity_1e3ihgs', 'Event_0f70ujx'];
+    const systemXs = systemIds.map((id) => registry.get(id)!.x);
+    for (let i = 1; i < systemXs.length; i++) {
+      expect(systemXs[i]).toBeGreaterThan(systemXs[i - 1]);
+    }
+  });
+
+  test('pools are stacked vertically without overlap', async () => {
+    const { diagramId } = await importReference('05-collaboration');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const customer = registry.get('Participant_0z8mn1y')!;
+    const system = registry.get('Participant_063wr7t')!;
+
+    // Sort by Y to determine top/bottom
+    const [top, bottom] = customer.y < system.y ? [customer, system] : [system, customer];
+
+    // Bottom pool should start below top pool with gap
+    expect(bottom.y).toBeGreaterThanOrEqual(top.y + top.height);
+  });
+
+  test('elements within each pool are inside pool bounds', async () => {
+    const { diagramId } = await importReference('05-collaboration');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const customer = registry.get('Participant_0z8mn1y')!;
+    const system = registry.get('Participant_063wr7t')!;
+
+    // Customer pool elements should be inside customer pool bounds
+    for (const id of ['Event_0tndxmk', 'Activity_0ry0qlf', 'Event_1ou3j4g']) {
+      const el = registry.get(id)!;
+      expect(el.x).toBeGreaterThanOrEqual(customer.x);
+      expect(el.y).toBeGreaterThanOrEqual(customer.y);
+    }
+
+    // System pool elements should be inside system pool bounds
+    for (const id of ['Event_0156z5p', 'Activity_1e3ihgs', 'Event_0f70ujx']) {
+      const el = registry.get(id)!;
+      expect(el.x).toBeGreaterThanOrEqual(system.x);
+      expect(el.y).toBeGreaterThanOrEqual(system.y);
+    }
+  });
+
+  test('message flow has valid waypoints after rebuild', async () => {
+    const { diagramId } = await importReference('05-collaboration');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const msgFlow = registry.get('Flow_088h286')!;
+
+    expect(msgFlow.waypoints).toBeDefined();
+    expect(msgFlow.waypoints!.length).toBeGreaterThanOrEqual(2);
   });
 });
