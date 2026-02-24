@@ -1,5 +1,5 @@
 /**
- * Unit tests for the rebuild-based layout engine — Phase 2 + Phase 3.
+ * Unit tests for the rebuild-based layout engine — Phase 2 + Phase 3 + Phase 4.
  *
  * Tests against existing fixture BPMN files to verify:
  * - Linear chain rebuild (2.2)
@@ -12,6 +12,8 @@
  * - Lane assignment after rebuild (3.3)
  * - Event subprocess positioning (3.5)
  * - Collapsed pool stacking (3.6)
+ * - Text annotation and data object positioning (4.1, 4.2)
+ * - Label adjustment (4.4)
  */
 
 import { describe, test, expect, afterEach } from 'vitest';
@@ -1019,5 +1021,148 @@ describe('collapsed pool stacking (08-collaboration-collapsed)', () => {
 
     expect(msgFlow.waypoints).toBeDefined();
     expect(msgFlow.waypoints!.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4.1, 4.2 — Artifact positioning (text annotation + data object)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('artifact positioning (12-text-annotation)', () => {
+  test('text annotation is positioned above-right of associated task', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const task = registry.get('UserTask_ReviewApplication')!;
+    const annotation = registry.get('Annotation_SLA24hReviewTime')!;
+
+    // Annotation should be to the right of the task
+    expect(annotation.x).toBeGreaterThanOrEqual(task.x + task.width - 20);
+    // Annotation should be above the task
+    expect(annotation.y + annotation.height).toBeLessThanOrEqual(task.y + 10);
+  });
+
+  test('data object is positioned below-right of associated task', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const task = registry.get('UserTask_ReviewApplication')!;
+    const dataObj = registry.get('DataObject_ApplicationData')!;
+
+    // Data object should be near the right edge of the task
+    expect(dataObj.x).toBeGreaterThanOrEqual(task.x + task.width - 30);
+    // Data object should be below the task
+    expect(dataObj.y).toBeGreaterThanOrEqual(task.y + task.height);
+  });
+
+  test('association has valid waypoints after rebuild', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const assoc = registry.get('Association_1jt5afs')!;
+
+    expect(assoc.waypoints).toBeDefined();
+    expect(assoc.waypoints!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('data output association has valid waypoints after rebuild', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const dataAssoc = registry.get('DataOutputAssociation_0bm0vje')!;
+
+    expect(dataAssoc.waypoints).toBeDefined();
+    expect(dataAssoc.waypoints!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('main flow order is preserved with artifacts present', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const start = registry.get('StartEvent_Start')!;
+    const task = registry.get('UserTask_ReviewApplication')!;
+    const end = registry.get('EndEvent_Done')!;
+
+    const startCenter = center(start);
+    const taskCenter = center(task);
+    const endCenter = center(end);
+
+    expect(startCenter.x).toBeLessThan(taskCenter.x);
+    expect(taskCenter.x).toBeLessThan(endCenter.x);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4.4 — Label adjustment
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('label adjustment after rebuild', () => {
+  test('start event label is positioned below the event', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const start = registry.get('StartEvent_Start')!;
+
+    if (start.label) {
+      // Label should be below the start event
+      expect(start.label.y).toBeGreaterThanOrEqual(start.y + start.height - 1);
+    }
+  });
+
+  test('end event label is positioned below the event', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const end = registry.get('EndEvent_Done')!;
+
+    if (end.label) {
+      // Label should be below the end event
+      expect(end.label.y).toBeGreaterThanOrEqual(end.y + end.height - 1);
+    }
+  });
+
+  test('labeled gateway label is below gateway after rebuild', async () => {
+    const { diagramId } = await importReference('02-exclusive-gateway');
+    const diagram = getDiagram(diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(diagramId);
+    const gateway = registry.get('Gateway_0jdocql')!;
+
+    if (gateway.label && gateway.businessObject?.name) {
+      expect(gateway.label.y).toBeGreaterThanOrEqual(gateway.y + gateway.height - 1);
+    }
+  });
+
+  test('repositionedCount includes label adjustments', async () => {
+    const { diagramId } = await importReference('12-text-annotation');
+    const diagram = getDiagram(diagramId)!;
+
+    const result = rebuildLayout(diagram);
+
+    // Should include labels in the repositioned count
+    expect(result.repositionedCount).toBeGreaterThan(0);
   });
 });

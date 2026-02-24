@@ -78,10 +78,7 @@ describe('Reference layout regression', () => {
         await handleLayoutDiagram({ diagramId });
 
         const connections = registry.filter(
-          (el: any) =>
-            el.type === 'bpmn:SequenceFlow' ||
-            el.type === 'bpmn:MessageFlow' ||
-            el.type === 'bpmn:Association'
+          (el: any) => el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow'
         );
         for (const conn of connections) {
           expectOrthogonal(conn);

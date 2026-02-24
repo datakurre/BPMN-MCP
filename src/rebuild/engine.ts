@@ -14,8 +14,10 @@
  *   6. Apply positions via modeling.moveElements
  *   7. Position boundary events and exception chains
  *   8. Resize expanded subprocesses to fit contents
- *   9. Layout all connections (forward flows + back-edges + exception chains)
- *   10. Stack pools vertically for collaborations
+ *   9. Position artifacts (text annotations, data objects) near associated nodes
+ *   10. Layout all connections (forward flows + back-edges + exception chains)
+ *   11. Stack pools vertically for collaborations
+ *   12. Adjust labels to bpmn-js default positions
  */
 
 import type { DiagramState } from '../types';
@@ -44,6 +46,7 @@ import {
   getLanesForParticipant,
   resizePoolToFit,
 } from './lane-layout';
+import { positionArtifacts, adjustLabels } from './artifacts';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -174,6 +177,10 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
       resizeSubprocessToFit(modeling, registry, container, SUBPROCESS_PADDING);
     }
 
+    // Position artifacts (text annotations, data objects) relative to
+    // their associated flow nodes
+    totalRepositioned += positionArtifacts(registry, modeling, container);
+
     // Handle participants: lane layout + pool resizing + stacking
     if (container.type === 'bpmn:Participant') {
       const lanes = getLanesForParticipant(registry, container);
@@ -200,6 +207,9 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
 
   // Layout message flows after all pools are positioned
   totalRerouted += layoutMessageFlows(registry, modeling);
+
+  // Adjust all labels to bpmn-js default positions
+  totalRepositioned += adjustLabels(registry, modeling);
 
   return { repositionedCount: totalRepositioned, reroutedCount: totalRerouted };
 }

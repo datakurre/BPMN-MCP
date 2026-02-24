@@ -3,7 +3,8 @@
  *
  * Phase 1: Topology Analyser — pure graph algorithms for analysis.
  * Phase 2: Rebuild Engine — core positioning algorithm.
- * Phase 3+ (containers, artifacts) will be added in subsequent iterations.
+ * Phase 3: Containers — subprocesses, pools, lanes.
+ * Phase 4: Artifacts and labels — text annotations, data objects, label adjustment.
  */
 
 // ── Flow graph extraction ──────────────────────────────────────────────────
@@ -53,3 +54,6 @@ export {
   applyLaneLayout,
   resizePoolToFit,
 } from './lane-layout';
+
+// ── Artifact positioning and label adjustment (Phase 4) ────────────────────
+export { positionArtifacts, adjustLabels } from './artifacts';
