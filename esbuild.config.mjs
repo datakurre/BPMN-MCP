@@ -8,14 +8,7 @@ const config = {
   target: 'node16',
   format: 'cjs',
   outfile: 'dist/index.js',
-  external: [
-    'jsdom',
-    'bpmn-js',
-    'bpmn-auto-layout',
-    'elkjs',
-    'bpmnlint',
-    'bpmnlint-plugin-camunda-compat',
-  ],
+  external: ['jsdom', 'bpmn-js', 'bpmn-auto-layout', 'bpmnlint', 'bpmnlint-plugin-camunda-compat'],
   banner: {
     js: '#!/usr/bin/env node',
   },

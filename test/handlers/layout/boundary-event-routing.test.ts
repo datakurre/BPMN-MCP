@@ -36,7 +36,7 @@ describe('Boundary event routing after layout', () => {
 
     // Find the connection from boundary event to error end
     const connections = reg.filter(
-      (el: any) => el.type === 'bpmn:SequenceFlow' && el.source?.type === 'bpmn:BoundaryEvent'
+      (el: any) => el.type === 'bpmn:SequenceFlow' && el.source?.id === boundaryEvent
     );
     expect(connections.length).toBeGreaterThanOrEqual(1);
 

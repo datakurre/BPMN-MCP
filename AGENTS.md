@@ -16,7 +16,7 @@ MCP (Model Context Protocol) server that lets AI assistants create and manipulat
 
 - **Language:** TypeScript (ES2022, CommonJS)
 - **Runtime:** Node.js ≥ 16
-- **Key deps:** `@modelcontextprotocol/sdk`, `bpmn-js`, `jsdom`, `camunda-bpmn-moddle`, `elkjs`, `bpmnlint`, `bpmnlint-plugin-camunda-compat`, `@types/bpmn-moddle`
+- **Key deps:** `@modelcontextprotocol/sdk`, `bpmn-js`, `jsdom`, `camunda-bpmn-moddle`, `bpmnlint`, `bpmnlint-plugin-camunda-compat`, `@types/bpmn-moddle`
 - **Test:** Vitest
 - **Lint:** ESLint 9 + typescript-eslint 8
 - **Dev env:** Nix (devenv) with devcontainer support
@@ -38,10 +38,10 @@ Modular `src/` layout, communicates over **stdio** using the MCP SDK. See [`docs
 | `src/bpmn-module.ts`            | BPMN tool module — registers BPMN tools and dispatch with the generic server                                                                                                      |
 | `src/types.ts`                  | Shared interfaces (`DiagramState`, `ToolResult`, tool arg types)                                                                                                                  |
 | `src/bpmn-types.ts`             | TypeScript interfaces for bpmn-js services (`Modeling`, `ElementRegistry`, etc.)                                                                                                  |
-| `src/constants.ts`              | Centralised magic numbers: element sizes, spacing, pool/lane sizing, ELK layout options — single source of truth for all constants                                                |
+| `src/constants.ts`              | Centralised magic numbers: element sizes, spacing, pool/lane sizing — single source of truth for all constants                                                                    |
 | `src/headless-canvas.ts`        | jsdom setup, lazy `BpmnModeler` init                                                                                                                                              |
 | `src/headless-polyfills.ts`     | SVG/CSS polyfills for headless bpmn-js (SVGMatrix, getBBox, transform with DOM sync, etc.)                                                                                        |
-| `src/elk/`                      | ELK-based layout engine — Sugiyama layered algorithm via `elkjs` for automatic diagram arrangement, with boundary event positioning and lane layout                               |
+| `src/rebuild/`                  | Rebuild-based layout engine — topology-driven positioning using bpmn-js native AutoPlace and ManhattanLayout                                                                      |
 | `src/diagram-manager.ts`        | In-memory `Map<string, DiagramState>` store, modeler creation helpers                                                                                                             |
 | `src/tool-definitions.ts`       | Thin barrel collecting co-located `TOOL_DEFINITION` exports from handlers                                                                                                         |
 | `src/handlers/index.ts`         | Handler barrel + `dispatchToolCall` router + unified TOOL_REGISTRY                                                                                                                |
@@ -93,7 +93,7 @@ npm test           # vitest run
 
 `make` targets mirror npm scripts — run `make help` to list them.
 
-**Bundling:** esbuild bundles all source + `@modelcontextprotocol/sdk` + `camunda-bpmn-moddle` into one CJS file. `jsdom`, `bpmn-js`, `elkjs`, `bpmn-auto-layout`, `bpmnlint`, and `bpmnlint-plugin-camunda-compat` are externalised (remain in `node_modules`).
+**Bundling:** esbuild bundles all source + `@modelcontextprotocol/sdk` + `camunda-bpmn-moddle` into one CJS file. `jsdom`, `bpmn-js`, `bpmn-auto-layout`, `bpmnlint`, and `bpmnlint-plugin-camunda-compat` are externalised (remain in `node_modules`).
 
 **Install from git:** `npm install github:datakurre/bpmn-js-mcp` works — `prepare` triggers `npm run build`.
 
@@ -140,6 +140,7 @@ Individual ADRs are in [`agents/adrs/`](agents/adrs/):
 - [ADR-015](agents/adrs/ADR-015-bpmn-in-tool-names.md) — All tool names include "bpmn"
 - [ADR-016](agents/adrs/ADR-016-elk-pipeline-anatomy.md) — ELK pipeline anatomy
 - [ADR-017](agents/adrs/ADR-017-layout-simplification-outcome.md) — Layout simplification outcome
+- [ADR-018](agents/adrs/ADR-018-elk-removal-rebuild-only.md) — ELK removal — rebuild-only layout
 
 ## Key Gotchas
 
@@ -152,5 +153,5 @@ Individual ADRs are in [`agents/adrs/`](agents/adrs/):
 - The `DEFAULT_LINT_CONFIG` extends `bpmnlint:recommended`, `plugin:camunda-compat/camunda-platform-7-24`, and `plugin:bpmn-mcp/recommended`. It downgrades `label-required` and `no-disconnected` to warnings (AI callers build diagrams incrementally), and disables `no-overlapping-elements` (false positives in headless mode).
 - Custom bpmnlint rules live in `src/bpmnlint-plugin-bpmn-mcp/` and are registered as a proper bpmnlint plugin via `McpPluginResolver` in `src/linter.ts`. They can be referenced in config as `plugin:bpmn-mcp/recommended` or individually as `bpmn-mcp/rule-name`.
 - Element IDs prefer short 2-part naming: `UserTask_EnterName`, `Flow_Done`. On collision, falls back to 3-part with random middle: `UserTask_a1b2c3d_EnterName`, `Flow_m4n5p6q_Done`. Unnamed elements use `StartEvent_x9y8z7w`. The random 7-char part ensures uniqueness for copy/paste across diagrams.
-- `elkjs` is dynamically imported and externalized in esbuild (same as `bpmn-js`). It runs synchronously in the headless Node.js/jsdom environment (no web workers). The ELK graph is built from `elementRegistry.getAll()`, boundary events are excluded (they follow their host automatically via `modeling.moveElements`).
+- The rebuild layout engine in `src/rebuild/` walks the process graph topologically and positions elements using `STANDARD_BPMN_GAP` spacing. Containers (subprocesses, participants) are rebuilt inside-out: deepest first. Connections are re-routed via `modeling.layoutConnection()`.
 - bpmnlint has no rule to detect semantic gateway-type mismatches (e.g. using a parallel gateway to merge mutually exclusive paths). Such errors require manual review or domain-specific rules.

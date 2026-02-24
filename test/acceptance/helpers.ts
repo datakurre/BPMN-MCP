@@ -61,7 +61,7 @@ export async function assertStep(
     const errors = ((lintRes.issues ?? []) as any[]).filter((i: any) => i.severity === 'error');
     expect(
       errors.length,
-      `${stepName}: expected ${checks.lintErrorCount} lint error(s) but got ${errors.length}: ${errors.map((e: any) => e.message).join(', ')}`
+      `${stepName}: expected ${checks.lintErrorCount} lint error(s) but got ${errors.length}: ${errors.map((e: any) => `${e.elementId}: ${e.message} [${e.rule}]`).join(', ')}`
     ).toBe(checks.lintErrorCount);
   }
 

@@ -56,7 +56,7 @@ describe('user-pinned elements', () => {
     expect(diagram.pinnedElements?.has(task)).toBeFalsy();
   });
 
-  test('partial layout skips pinned elements', async () => {
+  test('layout skips pinned elements during rebuild', async () => {
     const diagramId = await createDiagram();
     const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
     const task1 = await addElement(diagramId, 'bpmn:Task', { name: 'T1' });
@@ -65,6 +65,9 @@ describe('user-pinned elements', () => {
     await connect(diagramId, start, task1);
     await connect(diagramId, task1, task2);
     await connect(diagramId, task2, end);
+
+    // Do initial layout
+    await handleLayoutDiagram({ diagramId });
 
     // Pin task1 by moving it manually
     await handleMoveElement({ diagramId, elementId: task1, x: 300, y: 200 });
@@ -75,18 +78,22 @@ describe('user-pinned elements', () => {
     const pinnedX = task1Before.x;
     const pinnedY = task1Before.y;
 
-    // Partial layout including both task1 and task2 — task1 should be skipped
+    // Scoped layout — pinned elements should be skipped by rebuild engine
+    const { getDiagram } = await import('../../../src/diagram-manager');
+    const diagram = getDiagram(diagramId)!;
+    expect(diagram.pinnedElements?.has(task1)).toBe(true);
+
+    // Use scoped layout so pins aren't cleared
     const res = parseResult(
       await handleLayoutDiagram({
         diagramId,
-        elementIds: [task1, task2],
+        scopeElementId: 'Process_1',
       })
     );
 
     expect(res.success).toBe(true);
-    expect(res.pinnedSkipped).toContain(task1);
 
-    // task1 position should be unchanged (it was pinned)
+    // task1 position should be unchanged (it was pinned and skipped)
     const task1After = registry.get(task1);
     expect(task1After.x).toBe(pinnedX);
     expect(task1After.y).toBe(pinnedY);
@@ -111,31 +118,5 @@ describe('user-pinned elements', () => {
 
     const diagram = getDiagram(diagramId)!;
     expect(diagram.pinnedElements).toBeUndefined();
-  });
-
-  test('partial layout with only unpinned elements proceeds normally', async () => {
-    const diagramId = await createDiagram();
-    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
-    const task1 = await addElement(diagramId, 'bpmn:Task', { name: 'T1' });
-    const task2 = await addElement(diagramId, 'bpmn:Task', { name: 'T2' });
-    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
-    await connect(diagramId, start, task1);
-    await connect(diagramId, task1, task2);
-    await connect(diagramId, task2, end);
-
-    // Pin task1 only
-    await handleMoveElement({ diagramId, elementId: task1, x: 300, y: 200 });
-
-    // Partial layout with task2 only (not pinned) — should proceed normally
-    const res = parseResult(
-      await handleLayoutDiagram({
-        diagramId,
-        elementIds: [task2],
-      })
-    );
-
-    expect(res.success).toBe(true);
-    // No pinned elements were in the request, so none skipped
-    expect(res.pinnedSkipped).toBeUndefined();
   });
 });

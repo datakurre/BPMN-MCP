@@ -39,8 +39,8 @@ describe('progress notifications', () => {
   test('layout_bpmn_diagram emits progress when context has sendProgress', async () => {
     const diagramId = await createDiagram();
     const startId = await addElement(diagramId, 'bpmn:StartEvent');
-    const taskId = await addElement(diagramId, 'bpmn:Task', 'Do Work', startId);
-    const endId = await addElement(diagramId, 'bpmn:EndEvent', undefined, taskId);
+    const taskId = await addElement(diagramId, 'bpmn:Task', { name: 'Do Work' });
+    const endId = await addElement(diagramId, 'bpmn:EndEvent');
     await connect(diagramId, startId, taskId);
     await connect(diagramId, taskId, endId);
 

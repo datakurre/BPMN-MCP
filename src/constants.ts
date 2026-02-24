@@ -1,69 +1,21 @@
 /**
- * Centralised magic numbers, element-size constants, and ELK layout
- * configuration.
+ * Centralised magic numbers and element-size constants.
  *
  * Keeps layout-related values in one place so changes propagate
  * consistently across all handlers that do positioning / spacing.
  */
 
-import type { BpmnElkOptions } from './elk/types';
-
 /** Standard edge-to-edge gap in pixels between BPMN elements. */
 export const STANDARD_BPMN_GAP = 50;
 
 /**
- * ELK-specific spacing constants.
+ * Inter-layer spacing (px) used when inserting elements into existing flows.
  *
- * Tuned to match bpmn-js's built-in auto-place spacing (~58px average
- * edge-to-edge gaps, ~110px vertical branch separation).  Kept separate
- * from STANDARD_BPMN_GAP which is used for auto-positioning in
- * add-element.ts and connection routing fallbacks.
+ * Matches the spacing the rebuild layout engine produces between layers
+ * (left-to-right), ensuring inserted elements align with the surrounding
+ * layout.
  */
-export const ELK_LAYER_SPACING = 60;
-export const ELK_NODE_SPACING = 50;
-export const ELK_EDGE_NODE_SPACING = 15;
-
-/**
- * Spacing (px) between parallel edges running between layers.
- *
- * ELK default is 10, but BPMN diagrams benefit from slightly more
- * breathing room to avoid overlapping labels and crowded branch routes.
- */
-export const ELK_EDGE_EDGE_BETWEEN_LAYERS_SPACING = 15;
-
-/**
- * Spacing (px) between edges and nodes in adjacent layers.
- *
- * Prevents edge routes from hugging too close to unrelated nodes.
- * ELK default is 10; a modest increase reduces visual clutter.
- */
-export const ELK_EDGE_NODE_BETWEEN_LAYERS_SPACING = 15;
-
-/**
- * Tighter edge-to-edge gap (px) between elements that are all branches
- * of the same gateway (parallel fork-join pattern).
- *
- * Reference layouts use 110px centre-to-centre for 80px-tall tasks,
- * i.e. 30px edge-to-edge.  The general ELK_NODE_SPACING (50px) is too
- * wide for this pattern.  Only applied when every element in a layer
- * shares the same source or target gateway.
- */
-export const ELK_BRANCH_NODE_SPACING = 30;
-
-/**
- * Edge-to-edge gap (px) between a happy-path element and a boundary
- * sub-flow target in the same layer.
- *
- * Reference layouts place boundary exception paths ~40px edge-to-edge
- * below the main flow (120px centre-to-centre for 80px-tall tasks).
- * Tighter than general ELK_NODE_SPACING but looser than gateway branches.
- */
-export const ELK_BOUNDARY_NODE_SPACING = 40;
-
-export const ELK_COMPACT_NODE_SPACING = 40;
-export const ELK_SPACIOUS_NODE_SPACING = 80;
-export const ELK_COMPACT_LAYER_SPACING = 50;
-export const ELK_SPACIOUS_LAYER_SPACING = 100;
+export const LAYER_SPACING = 60;
 
 /**
  * Default element sizes used for layout calculations.
@@ -83,7 +35,6 @@ export const ELEMENT_SIZES: Readonly<Record<string, { width: number; height: num
   default: { width: 100, height: 80 },
 };
 
-/** Look up the default size for a given BPMN element type string. */
 // ── Label positioning constants ────────────────────────────────────────────
 
 /** Distance between element edge and external label. */
@@ -175,186 +126,3 @@ export function getElementSize(elementType: string): { width: number; height: nu
   }
   return ELEMENT_SIZES.default;
 }
-
-// ── ELK layout configuration ───────────────────────────────────────────────
-
-/** Default ELK layout options tuned for BPMN diagrams. */
-export const ELK_LAYOUT_OPTIONS: BpmnElkOptions = {
-  'elk.algorithm': 'layered',
-  'elk.direction': 'RIGHT',
-  'elk.spacing.nodeNode': String(ELK_NODE_SPACING),
-  'elk.layered.spacing.nodeNodeBetweenLayers': String(ELK_LAYER_SPACING),
-  'elk.spacing.edgeNode': String(ELK_EDGE_NODE_SPACING),
-  'elk.layered.spacing.edgeEdgeBetweenLayers': String(ELK_EDGE_EDGE_BETWEEN_LAYERS_SPACING),
-  'elk.layered.spacing.edgeNodeBetweenLayers': String(ELK_EDGE_NODE_BETWEEN_LAYERS_SPACING),
-  'elk.edgeRouting': 'ORTHOGONAL',
-  'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-  'elk.layered.nodePlacement.favorStraightEdges': 'true',
-  'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-  'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
-  'elk.layered.highDegreeNodes.treatment': 'true',
-  'elk.layered.highDegreeNodes.threshold': '5',
-  'elk.layered.compaction.postCompaction.strategy': 'EDGE_LENGTH',
-  'elk.separateConnectedComponents': 'true',
-  'elk.spacing.componentComponent': '50',
-  'elk.randomSeed': '1',
-};
-
-/**
- * ELK crossing minimisation thoroughness.
- * Higher values produce fewer edge crossings at the cost of layout time.
- */
-export const ELK_CROSSING_THOROUGHNESS = '30';
-
-/**
- * ELK priority for happy-path edges (straightness + direction) and
- * split-gateway shortness.
- */
-export const ELK_HIGH_PRIORITY = '10';
-
-// ── ELK container padding ──────────────────────────────────────────────────
-
-/** Padding inside compound containers (expanded subprocesses). */
-export const CONTAINER_PADDING = '[top=60,left=40,bottom=60,right=50]';
-
-/** Padding inside event subprocesses (reduced to fit compact interrupt/non-interrupt handlers). */
-export const EVENT_SUBPROCESS_PADDING = '[top=40,left=32,bottom=40,right=32]';
-
-/** Padding inside participant pools — extra left for the ~30px bpmn-js label band. */
-export const PARTICIPANT_PADDING = '[top=80,left=50,bottom=80,right=40]';
-
-/**
- * Padding inside participant pools that contain lanes.
- * Lanes have their own ~30px label band on the left, so elements need
- * to be pushed further right: pool label band (30) + lane label band (30)
- * + breathing room (20) = 80px total left padding.
- */
-export const PARTICIPANT_WITH_LANES_PADDING = '[top=80,left=80,bottom=80,right=40]';
-
-// ── ELK origin and normalisation ───────────────────────────────────────────
-
-/** Offset from origin so the diagram has comfortable breathing room. */
-export const ORIGIN_OFFSET_X = 180;
-export const ORIGIN_OFFSET_Y = 80;
-export const NORMALISE_ORIGIN_Y = 94;
-export const NORMALISE_BOUNDARY_ORIGIN_Y = 105;
-
-/** Large displacement threshold (px) for normaliseOrigin(). */
-export const NORMALISE_LARGE_THRESHOLD = 40;
-
-// ── ELK element sizing ────────────────────────────────────────────────────
-
-/** Standard BPMN task width (px). */
-export const BPMN_TASK_WIDTH = 100;
-/** Standard BPMN task height (px). */
-export const BPMN_TASK_HEIGHT = 80;
-/** Standard BPMN dummy/placeholder node height (px) for ELK graph. */
-export const BPMN_DUMMY_HEIGHT = 30;
-/** Standard BPMN event diameter (px). */
-export const BPMN_EVENT_SIZE = 36;
-/** Default width (px) for compound containers (pools, subprocesses) when not specified. */
-export const CONTAINER_DEFAULT_WIDTH = 300;
-/** Default height (px) for compound containers (pools, subprocesses) when not specified. */
-export const CONTAINER_DEFAULT_HEIGHT = 200;
-
-// ── ELK positioning ───────────────────────────────────────────────────────
-
-/** Factor for calculating element center X/Y (0.5 = middle). */
-export const CENTER_FACTOR = 0.5;
-/** Start position X-offset (px) from ELK origin. */
-export const START_OFFSET_X = 20;
-/** Start position Y-offset (px) from ELK origin. */
-export const START_OFFSET_Y = 50;
-/** Gateway vertical split factor for branch positioning. */
-export const GATEWAY_UPPER_SPLIT_FACTOR = 0.67;
-/** Minimum movement threshold (px) to trigger element repositioning. */
-export const MOVEMENT_THRESHOLD = 0.5;
-
-// ── ELK graph construction ────────────────────────────────────────────────
-
-/**
- * Y-range threshold (px) to classify a container as having DI-imported
- * coordinates (diverse Y).
- */
-export const DIVERSE_Y_THRESHOLD = 100;
-
-/** Maximum trace depth for synthetic ordering edges in gateway analysis. */
-export const MAX_TRACE_DEPTH = 15;
-
-// ── ELK pool layout ──────────────────────────────────────────────────────
-
-/**
- * Gap (px) between the bottom of the last expanded pool and the first
- * collapsed pool.
- */
-export const COLLAPSED_POOL_GAP = 50;
-
-/**
- * Extra vertical spacing (px) added between participant pools in
- * collaboration diagrams.
- */
-export const INTER_POOL_GAP_EXTRA = 68;
-
-/** Significance threshold (px) for element resize and repositioning. */
-export const RESIZE_SIGNIFICANCE_THRESHOLD = 5;
-/** Default height (px) for collapsed participant pools when not specified. */
-export const COLLAPSED_POOL_DEFAULT_HEIGHT = 60;
-
-// ── ELK artifact positioning ──────────────────────────────────────────────
-
-/** Default vertical offset (px) below the flow for data objects/stores. */
-export const ARTIFACT_BELOW_OFFSET = 80;
-/** Default vertical offset (px) above the flow for text annotations. */
-export const ARTIFACT_ABOVE_OFFSET = 80;
-/** Minimum Y-distance (px) below flow elements for data objects/stores. */
-export const ARTIFACT_BELOW_MIN = 80;
-/** Minimum Y-distance (px) above flow elements for text annotations. */
-export const ARTIFACT_ABOVE_MIN = 150;
-/** Padding (px) around artifacts when checking for overlaps. */
-export const ARTIFACT_PADDING = 20;
-/** Negative padding for left-side artifact placement. */
-export const ARTIFACT_NEGATIVE_PADDING = -20;
-/** Vertical search height (px) when finding space for artifacts. */
-export const ARTIFACT_SEARCH_HEIGHT = 200;
-
-// ── ELK boundary event positioning ────────────────────────────────────────
-
-/**
- * Fraction of host width/height used as margin on each side when
- * spreading multiple boundary events along the same border.
- */
-export const BOUNDARY_SPREAD_MARGIN_FACTOR = 0.1;
-/** Distance (px) from boundary event's host bottom edge to target centre Y. */
-export const BOUNDARY_TARGET_Y_OFFSET = 85;
-/** Distance (px) from boundary event centre X to its leaf target centre X. */
-export const BOUNDARY_TARGET_X_OFFSET = 90;
-/** Proximity tolerance (px) for boundary event repositioning. */
-export const BOUNDARY_PROXIMITY_TOLERANCE = 60;
-
-// ── ELK lane layout ─────────────────────────────────────────────────────
-
-/** Minimum lane height (px) for ELK lane repositioning within pools. */
-export const ELK_MIN_LANE_HEIGHT = 250;
-/** Minimum lane width (px) inside a participant pool (vertical columns). */
-export const ELK_MIN_LANE_WIDTH = 200;
-/** Left label band width (px) inside a participant pool. */
-export const POOL_LABEL_BAND = 30;
-/** Vertical padding (px) above/below content within each lane band. */
-export const LANE_VERTICAL_PADDING = 30;
-/** Horizontal padding (px) left/right of content within each lane column. */
-export const LANE_HORIZONTAL_PADDING = 30;
-
-// ── ELK subset layout routing ─────────────────────────────────────────────
-
-/** Vertical margin (px) below the lowest element for loopback routing. */
-export const LOOPBACK_BELOW_MARGIN = 30;
-/** Vertical margin (px) above the topmost element for above-loopback routing. */
-export const LOOPBACK_ABOVE_MARGIN = 30;
-/** Horizontal margin (px) outside source/target for loopback vertical segments. */
-export const LOOPBACK_HORIZONTAL_MARGIN = 15;
-
-/**
- * Y-centre proximity (px) for two endpoints to be considered "same row"
- * when rebuilding neighbor edges in subset (partial) layout.
- */
-export const SUBSET_NEIGHBOR_SAME_ROW_THRESHOLD = 15;

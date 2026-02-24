@@ -26,6 +26,10 @@ const BOUNDARY_GAP = 40;
 /**
  * Move an element so its centre is at the given target position.
  * Returns true if the element was actually moved (delta ≥ 1px).
+ *
+ * For boundary events, uses direct position manipulation instead of
+ * `modeling.moveElements()` to prevent bpmn-js's `AttachSupport`
+ * behaviour from detaching the boundary event from its host.
  */
 export function moveElementTo(
   modeling: Modeling,
@@ -39,6 +43,22 @@ export function moveElementTo(
   const dy = Math.round(targetCenter.y - currentCenterY);
 
   if (dx === 0 && dy === 0) return false;
+
+  // For boundary events, we must avoid modeling.moveElements() because
+  // bpmn-js's AttachSupport detaches the boundary event from its host
+  // and converts it to an IntermediateCatchEvent.  Instead, we update
+  // the element's position directly and sync the DI bounds.
+  if (element.type === 'bpmn:BoundaryEvent') {
+    element.x += dx;
+    element.y += dy;
+    // Sync the diagram interchange (DI) shape bounds
+    const di = (element as any).di;
+    if (di?.bounds) {
+      di.bounds.x = element.x;
+      di.bounds.y = element.y;
+    }
+    return true;
+  }
 
   modeling.moveElements([element], { x: dx, y: dy });
   return true;

@@ -1,6 +1,6 @@
 /**
  * DI integrity checks and repair: detect and fix missing BPMNShape/BPMNEdge
- * entries so that ELK layout can position all elements.
+ * entries so that the layout engine can position all elements.
  *
  * Uses the bpmn-js modeler API (bpmnImporter.add) to create proper DI entries
  * directly, avoiding fragile XML string manipulation and re-import.

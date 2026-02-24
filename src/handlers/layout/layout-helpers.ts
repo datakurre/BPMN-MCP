@@ -1,19 +1,12 @@
 /**
- * Layout helpers: displacement stats, DI deduplication, and result building.
+ * Layout helpers: displacement stats, DI deduplication, and grid snapping.
  *
  * DI integrity checks and repair are in layout-di-repair.ts.
  * Container sizing detection and quality metrics are in layout-quality-metrics.ts.
  */
 
-import { type ToolResult } from '../../types';
-import { jsonResult, getVisibleElements, getService } from '../helpers';
+import { getVisibleElements, getService } from '../helpers';
 import { getDefinitionsFromModeler } from '../../linter';
-import { computeLaneCrossingMetrics } from '../../elk/api';
-import {
-  detectContainerSizingIssues,
-  computeLayoutQualityMetrics,
-  type ContainerSizingIssue,
-} from './layout-quality-metrics';
 export { checkDiIntegrity, repairMissingDiShapes } from './layout-di-repair';
 
 // ── Pixel grid snapping ────────────────────────────────────────────────────
@@ -175,131 +168,6 @@ export function deduplicateDiInModeler(diagram: any): number {
   } catch {
     return 0;
   }
-}
-
-// ── Build layout result ────────────────────────────────────────────────────
-
-/** Build the nextSteps array, adding lane organization and sizing advice when relevant. */
-function buildNextSteps(
-  laneCrossingMetrics: ReturnType<typeof computeLaneCrossingMetrics>,
-  sizingIssues: ContainerSizingIssue[],
-  poolExpansionApplied?: boolean
-): Array<{ tool: string; description: string }> {
-  const steps: Array<{ tool: string; description: string }> = [
-    {
-      tool: 'export_bpmn',
-      description:
-        'Diagram layout is complete. Use export_bpmn with format and filePath to save the diagram.',
-    },
-  ];
-
-  if (laneCrossingMetrics && laneCrossingMetrics.laneCoherenceScore < 70) {
-    steps.push({
-      tool: 'analyze_bpmn_lanes',
-      description: `Lane coherence score is ${laneCrossingMetrics.laneCoherenceScore}% (below 70%). Run analyze_bpmn_lanes with mode: 'validate' for detailed lane improvement suggestions.`,
-    });
-    steps.push({
-      tool: 'redistribute_bpmn_elements_across_lanes',
-      description: `Lane coherence is low (${laneCrossingMetrics.laneCoherenceScore}%). Run redistribute_bpmn_elements_across_lanes with validate: true to automatically minimize cross-lane flows.`,
-    });
-  }
-
-  const poolIssues = sizingIssues.filter((i) => i.severity === 'warning');
-  if (poolIssues.length > 0 && !poolExpansionApplied) {
-    steps.push({
-      tool: 'layout_bpmn_diagram',
-      description:
-        `${poolIssues.length} pool(s) need resizing: ` +
-        poolIssues
-          .map((i) => `${i.containerName} → ${i.recommendedWidth}×${i.recommendedHeight}px`)
-          .join(', ') +
-        '. Run layout_bpmn_diagram with autosizeOnly: true to fix automatically, or use move_bpmn_element with width/height for manual control.',
-    });
-  }
-
-  return steps;
-}
-
-/** Build the structured layout result JSON with crossing metrics and lane metrics. */
-export function buildLayoutResult(params: {
-  diagramId: string;
-  scopeElementId?: string;
-  elementIds?: string[];
-  elementCount: number;
-  labelsMoved: number;
-  layoutResult: { crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> };
-  elementRegistry: any;
-  usedDeterministic?: boolean;
-  diWarnings?: string[];
-  poolExpansionApplied?: boolean;
-  pinnedSkipped?: string[];
-  subprocessesExpanded?: number;
-}): ToolResult {
-  const {
-    diagramId,
-    scopeElementId,
-    elementIds,
-    elementCount,
-    labelsMoved,
-    layoutResult,
-    elementRegistry,
-    usedDeterministic,
-    diWarnings,
-    poolExpansionApplied,
-    pinnedSkipped,
-    subprocessesExpanded,
-  } = params;
-  const crossingCount = layoutResult.crossingFlows ?? 0;
-  const crossingPairs = layoutResult.crossingFlowPairs ?? [];
-  const laneCrossingMetrics = computeLaneCrossingMetrics(elementRegistry);
-  const sizingIssues = detectContainerSizingIssues(elementRegistry);
-  const qm = computeLayoutQualityMetrics(elementRegistry);
-
-  // C7: message flows crossing the scope boundary are not updated during scoped layout.
-  // Surface this as a scopeNote so callers know to re-route them manually if needed.
-  const scopeNote = scopeElementId
-    ? 'Message flows crossing the scope boundary were not re-routed. Run a full layout (without scopeElementId) or use set_bpmn_connection_waypoints to fix any displaced message flow waypoints.'
-    : undefined;
-
-  return jsonResult({
-    success: true,
-    elementCount,
-    labelsMoved,
-    ...(usedDeterministic ? { layoutStrategy: 'deterministic' } : {}),
-    ...(crossingCount > 0
-      ? {
-          crossingFlows: crossingCount,
-          crossingFlowPairs: crossingPairs,
-          warning: `${crossingCount} crossing sequence flow(s) detected — consider restructuring the process`,
-        }
-      : {}),
-    ...(laneCrossingMetrics
-      ? {
-          laneCrossingMetrics: {
-            totalLaneFlows: laneCrossingMetrics.totalLaneFlows,
-            crossingLaneFlows: laneCrossingMetrics.crossingLaneFlows,
-            laneCoherenceScore: laneCrossingMetrics.laneCoherenceScore,
-            ...(laneCrossingMetrics.crossingFlowIds
-              ? { crossingFlowIds: laneCrossingMetrics.crossingFlowIds }
-              : {}),
-          },
-        }
-      : {}),
-    ...(sizingIssues.length > 0 ? { containerSizingIssues: sizingIssues } : {}),
-    qualityMetrics: qm,
-    message: `Layout applied to diagram ${diagramId}${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}${elementIds ? ` (${elementIds.length} elements)` : ''}${usedDeterministic ? ' (deterministic)' : ''} — ${elementCount} elements arranged`,
-    ...(scopeNote ? { scopeNote } : {}),
-    ...(diWarnings && diWarnings.length > 0 ? { diWarnings } : {}),
-    ...(poolExpansionApplied ? { poolExpansionApplied: true } : {}),
-    ...(subprocessesExpanded && subprocessesExpanded > 0 ? { subprocessesExpanded } : {}),
-    ...(pinnedSkipped && pinnedSkipped.length > 0
-      ? {
-          pinnedSkipped,
-          pinnedNote: `${pinnedSkipped.length} manually-positioned element(s) skipped`,
-        }
-      : {}),
-    nextSteps: buildNextSteps(laneCrossingMetrics, sizingIssues, poolExpansionApplied),
-  });
 }
 
 /**

@@ -2,77 +2,71 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_Order_Processing" name="Order Processing" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_OrderReceived" name="Order Received">
-      <bpmn:outgoing>Flow_1vkpdml</bpmn:outgoing>
+      <bpmn:outgoing>Flow_07jcbg5</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:userTask id="UserTask_ReviewOrder" name="Review Order">
-      <bpmn:incoming>Flow_1vkpdml</bpmn:incoming>
-      <bpmn:outgoing>Flow_1es22aa</bpmn:outgoing>
+      <bpmn:incoming>Flow_07jcbg5</bpmn:incoming>
+      <bpmn:outgoing>Flow_1782w0m</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_1vkpdml" sourceRef="StartEvent_OrderReceived" targetRef="UserTask_ReviewOrder" />
+    <bpmn:sequenceFlow id="Flow_07jcbg5" sourceRef="StartEvent_OrderReceived" targetRef="UserTask_ReviewOrder" />
     <bpmn:serviceTask id="ServiceTask_CheckInventory" name="Check Inventory">
-      <bpmn:incoming>Flow_1es22aa</bpmn:incoming>
-      <bpmn:outgoing>Flow_1ygy4tj</bpmn:outgoing>
+      <bpmn:incoming>Flow_1782w0m</bpmn:incoming>
+      <bpmn:outgoing>Flow_0b8jow8</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_1es22aa" sourceRef="UserTask_ReviewOrder" targetRef="ServiceTask_CheckInventory" />
+    <bpmn:sequenceFlow id="Flow_1782w0m" sourceRef="UserTask_ReviewOrder" targetRef="ServiceTask_CheckInventory" />
     <bpmn:userTask id="UserTask_ConfirmOrder" name="Confirm Order">
-      <bpmn:incoming>Flow_1ygy4tj</bpmn:incoming>
-      <bpmn:outgoing>Flow_1631jya</bpmn:outgoing>
+      <bpmn:incoming>Flow_0b8jow8</bpmn:incoming>
+      <bpmn:outgoing>Flow_13p5b6j</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_1ygy4tj" sourceRef="ServiceTask_CheckInventory" targetRef="UserTask_ConfirmOrder" />
+    <bpmn:sequenceFlow id="Flow_0b8jow8" sourceRef="ServiceTask_CheckInventory" targetRef="UserTask_ConfirmOrder" />
     <bpmn:endEvent id="EndEvent_OrderCompleted" name="Order Completed">
-      <bpmn:incoming>Flow_1631jya</bpmn:incoming>
+      <bpmn:incoming>Flow_13p5b6j</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_1631jya" sourceRef="UserTask_ConfirmOrder" targetRef="EndEvent_OrderCompleted" />
+    <bpmn:sequenceFlow id="Flow_13p5b6j" sourceRef="UserTask_ConfirmOrder" targetRef="EndEvent_OrderCompleted" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Order_Processing">
       <bpmndi:BPMNShape id="StartEvent_OrderReceived_di" bpmnElement="StartEvent_OrderReceived">
-        <dc:Bounds x="192" y="114" width="36" height="36" />
+        <dc:Bounds x="162" y="182" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="171" y="153" width="78" height="14" />
+          <dc:Bounds x="141" y="221" width="78" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_ReviewOrder_di" bpmnElement="UserTask_ReviewOrder">
-        <dc:Bounds x="288" y="92" width="100" height="80" />
+        <dc:Bounds x="248" y="160" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ServiceTask_CheckInventory_di" bpmnElement="ServiceTask_CheckInventory">
-        <dc:Bounds x="448" y="92" width="100" height="80" />
+        <dc:Bounds x="398" y="160" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_ConfirmOrder_di" bpmnElement="UserTask_ConfirmOrder">
-        <dc:Bounds x="608" y="92" width="100" height="80" />
+        <dc:Bounds x="548" y="160" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_OrderCompleted_di" bpmnElement="EndEvent_OrderCompleted">
-        <dc:Bounds x="768" y="114" width="36" height="36" />
+        <dc:Bounds x="698" y="182" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="744" y="153" width="85" height="14" />
+          <dc:Bounds x="674" y="221" width="85" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_1vkpdml_di" bpmnElement="Flow_1vkpdml">
-        <di:waypoint x="210" y="114" />
-        <di:waypoint x="210" y="40" />
-        <di:waypoint x="338" y="40" />
-        <di:waypoint x="338" y="92" />
+      <bpmndi:BPMNEdge id="Flow_07jcbg5_di" bpmnElement="Flow_07jcbg5">
+        <di:waypoint x="198" y="200" />
+        <di:waypoint x="248" y="200" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1es22aa_di" bpmnElement="Flow_1es22aa">
-        <di:waypoint x="338" y="92" />
-        <di:waypoint x="338" y="40" />
-        <di:waypoint x="498" y="40" />
-        <di:waypoint x="498" y="92" />
+      <bpmndi:BPMNEdge id="Flow_1782w0m_di" bpmnElement="Flow_1782w0m">
+        <di:waypoint x="348" y="200" />
+        <di:waypoint x="398" y="200" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1ygy4tj_di" bpmnElement="Flow_1ygy4tj">
-        <di:waypoint x="498" y="92" />
-        <di:waypoint x="498" y="40" />
-        <di:waypoint x="658" y="40" />
-        <di:waypoint x="658" y="92" />
+      <bpmndi:BPMNEdge id="Flow_0b8jow8_di" bpmnElement="Flow_0b8jow8">
+        <di:waypoint x="498" y="200" />
+        <di:waypoint x="548" y="200" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1631jya_di" bpmnElement="Flow_1631jya">
-        <di:waypoint x="658" y="92" />
-        <di:waypoint x="658" y="60" />
-        <di:waypoint x="786" y="60" />
-        <di:waypoint x="786" y="114" />
+      <bpmndi:BPMNEdge id="Flow_13p5b6j_di" bpmnElement="Flow_13p5b6j">
+        <di:waypoint x="598" y="160" />
+        <di:waypoint x="598" y="140" />
+        <di:waypoint x="716" y="140" />
+        <di:waypoint x="716" y="182" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

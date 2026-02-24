@@ -3,7 +3,7 @@
  *
  * Verifies that running `layout_bpmn_diagram` twice on the same diagram
  * produces nearly identical element positions.  Non-idempotent layout
- * indicates non-determinism in ELK or post-processing steps.
+ * indicates non-determinism in the layout engine or post-processing steps.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -12,9 +12,7 @@ import { createDiagram, addElement, clearDiagrams, connect } from '../../helpers
 import { getDiagram } from '../../../src/diagram-manager';
 
 /** Capture x/y positions of all shapes in the element registry (excludes labels). */
-function capturePositions(
-  elementRegistry: ReturnType<ReturnType<typeof getDiagram>['modeler']['get']>
-): Record<string, { x: number; y: number }> {
+function capturePositions(elementRegistry: any): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
   const all: Array<{ id: string; x?: number; y?: number; width?: number }> =
     elementRegistry.getAll();

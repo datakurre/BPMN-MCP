@@ -61,6 +61,12 @@ export interface RebuildOptions {
    * Default: 130 (task height 80 + standard gap 50).
    */
   branchSpacing?: number;
+  /**
+   * Set of element IDs that should not be repositioned (pinned elements).
+   * The rebuild engine will skip these elements and place other elements
+   * around them.
+   */
+  pinnedElementIds?: Set<string>;
 }
 
 /** Result returned by the rebuild layout engine. */
@@ -115,6 +121,7 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
   const origin = options?.origin ?? DEFAULT_ORIGIN;
   const gap = options?.gap ?? STANDARD_BPMN_GAP;
   const branchSpacing = options?.branchSpacing ?? DEFAULT_BRANCH_SPACING;
+  const pinnedElementIds = options?.pinnedElementIds;
 
   // Build container hierarchy for recursive processing
   const hierarchy = buildContainerHierarchy(registry);
@@ -154,7 +161,8 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
       containerOrigin,
       gap,
       branchSpacing,
-      eventSubIds
+      eventSubIds,
+      pinnedElementIds
     );
 
     totalRepositioned += result.repositionedCount;
@@ -228,7 +236,8 @@ function rebuildContainer(
   origin: { x: number; y: number },
   gap: number,
   branchSpacing: number,
-  additionalExcludeIds?: Set<string>
+  additionalExcludeIds?: Set<string>,
+  pinnedElementIds?: Set<string>
 ): RebuildResult {
   // Extract flow graph scoped to this container
   const graph = extractFlowGraph(registry, container);
@@ -262,9 +271,10 @@ function rebuildContainer(
     allExcludeIds
   );
 
-  // Apply positions
+  // Apply positions (skip pinned elements)
   let repositionedCount = 0;
   for (const [id, target] of positions) {
+    if (pinnedElementIds?.has(id)) continue;
     const element = registry.get(id);
     if (!element) continue;
     if (moveElementTo(modeling, element, target)) {

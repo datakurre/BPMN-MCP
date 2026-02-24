@@ -7,8 +7,8 @@
  *  - omitted: auto-detect — run layout only if the XML lacks DI coordinates
  *
  * When layout is needed, bpmn-auto-layout generates initial DI (diagram
- * interchange) coordinates, then elkjs (ELK layered algorithm) improves
- * the layout quality.
+ * interchange) coordinates, then the rebuild layout engine improves
+ * the layout quality using topology-driven positioning.
  */
 // @mutating
 
@@ -16,7 +16,7 @@ import { type ToolResult, type HintLevel, type ToolContext } from '../../types';
 import { storeDiagram, generateDiagramId, createModelerFromXml } from '../../diagram-manager';
 import { jsonResult, syncXml } from '../helpers';
 import { appendLintFeedback } from '../../linter';
-import { elkLayout } from '../../elk/api';
+import { rebuildLayout } from '../../rebuild';
 import * as fs from 'node:fs';
 
 export interface ImportXmlArgs {
@@ -88,9 +88,9 @@ export async function handleImportXml(
   };
 
   if (shouldLayout) {
-    await progress?.(50, 100, 'Running ELK auto-layout…');
-    // Step 2: ELK layered algorithm improves layout quality
-    await elkLayout(diagram);
+    await progress?.(50, 100, 'Running rebuild auto-layout…');
+    // Step 2: rebuild layout engine improves layout quality
+    rebuildLayout(diagram);
     await syncXml(diagram);
   }
 

@@ -1,17 +1,15 @@
 /**
  * Handler for layout_diagram tool.
  *
- * Uses elkjs (Eclipse Layout Kernel) with the Sugiyama layered algorithm
- * to produce clean left-to-right layouts.  Handles parallel branches,
- * reconverging gateways, and nested containers better than the previous
- * bpmn-auto-layout approach.
+ * Uses the rebuild-based layout engine that repositions elements using
+ * topology-driven placement with bpmn-js native positioning.
  *
- * Supports partial re-layout via `elementIds` — only the specified
- * elements and their inter-connections are arranged.
+ * Supports pinned element skipping, pre/post-processing (DI repair,
+ * grid snap, pool autosize, labels), and dry-run previews.
  */
 // @mutating
 
-import { type ToolResult, type ToolContext } from '../../types';
+import { type ToolResult, type ToolContext, type DiagramState } from '../../types';
 import {
   requireDiagram,
   jsonResult,
@@ -22,60 +20,47 @@ import {
 } from '../helpers';
 import { appendLintFeedback, resetMutationCounter } from '../../linter';
 import { adjustDiagramLabels, adjustFlowLabels, centerFlowLabels } from './labels/adjust-labels';
-import { elkLayout, elkLayoutSubset, applyDeterministicLayout } from '../../elk/api';
 import {
   applyPixelGridSnap,
   checkDiIntegrity,
-  buildLayoutResult,
-  repairMissingDiShapes,
   deduplicateDiInModeler,
   alignCollapsedPoolsAfterAutosize,
+  computeDisplacementStats,
+  repairMissingDiShapes,
 } from './layout-helpers';
-import { handleDryRunLayout } from './layout-dryrun';
 import { handleAutosizePoolsAndLanes } from '../collaboration/autosize-pools-and-lanes';
 import { expandCollapsedSubprocesses } from './expand-subprocesses';
 import { rebuildLayout } from '../../rebuild';
+import { stackPools } from '../../rebuild/container-layout';
+import {
+  generateDiagramId,
+  storeDiagram,
+  deleteDiagram,
+  createModelerFromXml,
+} from '../../diagram-manager';
+import {
+  computeLayoutQualityMetrics,
+  detectContainerSizingIssues,
+  type ContainerSizingIssue,
+} from './layout-quality-metrics';
+import { computeLaneCrossingMetrics } from './lane-crossing-metrics';
 
 export interface LayoutDiagramArgs {
   diagramId: string;
-  direction?: 'RIGHT' | 'DOWN' | 'LEFT' | 'UP';
-  nodeSpacing?: number;
-  layerSpacing?: number;
+  /** Optional ID of a Participant or SubProcess to layout in isolation. */
   scopeElementId?: string;
-  compactness?: 'compact' | 'spacious';
-  /** Optional list of element IDs for partial re-layout. */
-  elementIds?: string[];
   /** Pixel grid snap: snap element positions to the nearest multiple of this value. */
   gridSnap?: number;
   /** When true, preview layout changes without applying them. */
   dryRun?: boolean;
   /**
-   * Layout algorithm strategy:
-   * - 'full': full ELK Sugiyama layered layout (default)
-   * - 'deterministic': simplified layout for trivial diagrams (linear chains, single split-merge);
-   *   falls back to 'full' if the diagram is too complex
-   * - 'rebuild': topology-driven rebuild using bpmn-js native positioning
-   */
-  layoutStrategy?: 'full' | 'deterministic' | 'rebuild';
-  /**
-   * Lane layout strategy:
-   * - 'preserve': keep elements in their current lanes (default)
-   * - 'optimize': reorder lanes to minimize cross-lane flows
-   */
-  laneStrategy?: 'preserve' | 'optimize';
-  /**
    * Automatically resize pools and lanes after layout to fit all elements
-   * with proper padding. Prevents the common problem of elements overflowing
-   * pool/lane boundaries after layout repositioning.
-   * Default: auto-enabled when the diagram contains pools.
-   * Set to false to explicitly disable.
+   * with proper padding. Default: auto-enabled when the diagram contains pools.
    */
   poolExpansion?: boolean;
   /**
    * When true, expand collapsed subprocesses that have internal flow-node
-   * children before running layout.  This converts drill-down plane
-   * subprocesses to inline expanded subprocesses so ELK can lay out their
-   * children on the main plane.
+   * children before running layout.
    * Default: false (preserve existing collapsed/expanded state).
    */
   expandSubprocesses?: boolean;
@@ -86,68 +71,17 @@ export interface LayoutDiagramArgs {
   labelsOnly?: boolean;
   /**
    * When true, only resize pools and lanes to fit their elements.
-   * No ELK layout is performed. Equivalent to the former autosize_bpmn_pools_and_lanes tool.
+   * No layout is performed.
    */
   autosizeOnly?: boolean;
 }
 
-/** Run the appropriate layout algorithm based on strategy and args. */
-async function executeLayout(
-  diagram: any,
-  args: LayoutDiagramArgs
-): Promise<{
-  layoutResult: { crossingFlows?: number; crossingFlowPairs?: Array<[string, string]> };
-  usedDeterministic: boolean;
-}> {
-  const {
-    direction,
-    nodeSpacing,
-    layerSpacing,
-    scopeElementId,
-    compactness,
-    layoutStrategy,
-    elementIds,
-  } = args;
-
-  // Deterministic layout for trivial diagrams (linear chains, single split-merge)
-  if (layoutStrategy === 'deterministic' && !elementIds && !scopeElementId) {
-    if (applyDeterministicLayout(diagram)) {
-      return { layoutResult: {}, usedDeterministic: true };
-    }
-    // Fall back to full ELK layout if diagram is not trivial
-  }
-
-  if (elementIds && elementIds.length > 0) {
-    const result = await elkLayoutSubset(diagram, elementIds, {
-      direction,
-      nodeSpacing,
-      layerSpacing,
-    });
-    return { layoutResult: result, usedDeterministic: false };
-  }
-
-  const result = await elkLayout(diagram, {
-    direction,
-    nodeSpacing,
-    layerSpacing,
-    scopeElementId,
-    compactness,
-    laneStrategy: args.laneStrategy,
-  });
-  return { layoutResult: result, usedDeterministic: false };
-}
-
 /** Handle labels-only mode: just adjust labels without full layout. */
 async function handleLabelsOnlyMode(diagramId: string): Promise<ToolResult> {
-  const {
-    adjustDiagramLabels: adjDiag,
-    adjustFlowLabels: adjFlow,
-    centerFlowLabels: ctrFlow,
-  } = await import('./labels/adjust-labels');
   const diagram = requireDiagram(diagramId);
-  const flowLabelsCentered = await ctrFlow(diagram);
-  const elementLabelsMoved = await adjDiag(diagram);
-  const flowLabelsMoved = await adjFlow(diagram);
+  const flowLabelsCentered = await centerFlowLabels(diagram);
+  const elementLabelsMoved = await adjustDiagramLabels(diagram);
+  const flowLabelsMoved = await adjustFlowLabels(diagram);
   const totalMoved = flowLabelsCentered + elementLabelsMoved + flowLabelsMoved;
   return jsonResult({
     success: true,
@@ -162,129 +96,211 @@ async function handleLabelsOnlyMode(diagramId: string): Promise<ToolResult> {
   });
 }
 
-/** Handle rebuild layout strategy: topology-driven positioning. */
-async function handleRebuildLayout(diagramId: string): Promise<ToolResult> {
+/** Perform a dry-run layout: clone → rebuild → diff → discard clone. */
+async function handleDryRunLayout(args: LayoutDiagramArgs): Promise<ToolResult> {
+  const { diagramId } = args;
   const diagram = requireDiagram(diagramId);
-  const result = rebuildLayout(diagram);
+  const { xml } = await diagram.modeler.saveXML({ format: true });
 
-  deduplicateDiInModeler(diagram);
-  await syncXml(diagram);
-  resetMutationCounter(diagram);
+  const tempId = generateDiagramId();
+  const modeler = await createModelerFromXml(xml || '');
+  storeDiagram(tempId, { modeler, xml: xml || '', name: `_dryrun_${diagramId}` });
 
-  const response = jsonResult({
-    success: true,
-    diagramId,
-    layoutStrategy: 'rebuild',
-    repositionedCount: result.repositionedCount,
-    reroutedCount: result.reroutedCount,
-    message:
-      `Rebuild layout complete: repositioned ${result.repositionedCount} element(s), ` +
-      `re-routed ${result.reroutedCount} connection(s)`,
-  });
-  return appendLintFeedback(response, diagram);
+  try {
+    const tempDiagram: DiagramState = { modeler, xml: xml || '' };
+    const tempRegistry = getService(tempDiagram.modeler, 'elementRegistry');
+
+    // Capture original positions
+    const originalPositions = new Map<string, { x: number; y: number }>();
+    for (const el of getVisibleElements(tempRegistry)) {
+      if (el.x !== undefined && el.y !== undefined) {
+        originalPositions.set(el.id, { x: el.x, y: el.y });
+      }
+    }
+
+    // Run rebuild layout on the clone
+    rebuildLayout(tempDiagram);
+
+    const pixelGridSnap = typeof args.gridSnap === 'number' ? args.gridSnap : undefined;
+    if (pixelGridSnap && pixelGridSnap > 0) applyPixelGridSnap(tempDiagram, pixelGridSnap);
+
+    const stats = computeDisplacementStats(originalPositions, tempRegistry);
+    const qualityMetrics = computeLayoutQualityMetrics(tempRegistry);
+    const totalElements = getVisibleElements(tempRegistry).filter(
+      (el: any) =>
+        !el.type.includes('SequenceFlow') &&
+        !el.type.includes('MessageFlow') &&
+        !el.type.includes('Association')
+    ).length;
+
+    const isLargeChange = stats.movedCount > totalElements * 0.5 && stats.maxDisplacement > 200;
+
+    return jsonResult({
+      success: true,
+      dryRun: true,
+      totalElements,
+      movedCount: stats.movedCount,
+      maxDisplacement: stats.maxDisplacement,
+      avgDisplacement: stats.avgDisplacement,
+      qualityMetrics,
+      ...(isLargeChange
+        ? {
+            warning: `Layout would move ${stats.movedCount}/${totalElements} elements with max displacement of ${stats.maxDisplacement}px.`,
+          }
+        : {}),
+      topDisplacements: stats.displacements,
+      message: `Dry run: layout would move ${stats.movedCount}/${totalElements} elements (max ${stats.maxDisplacement}px, avg ${stats.avgDisplacement}px). Call without dryRun to apply.`,
+    });
+  } finally {
+    deleteDiagram(tempId);
+  }
 }
 
-/** Post-layout processing: pixel snap, DI cleanup, labels, pool autosize. */
-async function postProcessLayout(
-  diagram: any,
-  args: LayoutDiagramArgs,
-  context?: ToolContext
-): Promise<{
-  elements: any[];
-  labelsMoved: number;
-  poolExpansionApplied: boolean;
-  diWarnings: string[];
-  repairs: string[];
-}> {
-  const { diagramId, scopeElementId } = args;
-  const { elementIds } = args;
-  const pixelGridSnap = typeof args.gridSnap === 'number' ? args.gridSnap : undefined;
-  const progress = context?.sendProgress;
+/** Build the nextSteps array with lane and sizing advice. */
+function buildNextSteps(
+  laneCrossingMetrics: ReturnType<typeof computeLaneCrossingMetrics>,
+  sizingIssues: ContainerSizingIssue[],
+  poolExpansionApplied?: boolean
+): Array<{ tool: string; description: string }> {
+  const steps: Array<{ tool: string; description: string }> = [
+    {
+      tool: 'export_bpmn',
+      description:
+        'Diagram layout is complete. Use export_bpmn with format and filePath to save the diagram.',
+    },
+  ];
 
-  await progress?.(60, 100, 'Post-processing layout…');
-
-  if (pixelGridSnap && pixelGridSnap > 0) applyPixelGridSnap(diagram, pixelGridSnap);
-  deduplicateDiInModeler(diagram);
-
-  if (!elementIds && !scopeElementId) {
-    diagram.pinnedElements = undefined;
-    diagram.pinnedConnections = undefined;
+  if (laneCrossingMetrics && laneCrossingMetrics.laneCoherenceScore < 70) {
+    steps.push({
+      tool: 'analyze_bpmn_lanes',
+      description: `Lane coherence score is ${laneCrossingMetrics.laneCoherenceScore}% (below 70%). Run analyze_bpmn_lanes with mode: 'validate' for detailed lane improvement suggestions.`,
+    });
+    steps.push({
+      tool: 'redistribute_bpmn_elements_across_lanes',
+      description: `Lane coherence is low (${laneCrossingMetrics.laneCoherenceScore}%). Run redistribute_bpmn_elements_across_lanes with validate: true to automatically minimize cross-lane flows.`,
+    });
   }
 
-  await syncXml(diagram);
-  resetMutationCounter(diagram);
+  const poolIssues = sizingIssues.filter((i) => i.severity === 'warning');
+  if (poolIssues.length > 0 && !poolExpansionApplied) {
+    steps.push({
+      tool: 'layout_bpmn_diagram',
+      description:
+        `${poolIssues.length} pool(s) need resizing: ` +
+        poolIssues
+          .map((i) => `${i.containerName} → ${i.recommendedWidth}×${i.recommendedHeight}px`)
+          .join(', ') +
+        '. Run layout_bpmn_diagram with autosizeOnly: true to fix automatically, or use move_bpmn_element with width/height for manual control.',
+    });
+  }
 
-  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
-  const elements = getVisibleElements(elementRegistry).filter(
+  return steps;
+}
+
+/** Run labels adjustment (center flow labels + adjust element/flow labels). */
+async function adjustAllLabels(diagram: DiagramState): Promise<number> {
+  await centerFlowLabels(diagram);
+  const elLabelsMoved = await adjustDiagramLabels(diagram);
+  const flowLabelsMoved = await adjustFlowLabels(diagram);
+  return elLabelsMoved + flowLabelsMoved;
+}
+
+/** Auto-resize pools/lanes if needed, returns whether resizing was applied. */
+async function autosizePools(
+  args: LayoutDiagramArgs,
+  diagram: DiagramState,
+  elementRegistry: any
+): Promise<boolean> {
+  const shouldAutosize =
+    args.poolExpansion === true ||
+    (args.poolExpansion === undefined && isCollaboration(elementRegistry));
+  if (!shouldAutosize) return false;
+
+  const poolResult = await handleAutosizePoolsAndLanes({ diagramId: args.diagramId });
+  const poolData = JSON.parse(poolResult.content[0].text as string);
+  const applied = (poolData.resizedCount ?? 0) > 0;
+  if (applied) {
+    const modeling = getService(diagram.modeler, 'modeling');
+    alignCollapsedPoolsAfterAutosize(elementRegistry, modeling);
+    // Re-stack pools to fix gaps after height changes from autosizing
+    const pools = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+    if (pools.length >= 2) stackPools(pools, modeling, 30);
+  }
+  return applied;
+}
+
+/** Build the final JSON response for a layout result. */
+function buildLayoutResponse(opts: {
+  diagramId: string;
+  scopeElementId?: string;
+  elementCount: number;
+  labelsMoved: number;
+  result: { repositionedCount: number; reroutedCount: number };
+  laneCrossingMetrics: ReturnType<typeof computeLaneCrossingMetrics>;
+  sizingIssues: ContainerSizingIssue[];
+  qualityMetrics: ReturnType<typeof computeLayoutQualityMetrics>;
+  diWarnings: string[];
+  poolExpansionApplied: boolean;
+  subprocessesExpanded: number;
+}): ToolResult {
+  const {
+    diagramId,
+    scopeElementId,
+    elementCount,
+    labelsMoved,
+    result,
+    laneCrossingMetrics,
+    sizingIssues,
+    qualityMetrics,
+    diWarnings,
+    poolExpansionApplied,
+    subprocessesExpanded,
+  } = opts;
+
+  const scopeNote = scopeElementId
+    ? 'Message flows crossing the scope boundary were not re-routed. Run a full layout (without scopeElementId) or use set_bpmn_connection_waypoints to fix any displaced message flow waypoints.'
+    : undefined;
+
+  return jsonResult({
+    success: true,
+    elementCount,
+    labelsMoved,
+    repositionedCount: result.repositionedCount,
+    reroutedCount: result.reroutedCount,
+    ...(laneCrossingMetrics
+      ? {
+          laneCrossingMetrics: {
+            totalLaneFlows: laneCrossingMetrics.totalLaneFlows,
+            crossingLaneFlows: laneCrossingMetrics.crossingLaneFlows,
+            laneCoherenceScore: laneCrossingMetrics.laneCoherenceScore,
+            ...(laneCrossingMetrics.crossingFlowIds
+              ? { crossingFlowIds: laneCrossingMetrics.crossingFlowIds }
+              : {}),
+          },
+        }
+      : {}),
+    ...(sizingIssues.length > 0 ? { containerSizingIssues: sizingIssues } : {}),
+    qualityMetrics,
+    message:
+      `Rebuild layout applied to diagram ${diagramId}` +
+      `${scopeElementId ? ` (scoped to ${scopeElementId})` : ''}` +
+      ` — ${elementCount} elements arranged, ${result.repositionedCount} repositioned, ${result.reroutedCount} connections re-routed`,
+    ...(scopeNote ? { scopeNote } : {}),
+    ...(diWarnings.length > 0 ? { diWarnings } : {}),
+    ...(poolExpansionApplied ? { poolExpansionApplied: true } : {}),
+    ...(subprocessesExpanded > 0 ? { subprocessesExpanded } : {}),
+    nextSteps: buildNextSteps(laneCrossingMetrics, sizingIssues, poolExpansionApplied),
+  });
+}
+
+/** Count non-connection visible elements. */
+function countFlowElements(elementRegistry: any): number {
+  return getVisibleElements(elementRegistry).filter(
     (el: any) =>
       !el.type.includes('SequenceFlow') &&
       !el.type.includes('MessageFlow') &&
       !el.type.includes('Association')
-  );
-
-  await progress?.(70, 100, 'Adjusting labels…');
-  await centerFlowLabels(diagram);
-  const elLabelsMoved = await adjustDiagramLabels(diagram);
-  const flowLabelsMoved = await adjustFlowLabels(diagram);
-
-  await progress?.(85, 100, 'Resizing pools…');
-  let poolExpansionApplied = false;
-  const shouldAutosize =
-    args.poolExpansion === true ||
-    (args.poolExpansion === undefined && isCollaboration(elementRegistry));
-  if (shouldAutosize) {
-    const poolResult = await handleAutosizePoolsAndLanes({ diagramId });
-    const poolData = JSON.parse(poolResult.content[0].text as string);
-    poolExpansionApplied = (poolData.resizedCount ?? 0) > 0;
-    alignCollapsedPoolsAfterAutosize(elementRegistry, getService(diagram.modeler, 'modeling'));
-  }
-
-  const diWarnings = checkDiIntegrity(diagram, elementRegistry);
-
-  return {
-    elements,
-    labelsMoved: elLabelsMoved + flowLabelsMoved,
-    poolExpansionApplied,
-    diWarnings,
-    repairs: [],
-  };
-}
-
-/** Save waypoints for all pinned connections so they can be restored after layout. */
-function savePinnedConnectionWaypoints(diagram: any): Map<string, Array<{ x: number; y: number }>> {
-  const saved = new Map<string, Array<{ x: number; y: number }>>();
-  if (!diagram.pinnedConnections?.size) return saved;
-  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
-  for (const connId of diagram.pinnedConnections) {
-    const conn = elementRegistry.get(connId);
-    if (conn?.waypoints) {
-      saved.set(
-        connId,
-        conn.waypoints.map((wp: any) => ({ x: wp.x, y: wp.y }))
-      );
-    }
-  }
-  return saved;
-}
-
-/** Restore previously saved pinned connection waypoints after layout. */
-function restorePinnedConnectionWaypoints(
-  diagram: any,
-  saved: Map<string, Array<{ x: number; y: number }>>
-): void {
-  if (saved.size === 0) return;
-  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
-  const modeling = getService(diagram.modeler, 'modeling');
-  for (const [connId, waypoints] of saved) {
-    const conn = elementRegistry.get(connId);
-    if (conn && waypoints.length >= 2) {
-      try {
-        modeling.updateWaypoints(conn, waypoints);
-      } catch {
-        // Skip connections that can't be restored (e.g. element was deleted)
-      }
-    }
-  }
+  ).length;
 }
 
 export async function handleLayoutDiagram(
@@ -293,76 +309,71 @@ export async function handleLayoutDiagram(
 ): Promise<ToolResult> {
   if (args.labelsOnly) return handleLabelsOnlyMode(args.diagramId);
   if (args.autosizeOnly) return handleAutosizePoolsAndLanes({ diagramId: args.diagramId });
-
   if (args.dryRun) return handleDryRunLayout(args);
 
-  // Rebuild strategy: topology-driven rebuild using bpmn-js native positioning
-  if (args.layoutStrategy === 'rebuild') {
-    return handleRebuildLayout(args.diagramId);
-  }
-
   const { diagramId, scopeElementId } = args;
-  let { elementIds } = args;
   const diagram = requireDiagram(diagramId);
   const progress = context?.sendProgress;
 
-  await progress?.(0, 100, 'Preparing layout…');
-
-  // For partial layout, filter out pinned elements
-  const pinnedSkipped: string[] = [];
-  if (elementIds && elementIds.length > 0 && diagram.pinnedElements?.size) {
-    const filtered = elementIds.filter((id) => !diagram.pinnedElements!.has(id));
-    if (filtered.length < elementIds.length) {
-      pinnedSkipped.push(...elementIds.filter((id) => diagram.pinnedElements!.has(id)));
-      elementIds = filtered;
+  // Validate scope element if specified
+  if (scopeElementId) {
+    const registry = getService(diagram.modeler, 'elementRegistry');
+    const scopeEl = registry.get(scopeElementId);
+    if (!scopeEl) {
+      throw new Error(`Scope element '${scopeElementId}' not found in diagram`);
+    }
+    const t = scopeEl.type;
+    if (t !== 'bpmn:Participant' && t !== 'bpmn:SubProcess' && t !== 'bpmn:Process') {
+      throw new Error(
+        `scopeElementId must reference a Participant, SubProcess, or Process, got '${t}'`
+      );
     }
   }
 
-  // Build layout args with potentially filtered elementIds
-  const layoutArgs: LayoutDiagramArgs =
-    elementIds !== args.elementIds ? { ...args, elementIds } : args;
-
-  // Optionally expand collapsed subprocesses before layout
-  let subprocessesExpanded = 0;
-  if (args.expandSubprocesses) {
-    subprocessesExpanded = expandCollapsedSubprocesses(diagram);
-  }
-
-  // Repair missing DI shapes before layout so ELK can position all elements
+  await progress?.(0, 100, 'Preparing layout…');
+  const subprocessesExpanded = args.expandSubprocesses ? expandCollapsedSubprocesses(diagram) : 0;
   const repairs = repairMissingDiShapes(diagram);
 
-  // Save pinned connection waypoints before layout so they can be restored
-  // after the pipeline overwrites them. Mirroring element pinning, full
-  // layout (no elementIds / scopeElementId) clears the pin state so future
-  // layouts are free to re-route the connection.
-  const savedPinnedWaypoints = savePinnedConnectionWaypoints(diagram);
+  await progress?.(10, 100, 'Running rebuild layout…');
+  const result = rebuildLayout(diagram, { pinnedElementIds: diagram.pinnedElements });
 
-  await progress?.(10, 100, 'Running ELK layout…');
-  const { layoutResult, usedDeterministic } = await executeLayout(diagram, layoutArgs);
+  await progress?.(60, 100, 'Post-processing layout…');
+  const pixelGridSnap = typeof args.gridSnap === 'number' ? args.gridSnap : undefined;
+  if (pixelGridSnap && pixelGridSnap > 0) applyPixelGridSnap(diagram, pixelGridSnap);
+  deduplicateDiInModeler(diagram);
 
-  // Restore pinned connection waypoints after the layout pipeline
-  restorePinnedConnectionWaypoints(diagram, savedPinnedWaypoints);
+  if (!scopeElementId) {
+    diagram.pinnedElements = undefined;
+    diagram.pinnedConnections = undefined;
+  }
 
-  const postResult = await postProcessLayout(diagram, layoutArgs, context);
-  const allDiWarnings = [...repairs, ...postResult.diWarnings];
+  await syncXml(diagram);
+  resetMutationCounter(diagram);
 
-  const result = buildLayoutResult({
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+
+  await progress?.(70, 100, 'Adjusting labels…');
+  const labelsMoved = await adjustAllLabels(diagram);
+
+  await progress?.(85, 100, 'Resizing pools…');
+  const poolExpansionApplied = await autosizePools(args, diagram, elementRegistry);
+
+  const layoutResult = buildLayoutResponse({
     diagramId,
     scopeElementId,
-    elementIds,
-    elementCount: elementIds ? elementIds.length : postResult.elements.length,
-    labelsMoved: postResult.labelsMoved,
-    layoutResult,
-    elementRegistry: getService(diagram.modeler, 'elementRegistry'),
-    usedDeterministic,
-    diWarnings: allDiWarnings,
-    poolExpansionApplied: postResult.poolExpansionApplied,
-    pinnedSkipped,
+    elementCount: countFlowElements(elementRegistry),
+    labelsMoved,
+    result,
+    laneCrossingMetrics: computeLaneCrossingMetrics(elementRegistry),
+    sizingIssues: detectContainerSizingIssues(elementRegistry),
+    qualityMetrics: computeLayoutQualityMetrics(elementRegistry),
+    diWarnings: [...repairs, ...checkDiIntegrity(diagram, elementRegistry)],
+    poolExpansionApplied,
     subprocessesExpanded,
   });
-  return appendLintFeedback(result, diagram);
+
+  return appendLintFeedback(layoutResult, diagram);
 }
 
-/** Snap collapsed pools to match expanded pool horizontal extent after autosize. */
 // Schema extracted to layout-diagram-schema.ts for readability.
 export { TOOL_DEFINITION } from './layout-diagram-schema';

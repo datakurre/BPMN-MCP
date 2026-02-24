@@ -21,7 +21,7 @@ describe('layout_bpmn_diagram — scope parameter', () => {
     const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task' });
 
     await expect(handleLayoutDiagram({ diagramId, scopeElementId: task })).rejects.toThrow(
-      /Participant or SubProcess/
+      /Participant.*SubProcess|SubProcess.*Participant/
     );
   });
 });

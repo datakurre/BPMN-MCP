@@ -1,6 +1,15 @@
 import { describe, test, expect } from 'vitest';
 import { TOOL_DEFINITIONS } from '../src/tool-definitions';
 
+/** Helper to extract typed inputSchema from a tool definition. */
+function getSchema(tool: (typeof TOOL_DEFINITIONS)[number] | undefined) {
+  return tool?.inputSchema as {
+    type: string;
+    required?: string[];
+    properties?: Record<string, any>;
+  };
+}
+
 describe('tool-definitions', () => {
   const toolNames = TOOL_DEFINITIONS.map((t) => t.name);
 
@@ -60,20 +69,21 @@ describe('tool-definitions', () => {
 
   test("every tool has an inputSchema with type 'object'", () => {
     for (const tool of TOOL_DEFINITIONS) {
-      expect(tool.inputSchema.type).toBe('object');
+      const schema = getSchema(tool);
+      expect(schema.type).toBe('object');
     }
   });
 
   test('add_bpmn_element requires diagramId and elementType', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'add_bpmn_element');
-    expect(tool?.inputSchema.required).toEqual(
-      expect.arrayContaining(['diagramId', 'elementType'])
-    );
+    const schema = getSchema(tool);
+    expect(schema.required).toEqual(expect.arrayContaining(['diagramId', 'elementType']));
   });
 
   test('add_bpmn_element enum includes BoundaryEvent and CallActivity', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'add_bpmn_element');
-    const enumValues = (tool?.inputSchema.properties as any).elementType.enum;
+    const schema = getSchema(tool);
+    const enumValues = schema.properties!.elementType.enum;
     expect(enumValues).toContain('bpmn:BoundaryEvent');
     expect(enumValues).toContain('bpmn:CallActivity');
     expect(enumValues).toContain('bpmn:TextAnnotation');
@@ -81,88 +91,88 @@ describe('tool-definitions', () => {
 
   test('export_bpmn requires diagramId, format, and filePath', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'export_bpmn');
-    expect(tool?.inputSchema.required).toEqual(
-      expect.arrayContaining(['diagramId', 'format', 'filePath'])
-    );
-    const props = tool?.inputSchema.properties as any;
-    expect(props.format.enum).toEqual(['xml', 'svg', 'both']);
+    const schema = getSchema(tool);
+    expect(schema.required).toEqual(expect.arrayContaining(['diagramId', 'format', 'filePath']));
+    expect(schema.properties!.format.enum).toEqual(['xml', 'svg', 'both']);
   });
 
   test('connect_bpmn_elements has connectionType and conditionExpression params', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'connect_bpmn_elements');
-    const props = tool?.inputSchema.properties as any;
-    expect(props.connectionType).toBeDefined();
-    expect(props.conditionExpression).toBeDefined();
+    const schema = getSchema(tool);
+    expect(schema.properties!.connectionType).toBeDefined();
+    expect(schema.properties!.conditionExpression).toBeDefined();
   });
 
   test('align_bpmn_elements requires diagramId and elementIds', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'align_bpmn_elements');
-    expect(tool?.inputSchema.required).toEqual(expect.arrayContaining(['diagramId', 'elementIds']));
+    const schema = getSchema(tool);
+    expect(schema.required).toEqual(expect.arrayContaining(['diagramId', 'elementIds']));
   });
 
   test('set_bpmn_input_output_mapping has inputParameters and outputParameters but not source', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'set_bpmn_input_output_mapping');
-    const props = tool?.inputSchema.properties as any;
-    expect(props.inputParameters).toBeDefined();
-    expect(props.outputParameters).toBeDefined();
+    const schema = getSchema(tool);
+    expect(schema.properties!.inputParameters).toBeDefined();
+    expect(schema.properties!.outputParameters).toBeDefined();
     // source and sourceExpression should have been removed
-    const inputItemProps = props.inputParameters.items.properties;
+    const inputItemProps = schema.properties!.inputParameters.items.properties;
     expect(inputItemProps.source).toBeUndefined();
     expect(inputItemProps.sourceExpression).toBeUndefined();
   });
 
   test('set_bpmn_event_definition requires eventDefinitionType', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'set_bpmn_event_definition');
-    expect(tool?.inputSchema.required).toContain('eventDefinitionType');
+    const schema = getSchema(tool);
+    expect(schema.required).toContain('eventDefinitionType');
   });
 
   test('set_bpmn_form_data requires fields', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'set_bpmn_form_data');
-    expect(tool?.inputSchema.required).toEqual(
-      expect.arrayContaining(['diagramId', 'elementId', 'fields'])
-    );
+    const schema = getSchema(tool);
+    expect(schema.required).toEqual(expect.arrayContaining(['diagramId', 'elementId', 'fields']));
   });
 
   test('align_bpmn_elements has compact and distribute parameters', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'align_bpmn_elements');
-    const props = tool?.inputSchema.properties as any;
-    expect(props.compact).toBeDefined();
-    expect(props.compact.type).toBe('boolean');
-    expect(props.orientation).toBeDefined();
-    expect(props.gap).toBeDefined();
-    expect(props.gap.type).toBe('number');
+    const schema = getSchema(tool);
+    expect(schema.properties!.compact).toBeDefined();
+    expect(schema.properties!.compact.type).toBe('boolean');
+    expect(schema.properties!.orientation).toBeDefined();
+    expect(schema.properties!.gap).toBeDefined();
+    expect(schema.properties!.gap.type).toBe('number');
   });
 
   test('connect_bpmn_elements has isDefault parameter', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'connect_bpmn_elements');
-    const props = tool?.inputSchema.properties as any;
-    expect(props.isDefault).toBeDefined();
-    expect(props.isDefault.type).toBe('boolean');
+    const schema = getSchema(tool);
+    expect(schema.properties!.isDefault).toBeDefined();
+    expect(schema.properties!.isDefault.type).toBe('boolean');
   });
 
   test('add_bpmn_element enum includes Participant and Lane', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'add_bpmn_element');
-    const enumValues = (tool?.inputSchema.properties as any).elementType.enum;
+    const schema = getSchema(tool);
+    const enumValues = schema.properties!.elementType.enum;
     expect(enumValues).toContain('bpmn:Participant');
     expect(enumValues).toContain('bpmn:Lane');
   });
 
   test('layout_bpmn_diagram requires diagramId', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'layout_bpmn_diagram');
-    expect(tool?.inputSchema.required).toContain('diagramId');
+    const schema = getSchema(tool);
+    expect(schema.required).toContain('diagramId');
   });
 
   test('set_bpmn_camunda_listeners has errorDefinitions parameter', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'set_bpmn_camunda_listeners');
-    const props = tool?.inputSchema.properties as any;
-    expect(props.errorDefinitions).toBeDefined();
-    expect(props.errorDefinitions.type).toBe('array');
+    const schema = getSchema(tool);
+    expect(schema.properties!.errorDefinitions).toBeDefined();
+    expect(schema.properties!.errorDefinitions.type).toBe('array');
   });
 
   test('set_bpmn_loop_characteristics requires loopType', () => {
     const tool = TOOL_DEFINITIONS.find((t) => t.name === 'set_bpmn_loop_characteristics');
-    expect(tool?.inputSchema.required).toEqual(
-      expect.arrayContaining(['diagramId', 'elementId', 'loopType'])
-    );
+    const schema = getSchema(tool);
+    expect(schema.required).toEqual(expect.arrayContaining(['diagramId', 'elementId', 'loopType']));
   });
 });

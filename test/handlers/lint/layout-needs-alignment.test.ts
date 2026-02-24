@@ -231,7 +231,7 @@ describe('bpmnlint layout-needs-alignment rule', () => {
         rule: 'bpmn-mcp/layout-needs-alignment',
         elementId: 'Process_1',
         message: 'test',
-        severity: 'warn',
+        severity: 'warning',
       },
       'diagram_1'
     );

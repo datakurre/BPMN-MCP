@@ -12,7 +12,6 @@ import {
   handleAddElement,
 } from '../../../src/handlers';
 import { parseResult, createDiagram, clearDiagrams, connect } from '../../helpers';
-import { getDiagram } from '../../../src/diagram-manager';
 
 describe('collaboration layout', () => {
   beforeEach(() => {
@@ -65,62 +64,5 @@ describe('collaboration layout', () => {
     const res = parseResult(await handleLayoutDiagram({ diagramId }));
     expect(res.success).toBe(true);
     expect(res.elementCount).toBeGreaterThanOrEqual(2);
-  });
-
-  test('supports layout direction parameter', async () => {
-    const diagramId = await createDiagram('Direction Test');
-    const startRes = parseResult(
-      await handleAddElement({
-        diagramId,
-        elementType: 'bpmn:StartEvent',
-        name: 'Begin',
-      })
-    );
-    const endRes = parseResult(
-      await handleAddElement({
-        diagramId,
-        elementType: 'bpmn:EndEvent',
-        name: 'Finish',
-      })
-    );
-    await connect(diagramId, startRes.elementId, endRes.elementId);
-
-    // Layout with DOWN direction (top-to-bottom)
-    const res = parseResult(await handleLayoutDiagram({ diagramId, direction: 'DOWN' }));
-    expect(res.success).toBe(true);
-
-    // Verify top-to-bottom ordering
-    const diagram = getDiagram(diagramId)!;
-    const reg = diagram.modeler.get('elementRegistry');
-    const startEl = reg.get(startRes.elementId);
-    const endEl = reg.get(endRes.elementId);
-
-    // In DOWN direction, start should be above (lower y) than end
-    expect(startEl.y).toBeLessThan(endEl.y);
-  });
-
-  test('supports node and layer spacing parameters', async () => {
-    const diagramId = await createDiagram('Spacing Test');
-    const startRes = parseResult(
-      await handleAddElement({
-        diagramId,
-        elementType: 'bpmn:StartEvent',
-        name: 'S',
-      })
-    );
-    const endRes = parseResult(
-      await handleAddElement({
-        diagramId,
-        elementType: 'bpmn:EndEvent',
-        name: 'E',
-      })
-    );
-    await connect(diagramId, startRes.elementId, endRes.elementId);
-
-    // Layout with custom spacing
-    const res = parseResult(
-      await handleLayoutDiagram({ diagramId, nodeSpacing: 100, layerSpacing: 100 })
-    );
-    expect(res.success).toBe(true);
   });
 });
