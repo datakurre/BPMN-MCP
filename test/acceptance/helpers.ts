@@ -18,14 +18,14 @@ function parseResult(result: any): any {
   return JSON.parse(result.content[0].text);
 }
 
-const SNAPSHOTS_DIR = resolve(__dirname, '..', 'fixtures', 'acceptance-snapshots');
+const SNAPSHOTS_DIR = resolve(__dirname, '..', 'fixtures', 'story-references');
 
 export interface StepChecks {
   /** Element names that must appear in the diagram. */
   containsElements?: string[];
   /** Maximum number of lint error-level issues (default: not checked). */
   lintErrorCount?: number;
-  /** Snapshot path relative to acceptance-snapshots/ (e.g. 'story-01/step-01.bpmn'). */
+  /** Snapshot path relative to story-references/ (e.g. 'story-01/step-01.bpmn'). */
   snapshotFile?: string;
 }
 

@@ -19,8 +19,7 @@
     "test:acceptance": "vitest run test/acceptance/",
     "test:coverage": "vitest run --coverage",
     "coverage": "vitest run --coverage",
-    "update:snapshots": "vitest run test/handlers/layout/svg-snapshots.test.ts",
-    "update:acceptance-snapshots": "UPDATE_SNAPSHOTS=1 vitest run test/acceptance/"
+    "update:snapshots": "vitest run test/handlers/layout/svg-snapshots.test.ts"
   },
   "keywords": [
     "mcp",
