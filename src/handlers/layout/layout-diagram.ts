@@ -34,6 +34,7 @@ import {
 import { handleDryRunLayout } from './layout-dryrun';
 import { handleAutosizePoolsAndLanes } from '../collaboration/autosize-pools-and-lanes';
 import { expandCollapsedSubprocesses } from './expand-subprocesses';
+import { rebuildLayout } from '../../rebuild';
 
 export interface LayoutDiagramArgs {
   diagramId: string;
@@ -53,8 +54,9 @@ export interface LayoutDiagramArgs {
    * - 'full': full ELK Sugiyama layered layout (default)
    * - 'deterministic': simplified layout for trivial diagrams (linear chains, single split-merge);
    *   falls back to 'full' if the diagram is too complex
+   * - 'rebuild': topology-driven rebuild using bpmn-js native positioning
    */
-  layoutStrategy?: 'full' | 'deterministic';
+  layoutStrategy?: 'full' | 'deterministic' | 'rebuild';
   /**
    * Lane layout strategy:
    * - 'preserve': keep elements in their current lanes (default)
@@ -158,6 +160,28 @@ async function handleLabelsOnlyMode(diagramId: string): Promise<ToolResult> {
         ? `Adjusted ${totalMoved} label(s) to reduce overlap (${elementLabelsMoved} element, ${flowLabelsMoved} flow)`
         : 'No label adjustments needed \u2014 all labels are well-positioned',
   });
+}
+
+/** Handle rebuild layout strategy: topology-driven positioning. */
+async function handleRebuildLayout(diagramId: string): Promise<ToolResult> {
+  const diagram = requireDiagram(diagramId);
+  const result = rebuildLayout(diagram);
+
+  deduplicateDiInModeler(diagram);
+  await syncXml(diagram);
+  resetMutationCounter(diagram);
+
+  const response = jsonResult({
+    success: true,
+    diagramId,
+    layoutStrategy: 'rebuild',
+    repositionedCount: result.repositionedCount,
+    reroutedCount: result.reroutedCount,
+    message:
+      `Rebuild layout complete: repositioned ${result.repositionedCount} element(s), ` +
+      `re-routed ${result.reroutedCount} connection(s)`,
+  });
+  return appendLintFeedback(response, diagram);
 }
 
 /** Post-layout processing: pixel snap, DI cleanup, labels, pool autosize. */
@@ -271,6 +295,11 @@ export async function handleLayoutDiagram(
   if (args.autosizeOnly) return handleAutosizePoolsAndLanes({ diagramId: args.diagramId });
 
   if (args.dryRun) return handleDryRunLayout(args);
+
+  // Rebuild strategy: topology-driven rebuild using bpmn-js native positioning
+  if (args.layoutStrategy === 'rebuild') {
+    return handleRebuildLayout(args.diagramId);
+  }
 
   const { diagramId, scopeElementId } = args;
   let { elementIds } = args;

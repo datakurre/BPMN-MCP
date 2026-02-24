@@ -61,11 +61,12 @@ export const TOOL_DEFINITION = {
       },
       layoutStrategy: {
         type: 'string',
-        enum: ['full', 'deterministic'],
+        enum: ['full', 'deterministic', 'rebuild'],
         description:
           "Layout algorithm strategy: 'full' = full ELK Sugiyama layered layout (default), " +
           "'deterministic' = simplified, predictable layout for trivial diagrams (linear chains, single split-merge); " +
-          "falls back to 'full' if the diagram is too complex.",
+          "falls back to 'full' if the diagram is too complex. " +
+          "'rebuild' = topology-driven rebuild using bpmn-js native positioning.",
       },
       laneStrategy: {
         type: 'string',

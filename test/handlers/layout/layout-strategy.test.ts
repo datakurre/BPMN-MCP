@@ -246,4 +246,64 @@ describe('layout_bpmn_diagram layoutStrategy', () => {
       expect(Math.abs(y - avgY)).toBeLessThan(50);
     }
   });
+
+  // ── Rebuild layout strategy ──────────────────────────────────────────────
+
+  test('rebuild layout arranges a linear chain left-to-right', async () => {
+    const diagramId = await createDiagram();
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 1' });
+    const task2 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task 2' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+    await connect(diagramId, start, task1);
+    await connect(diagramId, task1, task2);
+    await connect(diagramId, task2, end);
+
+    const res = parseResult(await handleLayoutDiagram({ diagramId, layoutStrategy: 'rebuild' }));
+
+    expect(res.success).toBe(true);
+    expect(res.layoutStrategy).toBe('rebuild');
+    expect(res.repositionedCount).toBeGreaterThan(0);
+
+    const registry = getRegistry(diagramId);
+    const startEl = registry.get(start);
+    const task1El = registry.get(task1);
+    const task2El = registry.get(task2);
+    const endEl = registry.get(end);
+
+    expect(task1El.x).toBeGreaterThan(startEl.x);
+    expect(task2El.x).toBeGreaterThan(task1El.x);
+    expect(endEl.x).toBeGreaterThan(task2El.x);
+  });
+
+  test('rebuild layout preserves element properties', async () => {
+    const diagramId = await createDiagram();
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Review Order' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+    await connect(diagramId, start, task);
+    await connect(diagramId, task, end);
+
+    // Set properties on the task
+    const { handleSetProperties } = await import('../../../src/handlers');
+    await handleSetProperties({
+      diagramId,
+      elementId: task,
+      properties: {
+        'camunda:assignee': 'john',
+        'camunda:formKey': 'embedded:app:forms/review.html',
+      },
+    });
+
+    // Run rebuild layout
+    const res = parseResult(await handleLayoutDiagram({ diagramId, layoutStrategy: 'rebuild' }));
+    expect(res.success).toBe(true);
+
+    // Verify properties are preserved
+    const registry = getRegistry(diagramId);
+    const taskEl = registry.get(task);
+    expect(taskEl.businessObject.name).toBe('Review Order');
+    expect(taskEl.businessObject.get('camunda:assignee')).toBe('john');
+    expect(taskEl.businessObject.get('camunda:formKey')).toBe('embedded:app:forms/review.html');
+  });
 });
