@@ -3,13 +3,13 @@ import { handleLayoutDiagram } from '../../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
 
-describe('layout_bpmn_diagram — ELK', () => {
+describe('layout_bpmn_diagram — patterns', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  test('runs ELK layout on a simple flow', async () => {
-    const diagramId = await createDiagram('Simple ELK Test');
+  test('runs layout on a simple flow', async () => {
+    const diagramId = await createDiagram('Simple Layout Test');
     const startId = await addElement(diagramId, 'bpmn:StartEvent', {
       name: 'Start',
       x: 100,
@@ -196,7 +196,7 @@ describe('layout_bpmn_diagram — ELK', () => {
 
     await handleLayoutDiagram({ diagramId });
 
-    // After ELK layout, elements should be in a horizontal line
+    // After layout, elements should be in a horizontal line
     const diagram = getDiagram(diagramId)!;
     const reg = diagram.modeler.get('elementRegistry');
     const startEl = reg.get(start);

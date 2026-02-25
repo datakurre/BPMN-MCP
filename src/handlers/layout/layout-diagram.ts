@@ -19,7 +19,7 @@ import {
   isCollaboration,
 } from '../helpers';
 import { appendLintFeedback, resetMutationCounter } from '../../linter';
-import { adjustDiagramLabels, adjustFlowLabels, centerFlowLabels } from './labels/adjust-labels';
+import { adjustDiagramLabels, centerFlowLabels } from './labels/adjust-labels';
 import {
   applyPixelGridSnap,
   checkDiIntegrity,
@@ -69,11 +69,6 @@ export interface LayoutDiagramArgs {
    * Useful for fixing label overlaps without changing element positions.
    */
   labelsOnly?: boolean;
-  /**
-   * When true, only resize pools and lanes to fit their elements.
-   * No layout is performed.
-   */
-  autosizeOnly?: boolean;
 }
 
 /** Handle labels-only mode: just adjust labels without full layout. */
@@ -81,17 +76,15 @@ async function handleLabelsOnlyMode(diagramId: string): Promise<ToolResult> {
   const diagram = requireDiagram(diagramId);
   const flowLabelsCentered = await centerFlowLabels(diagram);
   const elementLabelsMoved = await adjustDiagramLabels(diagram);
-  const flowLabelsMoved = await adjustFlowLabels(diagram);
-  const totalMoved = flowLabelsCentered + elementLabelsMoved + flowLabelsMoved;
+  const totalMoved = flowLabelsCentered + elementLabelsMoved;
   return jsonResult({
     success: true,
     flowLabelsCentered,
     elementLabelsMoved,
-    flowLabelsMoved,
     totalMoved,
     message:
       totalMoved > 0
-        ? `Adjusted ${totalMoved} label(s) to reduce overlap (${elementLabelsMoved} element, ${flowLabelsMoved} flow)`
+        ? `Adjusted ${totalMoved} label(s) to reduce overlap (${elementLabelsMoved} element labels, ${flowLabelsCentered} flow labels centered)`
         : 'No label adjustments needed \u2014 all labels are well-positioned',
   });
 }
@@ -190,19 +183,18 @@ function buildNextSteps(
         poolIssues
           .map((i) => `${i.containerName} → ${i.recommendedWidth}×${i.recommendedHeight}px`)
           .join(', ') +
-        '. Run layout_bpmn_diagram with autosizeOnly: true to fix automatically, or use move_bpmn_element with width/height for manual control.',
+        '. Run autosize_bpmn_pools_and_lanes to fix automatically, or use move_bpmn_element with width/height for manual control.',
     });
   }
 
   return steps;
 }
 
-/** Run labels adjustment (center flow labels + adjust element/flow labels). */
+/** Run labels adjustment (center flow labels + adjust element labels). */
 async function adjustAllLabels(diagram: DiagramState): Promise<number> {
-  await centerFlowLabels(diagram);
+  const flowLabelsCentered = await centerFlowLabels(diagram);
   const elLabelsMoved = await adjustDiagramLabels(diagram);
-  const flowLabelsMoved = await adjustFlowLabels(diagram);
-  return elLabelsMoved + flowLabelsMoved;
+  return flowLabelsCentered + elLabelsMoved;
 }
 
 /** Auto-resize pools/lanes if needed, returns whether resizing was applied. */
@@ -308,7 +300,6 @@ export async function handleLayoutDiagram(
   context?: ToolContext
 ): Promise<ToolResult> {
   if (args.labelsOnly) return handleLabelsOnlyMode(args.diagramId);
-  if (args.autosizeOnly) return handleAutosizePoolsAndLanes({ diagramId: args.diagramId });
   if (args.dryRun) return handleDryRunLayout(args);
 
   const { diagramId, scopeElementId } = args;

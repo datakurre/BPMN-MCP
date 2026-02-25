@@ -4,7 +4,7 @@
  *
  * Pure functions — no bpmn-js dependency, just math.
  *
- * Extracted from elk/overlap-resolution, elk/crossing-detection,
+ * Extracted from overlap-resolution, crossing-detection,
  * handlers/layout/labels/label-utils, and bpmnlint-plugin rules
  * to eliminate cross-module duplication.
  */

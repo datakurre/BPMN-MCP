@@ -7,7 +7,7 @@
 
 import { type ToolResult } from '../../../types';
 import { validateArgs, requireDiagram, jsonResult } from '../../helpers';
-import { adjustDiagramLabels, adjustFlowLabels, centerFlowLabels } from './adjust-labels';
+import { adjustDiagramLabels, centerFlowLabels } from './adjust-labels';
 
 export interface AdjustLabelsArgs {
   diagramId: string;
@@ -20,18 +20,16 @@ export async function handleAdjustLabels(args: AdjustLabelsArgs): Promise<ToolRe
   // Center flow labels on their connection midpoints first
   const flowLabelsCentered = await centerFlowLabels(diagram);
   const elementLabelsMoved = await adjustDiagramLabels(diagram);
-  const flowLabelsMoved = await adjustFlowLabels(diagram);
-  const totalMoved = flowLabelsCentered + elementLabelsMoved + flowLabelsMoved;
+  const totalMoved = flowLabelsCentered + elementLabelsMoved;
 
   return jsonResult({
     success: true,
     flowLabelsCentered,
     elementLabelsMoved,
-    flowLabelsMoved,
     totalMoved,
     message:
       totalMoved > 0
-        ? `Adjusted ${totalMoved} label(s) to reduce overlap (${elementLabelsMoved} element, ${flowLabelsMoved} flow)`
+        ? `Adjusted ${totalMoved} label(s) to reduce overlap (${elementLabelsMoved} element labels, ${flowLabelsCentered} flow labels centered)`
         : 'No label adjustments needed — all labels are well-positioned',
   });
 }

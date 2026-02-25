@@ -2,10 +2,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { handleLayoutDiagram } from '../../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
-import {
-  adjustDiagramLabels,
-  adjustFlowLabels,
-} from '../../../src/handlers/layout/labels/adjust-labels';
+import { adjustDiagramLabels } from '../../../src/handlers/layout/labels/adjust-labels';
 import { rectsOverlap } from '../../../src/geometry';
 
 describe('adjust_bpmn_labels — dedicated', () => {
@@ -50,25 +47,6 @@ describe('adjust_bpmn_labels — dedicated', () => {
 
     // We just verify the function ran successfully — actual overlap depends on
     // element positions and connection routing in headless mode
-    expect(movedCount).toBeGreaterThanOrEqual(0);
-  });
-
-  test('adjustFlowLabels moves labels away from shapes', async () => {
-    const diagramId = await createDiagram('Flow Label Test');
-
-    const start = await addElement(diagramId, 'bpmn:StartEvent', { x: 100, y: 100 });
-    const task = await addElement(diagramId, 'bpmn:Task', {
-      name: 'Work',
-      x: 250,
-      y: 100,
-    });
-    const end = await addElement(diagramId, 'bpmn:EndEvent', { x: 400, y: 100 });
-
-    await connect(diagramId, start, task, { label: 'Start flow' });
-    await connect(diagramId, task, end);
-
-    const diagram = getDiagram(diagramId)!;
-    const movedCount = await adjustFlowLabels(diagram);
     expect(movedCount).toBeGreaterThanOrEqual(0);
   });
 

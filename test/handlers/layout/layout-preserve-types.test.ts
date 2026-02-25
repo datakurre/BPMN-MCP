@@ -1,7 +1,7 @@
 /**
  * Regression test: layout_bpmn_diagram must preserve element types.
  *
- * Ensures that after a full ELK layout pass, every element's $type
+ * Ensures that after a full layout pass, every element's $type
  * matches its pre-layout type.  Particularly important for boundary events
  * which can lose their type in headless mode.
  */

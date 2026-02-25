@@ -1,5 +1,5 @@
 /**
- * Tests for pool auto-resize after ELK layout.
+ * Tests for pool auto-resize after layout.
  *
  * Verifies that participants are resized to fit their contents
  * after layout — they should NOT stay at their default 600×250.

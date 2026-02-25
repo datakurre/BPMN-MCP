@@ -3,7 +3,7 @@
  *
  * Merged from layout-quality.test.ts and layout-comparison.test.ts.
  *
- * Tests build known BPMN patterns and assert layout properties after ELK:
+ * Tests build known BPMN patterns and assert layout properties after layout:
  * - All flows are strictly orthogonal (no diagonals)
  * - Same-row elements share Y within ±1 px
  * - Flow waypoints have minimal bend count
@@ -565,7 +565,7 @@ describe('Layout quality regression', () => {
     const refY = happyPathY[0];
     for (const y of happyPathY) {
       // Rebuild layout may shift the happy path slightly when branches are
-      // stacked vertically; allow a larger tolerance than the ELK-era 10px.
+      // stacked vertically; allow a larger tolerance than the original 10px.
       expect(Math.abs(y - refY)).toBeLessThanOrEqual(80);
     }
 

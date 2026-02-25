@@ -50,7 +50,7 @@ describe('layout_bpmn_diagram — crossing flow detection', () => {
     const res = parseResult(await handleLayoutDiagram({ diagramId }));
     expect(res.success).toBe(true);
     // crossingFlows should be 0 for a well-laid-out parallel branch
-    // (ELK should separate branches vertically)
+    // (layout should separate branches vertically)
     if (res.crossingFlows !== undefined) {
       expect(typeof res.crossingFlows).toBe('number');
     }

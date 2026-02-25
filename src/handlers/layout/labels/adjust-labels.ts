@@ -15,7 +15,6 @@
  * - `adjustDiagramLabels(diagram)` — adjusts all element labels in a diagram
  * - `adjustElementLabel(diagram, elementId)` — adjusts a single element's label
  * - `centerFlowLabels(diagram)` — centers flow labels on connection midpoints
- * - `adjustFlowLabels(diagram)` — no-op (kept for API compatibility)
  */
 
 import { type DiagramState } from '../../../types';
@@ -236,18 +235,6 @@ export async function centerFlowLabels(diagram: DiagramState): Promise<number> {
 
   if (movedCount > 0) await syncXml(diagram);
   return movedCount;
-}
-
-/**
- * Adjust flow labels — no-op kept for API compatibility.
- *
- * Flow labels are now positioned by `centerFlowLabels()` at the connection
- * midpoint, which is the bpmn-js default. No additional nudging is needed.
- *
- * Returns 0.
- */
-export async function adjustFlowLabels(_diagram: DiagramState): Promise<number> {
-  return 0;
 }
 
 // ── Flow midpoint computation ──────────────────────────────────────────────

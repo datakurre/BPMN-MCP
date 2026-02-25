@@ -2,8 +2,8 @@
  * Lane crossing metrics: compute how many sequence flows cross lane
  * boundaries within participant pools.
  *
- * Extracted from the former ELK crossing-detection module. This is a
- * pure analysis utility that works independently of any layout engine.
+ * Lane crossing analysis utility that works independently of the layout
+ * engine. Used for measuring lane coherence after layout.
  */
 
 import type { BpmnElement, ElementRegistry } from '../../bpmn-types';

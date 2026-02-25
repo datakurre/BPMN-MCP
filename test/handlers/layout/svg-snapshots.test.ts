@@ -2,7 +2,7 @@
  * SVG snapshot generation for visual regression.
  *
  * Imports reference BPMN diagrams from test/fixtures/layout-references/,
- * runs ELK layout, and exports SVGs to `test/fixtures/layout-snapshots/`.
+ * runs layout, and exports SVGs to `test/fixtures/layout-snapshots/`.
  * These serve as visual regression baselines — reviewers can open them
  * in a browser to see the actual layout engine output for the gold-standard
  * reference diagrams.

@@ -11,7 +11,6 @@ export const TOOL_DEFINITION = {
     'Automatically arrange elements in a BPMN diagram using the rebuild-based layout engine, producing a clean left-to-right layout. Handles parallel branches, reconverging gateways, boundary events, subprocesses, pools, lanes, and nested containers. Use this after structural changes (adding gateways, splitting flows) to automatically clean up the layout. ' +
     'Use dryRun to preview changes before applying them. ' +
     'Use labelsOnly: true to only adjust label positions without moving elements. ' +
-    'Use autosizeOnly: true to only resize pools/lanes to fit their elements. ' +
     '**When NOT to use full layout:** If the diagram has carefully positioned elements, custom label placements, or boundary events, full re-layout may reposition them destructively. In such cases, prefer: (1) labelsOnly: true for label cleanup only, (2) move_bpmn_element for targeted repositioning, (3) scopeElementId parameter to re-layout only one participant/subprocess.',
   inputSchema: {
     type: 'object',
@@ -44,12 +43,6 @@ export const TOOL_DEFINITION = {
         description:
           'When true, only adjust labels without performing full layout. ' +
           'Useful for fixing label overlaps after importing diagrams or manual positioning.',
-      },
-      autosizeOnly: {
-        type: 'boolean',
-        description:
-          'When true, only resize pools and lanes to fit their elements. ' +
-          'No layout is performed. Useful after adding or moving elements within pools.',
       },
       expandSubprocesses: {
         type: 'boolean',

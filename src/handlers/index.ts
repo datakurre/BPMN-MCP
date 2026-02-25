@@ -61,10 +61,7 @@ import {
   handleMoveToLane,
   TOOL_DEFINITION as MOVE_ELEMENT_DEF,
 } from './elements/move-element';
-import {
-  handleDuplicateElement,
-  TOOL_DEFINITION as DUPLICATE_ELEMENT_DEF,
-} from './elements/duplicate-element';
+import { handleDuplicateElement } from './elements/duplicate-element';
 import { handleInsertElement } from './elements/insert-element';
 import {
   handleReplaceElement,
@@ -106,7 +103,7 @@ import {
   handleSetLoopCharacteristics,
   TOOL_DEFINITION as SET_LOOP_CHARACTERISTICS_DEF,
 } from './properties/set-loop-characteristics';
-import { handleSetScript, TOOL_DEFINITION as SET_SCRIPT_DEF } from './properties/set-script';
+import { handleSetScript } from './properties/set-script';
 import {
   handleSetCamundaListeners,
   TOOL_DEFINITION as SET_CAMUNDA_LISTENERS_DEF,
@@ -126,10 +123,7 @@ import {
   handleAlignElements,
   TOOL_DEFINITION as ALIGN_ELEMENTS_DEF,
 } from './layout/align-elements';
-import {
-  handleAdjustLabels,
-  TOOL_DEFINITION as ADJUST_LABELS_DEF,
-} from './layout/labels/adjust-labels-handler';
+import { handleAdjustLabels } from './layout/labels/adjust-labels-handler';
 
 // ── Collaboration: pools, root elements ────────────────────────────────────
 
@@ -159,23 +153,14 @@ import {
   handleHandoffToLane,
   TOOL_DEFINITION as HANDOFF_TO_LANE_DEF,
 } from './collaboration/handoff-to-lane';
-import {
-  handleSuggestLaneOrganization,
-  TOOL_DEFINITION as SUGGEST_LANE_ORGANIZATION_DEF,
-} from './collaboration/suggest-lane-organization';
-import {
-  handleValidateLaneOrganization,
-  TOOL_DEFINITION as VALIDATE_LANE_ORGANIZATION_DEF,
-} from './collaboration/validate-lane-organization';
+import { handleSuggestLaneOrganization } from './collaboration/suggest-lane-organization';
+import { handleValidateLaneOrganization } from './collaboration/validate-lane-organization';
 import {
   handleConvertCollaborationToLanes,
   TOOL_DEFINITION as CONVERT_COLLABORATION_TO_LANES_DEF,
 } from './collaboration/convert-collaboration-to-lanes';
 import { handleResizePoolToFit } from './collaboration/resize-pool-to-fit';
-import {
-  handleSuggestPoolVsLanes,
-  TOOL_DEFINITION as SUGGEST_POOL_VS_LANES_DEF,
-} from './collaboration/suggest-pool-vs-lanes';
+import { handleSuggestPoolVsLanes } from './collaboration/suggest-pool-vs-lanes';
 import {
   handleAnalyzeLanes,
   TOOL_DEFINITION as ANALYZE_LANES_DEF,
@@ -236,18 +221,12 @@ const TOOL_REGISTRY: ToolRegistration[] = [
   { definition: LIST_PROCESS_VARIABLES_DEF, handler: handleListProcessVariables },
   { definition: CLONE_DIAGRAM_DEF, handler: handleCloneDiagram },
   { definition: DIFF_DIAGRAMS_DEF, handler: handleDiffDiagrams },
-  { definition: DUPLICATE_ELEMENT_DEF, handler: handleDuplicateElement },
   { definition: ADD_ELEMENT_CHAIN_DEF, handler: handleAddElementChain },
   { definition: SET_CONNECTION_WAYPOINTS_DEF, handler: handleSetConnectionWaypoints },
-  { definition: SET_SCRIPT_DEF, handler: handleSetScript },
-  { definition: ADJUST_LABELS_DEF, handler: handleAdjustLabels },
   { definition: ASSIGN_ELEMENTS_TO_LANE_DEF, handler: handleAssignElementsToLane },
   { definition: WRAP_PROCESS_IN_COLLABORATION_DEF, handler: handleWrapProcessInCollaboration },
   { definition: HANDOFF_TO_LANE_DEF, handler: handleHandoffToLane },
-  { definition: SUGGEST_LANE_ORGANIZATION_DEF, handler: handleSuggestLaneOrganization },
-  { definition: VALIDATE_LANE_ORGANIZATION_DEF, handler: handleValidateLaneOrganization },
   { definition: CONVERT_COLLABORATION_TO_LANES_DEF, handler: handleConvertCollaborationToLanes },
-  { definition: SUGGEST_POOL_VS_LANES_DEF, handler: handleSuggestPoolVsLanes },
   { definition: AUTOSIZE_POOLS_AND_LANES_DEF, handler: handleAutosizePoolsAndLanes },
 ];
 
@@ -266,9 +245,6 @@ const READONLY_TOOLS = new Set([
   'get_bpmn_element_properties',
   'analyze_bpmn_lanes',
   'diff_bpmn_diagrams',
-  'suggest_bpmn_lane_organization',
-  'suggest_bpmn_pool_vs_lanes',
-  'validate_bpmn_lane_organization',
 ]);
 
 /** Property definition for `_clientRequestId` injected into mutating tools. */

@@ -2,7 +2,7 @@
  * Tests for F2: Multi-row lane content height.
  *
  * Verifies that when a lane contains elements on multiple rows
- * (e.g. a large subprocess and a task stacked vertically by ELK),
+ * (e.g. a large subprocess and a task stacked vertically by the layout engine),
  * the lane band height is computed from the actual Y-span rather than
  * just the tallest single element.
  *

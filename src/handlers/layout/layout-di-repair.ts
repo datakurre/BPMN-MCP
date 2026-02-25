@@ -33,7 +33,7 @@ const VISUAL_ELEMENT_TYPES = new Set([
   'bpmn:IntermediateCatchEvent',
   'bpmn:IntermediateThrowEvent',
   'bpmn:BoundaryEvent',
-  // Artifacts — excluded from ELK but need DI shapes
+  // Artifacts — not part of flow but need DI shapes
   'bpmn:TextAnnotation',
   'bpmn:DataObjectReference',
   'bpmn:DataStoreReference',

@@ -66,7 +66,7 @@ interface DiagramConfig {
 }
 
 const DIAGRAMS: DiagramConfig[] = [
-  // References generated with ELK layout engine; rebuild engine produces
+  // References generated with layout engine; rebuild engine produces
   // different but valid positions.  Thresholds reflect rebuild match rates.
   { name: '01-linear-flow', tolerance: 10, minMatchRate: 0.5 },
   { name: '02-exclusive-gateway', tolerance: 25, minMatchRate: 0.35 },

@@ -4,7 +4,7 @@
  * Merged from layout-reference.test.ts and layout-references.test.ts.
  *
  * Imports reference BPMN diagrams from test/fixtures/layout-references/,
- * runs ELK layout, and validates:
+ * runs layout, and validates:
  * - All connections are strictly orthogonal (no diagonals)
  * - No element overlaps
  * - Elements have valid positions

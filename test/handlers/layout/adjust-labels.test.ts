@@ -22,10 +22,8 @@ describe('adjust_bpmn_labels', () => {
     const res = parseResult(await handleAdjustLabels({ diagramId }));
 
     expect(res).toHaveProperty('elementLabelsMoved');
-    expect(res).toHaveProperty('flowLabelsMoved');
     expect(res).toHaveProperty('totalMoved');
     expect(typeof res.elementLabelsMoved).toBe('number');
-    expect(typeof res.flowLabelsMoved).toBe('number');
   });
 
   test('handles diagram with named gateway', async () => {

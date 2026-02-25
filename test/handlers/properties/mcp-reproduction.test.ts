@@ -2,7 +2,7 @@
  * MCP Reproduction Tests.
  *
  * For each reference BPMN in test/fixtures/layout-references/, this test builds
- * the same diagram from scratch using MCP handler functions, runs ELK layout,
+ * the same diagram from scratch using MCP handler functions, runs layout,
  * and compares the result structurally against the reference. Element IDs will
  * differ — assertions match by name lookup instead.
  *

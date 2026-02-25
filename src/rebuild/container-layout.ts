@@ -17,7 +17,7 @@ import type { RebuildResult } from './engine';
 
 /**
  * Gap (px) between host task bottom edge and exception chain element
- * top edge.  Matches ELK_BOUNDARY_NODE_SPACING from constants.ts.
+ * top edge.  Matches BOUNDARY_GAP spacing constant.
  */
 const BOUNDARY_GAP = 40;
 

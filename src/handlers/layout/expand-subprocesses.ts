@@ -4,8 +4,8 @@
  * When importing BPMN XML without DI (diagram interchange), `bpmn-auto-layout`
  * generates collapsed subprocess DI (separate BPMNPlane per subprocess) rather
  * than expanded inline DI.  This helper detects such subprocesses and uses
- * `bpmnReplace` to convert them to expanded mode so ELK can lay out their
- * children inline on the main plane.
+ * `bpmnReplace` to convert them to expanded mode so the layout engine can
+ * arrange their children inline on the main plane.
  */
 
 import { getService } from '../helpers';

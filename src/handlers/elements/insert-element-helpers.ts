@@ -118,7 +118,7 @@ export function buildInsertResult(opts: {
   // Incremental insert now handles element shift, reconnection, and label
   // adjustment inline (C1-1/C1-2/C1-4), so a full re-layout is not always
   // required.  Callers may still run layout_bpmn_diagram for complex diagrams
-  // where ELK produces cleaner routes than the incremental approach.
+  // where a full layout produces cleaner routes than the incremental approach.
   if (opts.shiftApplied > 0) {
     data.shiftApplied = opts.shiftApplied;
     data.shiftNote = 'Downstream elements shifted right to make space';

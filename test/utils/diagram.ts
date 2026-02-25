@@ -97,7 +97,7 @@ export async function importReference(name: string) {
 }
 
 /**
- * Import a reference BPMN, run ELK layout, and return the registry.
+ * Import a reference BPMN, run layout, and return the registry.
  * Convenience for tests that need layout results against a reference.
  */
 export async function importAndLayout(name: string) {

@@ -1,10 +1,10 @@
 /**
- * Integration test for loop-back patterns in ELK layout.
+ * Integration test for loop-back patterns in layout.
  *
  * Validates that diagrams containing cycles (loop-back edges) maintain
- * left-to-right directionality for the main path after ELK layout.
+ * left-to-right directionality for the main path after layout.
  *
- * Covers Root Cause 4: Cycles (Loops) Degrade ELK Layering Quality.
+ * Covers: Cycles (Loops) and their impact on layering quality.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
