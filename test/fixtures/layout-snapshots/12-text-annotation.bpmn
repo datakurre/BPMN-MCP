@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.44.0">
   <bpmn:process id="Process_Artifact_Test" name="Artifact Test" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_Start" name="Start">
       <bpmn:outgoing>Flow_11t9fl7</bpmn:outgoing>
@@ -18,7 +18,7 @@
     <bpmn:sequenceFlow id="Flow_10kg7q9" sourceRef="UserTask_ReviewApplication" targetRef="EndEvent_Done" />
     <bpmn:dataObjectReference id="DataObject_ApplicationData" name="Application Data" dataObjectRef="DataObject_0tgjcvy" />
     <bpmn:dataObject id="DataObject_0tgjcvy" />
-    <bpmn:textAnnotation id="Annotation_SLA24hReviewTime" name="SLA: 24h review time">
+    <bpmn:textAnnotation id="Annotation_SLA24hReviewTime">
       <bpmn:text>SLA: 24h review time</bpmn:text>
     </bpmn:textAnnotation>
     <bpmn:association id="Association_1jt5afs" associationDirection="None" sourceRef="UserTask_ReviewApplication" targetRef="Annotation_SLA24hReviewTime" />
@@ -56,10 +56,8 @@
         <di:waypoint x="342" y="280" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_11t9fl7_di" bpmnElement="Flow_11t9fl7">
-        <di:waypoint x="180" y="182" />
-        <di:waypoint x="180" y="40" />
-        <di:waypoint x="298" y="40" />
-        <di:waypoint x="298" y="160" />
+        <di:waypoint x="198" y="200" />
+        <di:waypoint x="248" y="200" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_10kg7q9_di" bpmnElement="Flow_10kg7q9">
         <di:waypoint x="348" y="200" />

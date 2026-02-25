@@ -256,7 +256,7 @@
       <bpmndi:BPMNShape id="StartEvent_RegistrationStarted_di" bpmnElement="StartEvent_RegistrationStarted">
         <dc:Bounds x="162" y="182" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="149" y="215" width="62" height="27" />
+          <dc:Bounds x="151" y="225" width="59" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_FillRegistrationForm_di" bpmnElement="UserTask_FillRegistrationForm">
@@ -270,7 +270,7 @@
       <bpmndi:BPMNShape id="Gateway_RegistrationType_di" bpmnElement="Gateway_RegistrationType" isMarkerVisible="true">
         <dc:Bounds x="548" y="175" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="542" y="222" width="62" height="27" />
+          <dc:Bounds x="624" y="190" width="59" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_SelectSessions_di" bpmnElement="UserTask_SelectSessions">
@@ -309,43 +309,43 @@
       <bpmndi:BPMNShape id="Gateway_PaymentSuccessful_di" bpmnElement="Gateway_PaymentSuccessful" isMarkerVisible="true">
         <dc:Bounds x="1548" y="175" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1543" y="222" width="60" height="27" />
+          <dc:Bounds x="1623" y="190" width="60" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_RegistrationComplete_di" bpmnElement="EndEvent_RegistrationComplete">
         <dc:Bounds x="1648" y="117" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1635" y="150" width="62" height="27" />
+          <dc:Bounds x="1637" y="160" width="59" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_RegistrationFailed_di" bpmnElement="EndEvent_RegistrationFailed">
         <dc:Bounds x="1648" y="247" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1635" y="280" width="62" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_PaymentError_di" bpmnElement="Event_PaymentError">
-        <dc:Bounds x="1430" y="222" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1349" y="233" width="71" height="14" />
+          <dc:Bounds x="1637" y="290" width="59" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_PaymentErrorOccurred_di" bpmnElement="EndEvent_PaymentErrorOccurred">
         <dc:Bounds x="1516" y="280" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1497" y="313" width="74" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_2Hours_di" bpmnElement="Event_2Hours">
-        <dc:Bounds x="1280" y="222" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1233" y="233" width="37" height="14" />
+          <dc:Bounds x="1498" y="323" width="72" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_RegistrationExpired_di" bpmnElement="EndEvent_RegistrationExpired">
         <dc:Bounds x="1366" y="280" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1353" y="313" width="62" height="27" />
+          <dc:Bounds x="1355" y="323" width="59" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_2Hours_di" bpmnElement="Event_2Hours">
+        <dc:Bounds x="1280" y="222" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1280" y="265" width="37" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_PaymentError_di" bpmnElement="Event_PaymentError">
+        <dc:Bounds x="1430" y="222" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1412" y="265" width="72" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0dg5vts_di" bpmnElement="Flow_RegistrationStarted_to_FillRegistrationForm">
@@ -365,7 +365,7 @@
         <di:waypoint x="573" y="135" />
         <di:waypoint x="648" y="135" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="568" y="128" width="45" height="14" />
+          <dc:Bounds x="566" y="152" width="45" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_06b4eru_di" bpmnElement="Flow_VIP">
@@ -373,7 +373,7 @@
         <di:waypoint x="573" y="265" />
         <di:waypoint x="648" y="265" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="582" y="258" width="18" height="14" />
+          <dc:Bounds x="579" y="242" width="18" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_19kwxrt_di" bpmnElement="Flow_bshn88h">
@@ -427,7 +427,7 @@
         <di:waypoint x="1573" y="135" />
         <di:waypoint x="1648" y="135" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1581" y="128" width="19" height="14" />
+          <dc:Bounds x="1579" y="152" width="18" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1b0curb_di" bpmnElement="Flow_No">
@@ -435,7 +435,7 @@
         <di:waypoint x="1573" y="265" />
         <di:waypoint x="1648" y="265" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1583" y="258" width="15" height="14" />
+          <dc:Bounds x="1581" y="242" width="15" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0cl91ul_di" bpmnElement="Flow_0cl91ul">

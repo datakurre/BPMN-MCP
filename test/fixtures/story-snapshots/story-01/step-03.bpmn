@@ -1,45 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.44.0">
   <bpmn:process id="Process_Order_Processing" name="Order Processing" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_OrderReceived" name="Order Received">
-      <bpmn:extensionElements>
-        <camunda:formData>
-          <camunda:formField id="orderId" label="Order ID" type="string">
-            <camunda:validation>
-              <camunda:constraint name="required" />
-            </camunda:validation>
-          </camunda:formField>
-          <camunda:formField id="quantity" label="Quantity" type="long">
-            <camunda:validation>
-              <camunda:constraint name="min" config="1" />
-            </camunda:validation>
-          </camunda:formField>
-          <camunda:formField id="priority" label="Priority" type="enum" defaultValue="medium">
-            <camunda:value id="low" name="Low" />
-            <camunda:value id="medium" name="Medium" />
-            <camunda:value id="high" name="High" />
-          </camunda:formField>
-        </camunda:formData>
-      </bpmn:extensionElements>
       <bpmn:outgoing>Flow_0thlrrd</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:userTask id="UserTask_ReviewOrder" name="Review Order" camunda:formKey="embedded:app:forms/review.html" camunda:assignee="reviewer">
+    <bpmn:userTask id="UserTask_ReviewOrder" name="Review Order">
       <bpmn:incoming>Flow_0thlrrd</bpmn:incoming>
       <bpmn:outgoing>Flow_ReviewOrder_to_OrderValid</bpmn:outgoing>
     </bpmn:userTask>
     <bpmn:sequenceFlow id="Flow_0thlrrd" sourceRef="StartEvent_OrderReceived" targetRef="UserTask_ReviewOrder" />
-    <bpmn:serviceTask id="ServiceTask_CheckInventory" name="Check Inventory" camunda:class="com.example.CheckInventory">
-      <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:inputParameter name="orderId">${orderId}</camunda:inputParameter>
-          <camunda:inputParameter name="qty">${quantity}</camunda:inputParameter>
-          <camunda:outputParameter name="inventoryOk">${available}</camunda:outputParameter>
-        </camunda:inputOutput>
-      </bpmn:extensionElements>
+    <bpmn:serviceTask id="ServiceTask_CheckInventory" name="Check Inventory">
       <bpmn:incoming>Flow_OrderValid_to_CheckInventory</bpmn:incoming>
       <bpmn:outgoing>Flow_0gu7lyi</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:userTask id="UserTask_ConfirmOrder" name="Confirm Order" camunda:candidateGroups="managers">
+    <bpmn:userTask id="UserTask_ConfirmOrder" name="Confirm Order">
       <bpmn:incoming>Flow_0gu7lyi</bpmn:incoming>
       <bpmn:outgoing>Flow_00y1hgo</bpmn:outgoing>
     </bpmn:userTask>
@@ -70,81 +44,79 @@
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Order_Processing">
       <bpmndi:BPMNShape id="StartEvent_OrderReceived_di" bpmnElement="StartEvent_OrderReceived">
-        <dc:Bounds x="162" y="182" width="36" height="36" />
+        <dc:Bounds x="162" y="112" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="141" y="221" width="78" height="14" />
+          <dc:Bounds x="142" y="151" width="77" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_ReviewOrder_di" bpmnElement="UserTask_ReviewOrder">
-        <dc:Bounds x="248" y="160" width="100" height="80" />
+        <dc:Bounds x="248" y="90" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ServiceTask_CheckInventory_di" bpmnElement="ServiceTask_CheckInventory">
-        <dc:Bounds x="508" y="160" width="100" height="80" />
+        <dc:Bounds x="508" y="90" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_ConfirmOrder_di" bpmnElement="UserTask_ConfirmOrder">
-        <dc:Bounds x="658" y="160" width="100" height="80" />
+        <dc:Bounds x="658" y="90" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_OrderCompleted_di" bpmnElement="EndEvent_OrderCompleted">
-        <dc:Bounds x="808" y="182" width="36" height="36" />
+        <dc:Bounds x="808" y="112" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="784" y="221" width="85" height="14" />
+          <dc:Bounds x="784" y="151" width="85" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_OrderValid_di" bpmnElement="Gateway_OrderValid" isMarkerVisible="true">
-        <dc:Bounds x="403" y="175" width="50" height="50" />
+        <dc:Bounds x="403" y="105" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="397" y="151" width="62" height="14" />
+          <dc:Bounds x="398" y="81" width="61" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="UserTask_HandleRejection_di" bpmnElement="UserTask_HandleRejection">
-        <dc:Bounds x="510" y="270" width="100" height="80" />
+        <dc:Bounds x="510" y="200" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_OrderRejected_di" bpmnElement="EndEvent_OrderRejected">
-        <dc:Bounds x="662" y="292" width="36" height="36" />
+        <dc:Bounds x="662" y="222" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="643" y="335" width="75" height="14" />
+          <dc:Bounds x="643" y="265" width="75" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0thlrrd_di" bpmnElement="Flow_0thlrrd">
-        <di:waypoint x="198" y="200" />
-        <di:waypoint x="248" y="200" />
+        <di:waypoint x="198" y="130" />
+        <di:waypoint x="248" y="130" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0gu7lyi_di" bpmnElement="Flow_0gu7lyi">
-        <di:waypoint x="608" y="200" />
-        <di:waypoint x="658" y="200" />
+        <di:waypoint x="608" y="130" />
+        <di:waypoint x="658" y="130" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_00y1hgo_di" bpmnElement="Flow_00y1hgo">
-        <di:waypoint x="708" y="160" />
-        <di:waypoint x="708" y="140" />
-        <di:waypoint x="826" y="140" />
-        <di:waypoint x="826" y="182" />
+        <di:waypoint x="758" y="130" />
+        <di:waypoint x="808" y="130" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_04u70co_di" bpmnElement="Flow_ReviewOrder_to_OrderValid">
-        <di:waypoint x="348" y="200" />
-        <di:waypoint x="403" y="200" />
+        <di:waypoint x="348" y="130" />
+        <di:waypoint x="403" y="130" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_12zfdin_di" bpmnElement="Flow_OrderValid_to_CheckInventory">
-        <di:waypoint x="453" y="200" />
-        <di:waypoint x="508" y="200" />
+        <di:waypoint x="453" y="130" />
+        <di:waypoint x="508" y="130" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="471" y="182" width="19" height="14" />
+          <dc:Bounds x="472" y="112" width="18" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1kqgcwc_di" bpmnElement="Flow_No">
-        <di:waypoint x="428" y="225" />
-        <di:waypoint x="428" y="310" />
-        <di:waypoint x="510" y="310" />
+        <di:waypoint x="428" y="155" />
+        <di:waypoint x="428" y="240" />
+        <di:waypoint x="510" y="240" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="436" y="265" width="15" height="14" />
+          <dc:Bounds x="436" y="195" width="15" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1n4j748_di" bpmnElement="Flow_HandleRejection_to_OrderRejected">
-        <di:waypoint x="610" y="310" />
-        <di:waypoint x="662" y="310" />
+        <di:waypoint x="610" y="240" />
+        <di:waypoint x="662" y="240" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
