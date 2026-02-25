@@ -127,14 +127,6 @@ export const TOOL_DEFINITION = {
           "'absolute' = use exact x/y coordinates with no collision avoidance, " +
           "'insert' = insert into existing flow (requires flowId).",
       },
-      collisionPolicy: {
-        type: 'string',
-        enum: ['shift', 'none'],
-        description:
-          'Control collision avoidance behavior: ' +
-          "'shift' = shift right until no overlap (default for auto placement), " +
-          "'none' = no collision avoidance (elements may overlap).",
-      },
       eventDefinitionType: {
         type: 'string',
         enum: [
@@ -214,13 +206,6 @@ export const TOOL_DEFINITION = {
       copyOffsetY: {
         type: 'number',
         description: 'Vertical offset from the original when using copyFrom (default: 50).',
-      },
-      autoLayout: {
-        type: 'boolean',
-        default: false,
-        description:
-          'When true, run layout_bpmn_diagram automatically after adding the element. ' +
-          'Useful after the final element in an incremental build sequence. Default: false.',
       },
     },
     required: ['diagramId', 'elementType'],

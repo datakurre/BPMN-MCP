@@ -14,7 +14,6 @@ import {
 } from '../helpers';
 import { getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
-import { handleLayoutDiagram } from '../layout/layout-diagram';
 import { resizeParentContainers } from './add-element-helpers';
 import {
   applyEventDefinitionShorthand,
@@ -185,8 +184,6 @@ export async function handleAutoPlaceAdd(
     createdElementId: createdElement.id,
     elementRegistry,
   });
-
-  if (args.autoLayout) await handleLayoutDiagram({ diagramId });
 
   const result = buildAddElementResult({
     createdElement,

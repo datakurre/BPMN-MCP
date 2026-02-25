@@ -29,22 +29,6 @@ describe('add_bpmn_element placement and collision controls', () => {
     expect(res.position.y).toBe(100);
   });
 
-  test('collisionPolicy "none" allows overlapping elements', async () => {
-    const diagramId = await createDiagram();
-    await addElement(diagramId, 'bpmn:Task', { name: 'First' });
-
-    // Add second element with collision avoidance disabled
-    const res = parseResult(
-      await handleAddElement({
-        diagramId,
-        elementType: 'bpmn:Task',
-        name: 'Second',
-        collisionPolicy: 'none',
-      })
-    );
-    expect(res.success).toBe(true);
-  });
-
   test('placementStrategy "after" requires afterElementId', async () => {
     const diagramId = await createDiagram();
     await expect(

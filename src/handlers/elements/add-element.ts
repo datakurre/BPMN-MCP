@@ -17,7 +17,6 @@ import {
 import { getElementSize } from '../../constants';
 import { appendLintFeedback } from '../../linter';
 import { handleInsertElement } from './insert-element';
-import { handleLayoutDiagram } from '../layout/layout-diagram';
 import { handleDuplicateElement } from './duplicate-element';
 import { snapToLane, createAndPlaceElement } from './add-element-helpers';
 import { handleAutoPlaceAdd, assignToLaneFlowNodeRef } from './add-element-autoplace';
@@ -58,12 +57,6 @@ export interface AddElementArgs {
    * - 'insert': insert into existing flow (requires flowId)
    */
   placementStrategy?: 'auto' | 'after' | 'absolute' | 'insert';
-  /**
-   * Control collision avoidance behavior:
-   * - 'shift': shift right until no overlap (default for 'auto')
-   * - 'none': no collision avoidance (elements may overlap)
-   */
-  collisionPolicy?: 'shift' | 'none';
   /** Boundary event shorthand: set event definition type in one call. */
   eventDefinitionType?: string;
   /** Boundary event shorthand: event definition properties (timer, condition, etc.). */
@@ -82,12 +75,6 @@ export interface AddElementArgs {
   copyOffsetX?: number;
   /** Offset for copyFrom duplication (default: 50). */
   copyOffsetY?: number;
-  /**
-   * When true, run layout_bpmn_diagram automatically after adding the element.
-   * Useful after the final element in an incremental build sequence.
-   * Default: false.
-   */
-  autoLayout?: boolean;
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
@@ -329,10 +316,6 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     createdElementId: createdElement.id,
     elementRegistry,
   });
-
-  if (args.autoLayout) {
-    await handleLayoutDiagram({ diagramId });
-  }
 
   const result = buildAddElementResult({
     createdElement,

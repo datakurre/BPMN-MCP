@@ -102,7 +102,6 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
       participantId: el.participantId || args.participantId,
       laneId: el.laneId || args.laneId,
       ...(previousId ? { afterElementId: previousId } : {}),
-      autoLayout: false,
     });
 
     const parsed = JSON.parse(addResult.content[0].text);

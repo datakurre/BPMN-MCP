@@ -117,7 +117,7 @@ In Camunda 7, only one pool is executable; additional pools are
 collapsed to document message endpoints.
 
 ```
-1. create_bpmn_collaboration  → {
+1. create_bpmn_participant   → {
      participants: [
        { name: "Order Service", collapsed: false, width: 800 },
        { name: "Payment Provider", collapsed: true }
@@ -308,7 +308,7 @@ to control which lane the new element lands in.
 
 ```
 1. list_bpmn_elements          → find the flow ID and lane IDs
-2. insert_bpmn_element         → { flowId: "<flowId>",
+2. add_bpmn_element            → { flowId: "<flowId>",
                                     elementType: "bpmn:IntermediateCatchEvent",
                                     name: "Wait for Approval",
                                     laneId: "<approverLaneId>" }

@@ -56,13 +56,13 @@ See [docs/modeling-best-practices.md](docs/modeling-best-practices.md) for full 
 For best results, follow this recommended workflow after structural changes:
 
 1. **Build structure** — `add_bpmn_element` / `connect_bpmn_elements` to create the flow.
-2. **Auto-layout** — `layout_bpmn_diagram` to arrange elements (use `elementIds` for partial re-layout, `scopeElementId` to scope to a pool/subprocess).
+2. **Auto-layout** — `layout_bpmn_diagram` to arrange elements (use `scopeElementId` to scope to a pool/subprocess).
 3. **Fine-tune** — `align_bpmn_elements` for alignment (with `compact=true` or `orientation` for distribution).
-4. **Fix labels** — `adjust_bpmn_labels` to resolve label overlaps.
+4. **Fix labels** — `layout_bpmn_diagram` with `labelsOnly: true` to resolve label overlaps.
 
 No separate "repair layout" tool is needed — chain these existing tools for fine-grained control.
 
-## Available Tools (45)
+## Available Tools (39)
 
 ### Core BPMN Tools
 
@@ -75,7 +75,6 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 | `delete_bpmn_element`           | Remove an element or connection                                      |
 | `move_bpmn_element`             | Move, resize, or reassign an element to a lane                       |
 | `replace_bpmn_element`          | Replace an element's type preserving connections and position        |
-| `duplicate_bpmn_element`        | Duplicate an existing element within the same diagram                |
 | `set_bpmn_connection_waypoints` | Set custom waypoints on a connection for manual routing              |
 | `list_bpmn_elements`            | List elements with filters (name pattern, type, property)            |
 | `get_bpmn_element_properties`   | Inspect all properties of an element                                 |
@@ -86,11 +85,10 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 
 ### Layout & Alignment Tools
 
-| Tool                  | Description                                               |
-| --------------------- | --------------------------------------------------------- |
-| `layout_bpmn_diagram` | Auto-layout using ELK layered algorithm                   |
-| `align_bpmn_elements` | Align or distribute elements (with optional compaction)   |
-| `adjust_bpmn_labels`  | Adjust external labels to reduce overlap with connections |
+| Tool                  | Description                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| `layout_bpmn_diagram` | Auto-layout using rebuild engine (labelsOnly mode available) |
+| `align_bpmn_elements` | Align or distribute elements (with optional compaction)      |
 
 ### Camunda 7 / Operaton Tools
 
@@ -102,7 +100,6 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 | `set_bpmn_form_data`               | Configure generated task forms (Camunda FormData)   |
 | `set_bpmn_camunda_listeners`       | Set listeners and error handling on elements        |
 | `set_bpmn_loop_characteristics`    | Configure loop/multi-instance markers               |
-| `set_bpmn_script`                  | Set inline script content on ScriptTask elements    |
 | `set_bpmn_call_activity_variables` | Set variable mappings on CallActivity elements      |
 
 ### Collaboration Tools
@@ -116,10 +113,7 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 | `handoff_bpmn_to_lane`                    | Create a cross-lane handoff with auto-connection             |
 | `convert_bpmn_collaboration_to_lanes`     | Convert multi-pool collaboration into single pool with lanes |
 | `autosize_bpmn_pools_and_lanes`           | Resize pools and lanes to fit contained elements             |
-| `suggest_bpmn_lane_organization`          | Suggest optimal lane assignments for process elements        |
-| `analyze_bpmn_lanes`                      | Analyze and validate existing lane assignments               |
-| `validate_bpmn_lane_organization`         | Check for lane organization issues and coherence score       |
-| `suggest_bpmn_pool_vs_lanes`              | Recommend pools vs lanes based on diagram structure          |
+| `analyze_bpmn_lanes`                      | Analyze, suggest, and validate lane assignments              |
 | `redistribute_bpmn_elements_across_lanes` | Rebalance element placement across existing lanes            |
 
 ### Utility Tools
