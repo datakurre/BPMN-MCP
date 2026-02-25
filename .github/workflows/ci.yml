@@ -42,9 +42,6 @@ jobs:
   layout-regression:
     name: Layout Regression Gate
     runs-on: ubuntu-latest
-    # Non-blocking on PRs until thresholds are stable (I7-7).
-    # Set continue-on-error: false when ready to enforce.
-    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -59,14 +56,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run layout comparison tests
-        run: npm test -- test/handlers/layout/svg-comparison.test.ts test/handlers/core/bpmn-comparison.test.ts
+      - name: Build
+        run: npm run build
 
-      - name: Run crossing reduction tests
-        run: npm test -- test/handlers/layout/crossing-reduction.test.ts
+      - name: Report bundle size
+        run: |
+          size=$(wc -c < dist/index.js)
+          echo "Bundle size: $(numfmt --to=iec-i --suffix=B $size) ($size bytes)"
 
-      - name: Run grid quantum tests
-        run: npm test -- test/handlers/layout/grid-quantum.test.ts
+      - name: Run layout reference tests
+        run: npm test -- test/handlers/layout/reference-layout.test.ts test/handlers/layout/reference-snapshots.test.ts
+
+      - name: Run layout regression tests
+        run: npm test -- test/handlers/layout/layout-quality.test.ts test/handlers/layout/layout-patterns.test.ts test/handlers/core/bpmn-comparison.test.ts
 
       - name: Run lane layout tests
-        run: npm test -- test/handlers/layout/lane-layout.test.ts test/handlers/layout/lane-edge-routing.test.ts
+        run: npm test -- test/handlers/layout/lane-layout.test.ts
