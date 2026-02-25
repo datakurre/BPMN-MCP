@@ -77,7 +77,7 @@ Modular `src/` layout, communicates over **stdio** using the MCP SDK. See [`docs
 - **History tools:** `bpmn_history`, `diff_bpmn_diagrams`
 - **Batch tools:** `batch_bpmn_operations`
 - **Utility tools:** `delete_bpmn_diagram`, `list_bpmn_diagrams` (includes diagram summary via `diagramId`), `list_bpmn_process_variables`, `clone_bpmn_diagram`, `layout_bpmn_diagram`, `add_bpmn_element_chain`
-- **Internal-only handlers (not registered as MCP tools):** `handleCreateCollaboration`, `handleInsertElement`, `handleSplitParticipantIntoLanes`, `handleResizePoolToFit`, `handleOptimizeLaneAssignments`, `handleSummarizeDiagram`, `handleDuplicateElement`, `handleSetScript`, `handleAdjustLabels`, `handleSuggestLaneOrganization`, `handleValidateLaneOrganization`, `handleSuggestPoolVsLanes`
+- **Internal-only handlers (not registered as MCP tools):** `handleCreateCollaboration`, `handleInsertElement`, `handleSplitParticipantIntoLanes`, `handleSummarizeDiagram`, `handleDuplicateElement`, `handleSetScript`, `handleAdjustLabels`, `handleSuggestLaneOrganization`, `handleValidateLaneOrganization`, `handleSuggestPoolVsLanes`
 
 ## Build & Run
 

@@ -159,7 +159,7 @@ import {
   handleConvertCollaborationToLanes,
   TOOL_DEFINITION as CONVERT_COLLABORATION_TO_LANES_DEF,
 } from './collaboration/convert-collaboration-to-lanes';
-import { handleResizePoolToFit } from './collaboration/resize-pool-to-fit';
+
 import { handleSuggestPoolVsLanes } from './collaboration/suggest-pool-vs-lanes';
 import {
   handleAnalyzeLanes,
@@ -173,7 +173,6 @@ import {
   handleAutosizePoolsAndLanes,
   TOOL_DEFINITION as AUTOSIZE_POOLS_AND_LANES_DEF,
 } from './collaboration/autosize-pools-and-lanes';
-import { handleOptimizeLaneAssignments } from './collaboration/optimize-lane-assignments';
 
 // ── Unified tool registry ──────────────────────────────────────────────────
 //
@@ -413,11 +412,9 @@ export {
   handleSuggestLaneOrganization,
   handleValidateLaneOrganization,
   handleConvertCollaborationToLanes,
-  handleResizePoolToFit,
   handleSuggestPoolVsLanes,
   handleRedistributeElementsAcrossLanes,
   handleAutosizePoolsAndLanes,
-  handleOptimizeLaneAssignments,
   handleSummarizeDiagram,
   handleListProcessVariables,
   handleSetConnectionWaypoints,

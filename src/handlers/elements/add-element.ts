@@ -49,14 +49,6 @@ export interface AddElementArgs {
   parentId?: string;
   /** When true, reject creation if another element with the same type and name already exists. Default: false. */
   ensureUnique?: boolean;
-  /**
-   * Clarify positioning intent:
-   * - 'auto': default placement with collision avoidance (default)
-   * - 'after': position after afterElementId (requires afterElementId)
-   * - 'absolute': use exact x/y coordinates, no collision avoidance
-   * - 'insert': insert into existing flow (requires flowId)
-   */
-  placementStrategy?: 'auto' | 'after' | 'absolute' | 'insert';
   /** Boundary event shorthand: set event definition type in one call. */
   eventDefinitionType?: string;
   /** Boundary event shorthand: event definition properties (timer, condition, etc.). */
@@ -71,10 +63,6 @@ export interface AddElementArgs {
   escalationRef?: { id: string; name?: string; escalationCode?: string };
   /** Duplicate an existing element: copies its type, name, and camunda properties. */
   copyFrom?: string;
-  /** Offset for copyFrom duplication (default: 50). */
-  copyOffsetX?: number;
-  /** Offset for copyFrom duplication (default: 50). */
-  copyOffsetY?: number;
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
@@ -89,8 +77,6 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     return handleDuplicateElement({
       diagramId: args.diagramId,
       elementId: args.copyFrom,
-      offsetX: args.copyOffsetX,
-      offsetY: args.copyOffsetY,
     });
   }
 
@@ -122,20 +108,6 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
       'bpmn:IntermediateCatchEvent',
       'bpmn:IntermediateThrowEvent',
       'bpmn:BoundaryEvent',
-    ]);
-  }
-
-  // Validate placementStrategy consistency
-  if (args.placementStrategy === 'after' && !args.afterElementId) {
-    throw illegalCombinationError('placementStrategy "after" requires afterElementId to be set.', [
-      'placementStrategy',
-      'afterElementId',
-    ]);
-  }
-  if (args.placementStrategy === 'insert' && !args.flowId) {
-    throw illegalCombinationError('placementStrategy "insert" requires flowId to be set.', [
-      'placementStrategy',
-      'flowId',
     ]);
   }
 
