@@ -7,7 +7,7 @@ import { listPrompts, getPrompt } from '../src/prompts';
 describe('listPrompts', () => {
   test('returns all prompt definitions', () => {
     const prompts = listPrompts();
-    expect(prompts.length).toBeGreaterThanOrEqual(7);
+    expect(prompts.length).toBeGreaterThanOrEqual(9);
     const names = prompts.map((p) => p.name);
     expect(names).toContain('create-executable-process');
     expect(names).toContain('convert-to-collaboration');
@@ -16,6 +16,8 @@ describe('listPrompts', () => {
     expect(names).toContain('add-error-handling-pattern');
     expect(names).toContain('add-parallel-tasks-pattern');
     expect(names).toContain('create-lane-based-process');
+    expect(names).toContain('add-subprocess-pattern');
+    expect(names).toContain('add-message-exchange-pattern');
   });
 
   test('each prompt has name, title, and description', () => {
@@ -110,5 +112,29 @@ describe('getPrompt', () => {
   test('uses defaults for missing arguments', () => {
     const result = getPrompt('create-executable-process', {});
     expect(result.messages[0].content.text).toContain('My Process');
+  });
+
+  test('returns messages for add-subprocess-pattern', () => {
+    const result = getPrompt('add-subprocess-pattern', {
+      diagramId: 'd1',
+      afterElementId: 'Task_1',
+      subprocessName: 'Process Payment',
+      steps: 'Validate Card, Charge Amount, Send Receipt',
+    });
+    expect(result.messages[0].content.text).toContain('Process Payment');
+    expect(result.messages[0].content.text).toContain('Validate Card');
+    expect(result.messages[0].content.text).toContain('SubProcess');
+    expect(result.messages[0].content.text).toContain('isExpanded');
+  });
+
+  test('returns messages for add-message-exchange-pattern', () => {
+    const result = getPrompt('add-message-exchange-pattern', {
+      processName: 'Order System',
+      partnerName: 'Payment Gateway',
+    });
+    expect(result.messages[0].content.text).toContain('Order System');
+    expect(result.messages[0].content.text).toContain('Payment Gateway');
+    expect(result.messages[0].content.text).toContain('collapsed');
+    expect(result.messages[0].content.text).toContain('message flows');
   });
 });

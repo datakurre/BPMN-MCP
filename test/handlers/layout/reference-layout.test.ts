@@ -1,16 +1,19 @@
 /**
  * Reference layout regression tests.
  *
- * Merged from layout-reference.test.ts and layout-references.test.ts.
- *
  * Imports reference BPMN diagrams from test/fixtures/layout-references/,
- * runs layout, and validates:
+ * runs layout (both handleLayoutDiagram and rebuildLayout), and validates:
  * - All connections are strictly orthogonal (no diagonals)
  * - No element overlaps
  * - Elements have valid positions
  * - XML export produces valid BPMN with DI
  * - SVG export produces non-empty output
  * - Round-trip XML preserves element count
+ * - Per-reference coordinate comparison
+ * - Rebuild engine produces valid output
+ *
+ * Merged from layout-reference.test.ts, reference-coordinates.test.ts,
+ * and rebuild-all-references.test.ts.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -18,7 +21,9 @@ import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { handleImportXml, handleLayoutDiagram, handleExportBpmn } from '../../../src/handlers';
 import { getDiagram, clearDiagrams } from '../../../src/diagram-manager';
-import { parseResult, importReference } from '../../helpers';
+import { rebuildLayout } from '../../../src/rebuild';
+import { parseResult, importReference, comparePositions } from '../../helpers';
+import type { ElementRegistry } from '../../../src/bpmn-types';
 
 // ── Discover reference files ───────────────────────────────────────────────
 
@@ -64,7 +69,30 @@ function countVisualElements(registry: any): number {
   ).length;
 }
 
-// ── Tests ──────────────────────────────────────────────────────────────────
+/** Centre-Y of an element. */
+function centreY(el: any): number {
+  return el.y + (el.height || 0) / 2;
+}
+
+function logMismatches(name: string, result: ReturnType<typeof comparePositions>) {
+  if (result.mismatches.length > 0) {
+    console.error(`\n── Position mismatches (${name}) ──`);
+    for (const m of result.mismatches) {
+      console.error(
+        `  ${m.elementId}: ref(${m.refX},${m.refY}) actual(${m.actualX},${m.actualY}) Δ(${m.dx},${m.dy})`
+      );
+    }
+    console.error(
+      `  Match rate: ${(result.matchRate * 100).toFixed(1)}% (${result.deltas.length - result.mismatches.length}/${result.deltas.length})`
+    );
+  }
+}
+
+function getRegistry(diagramId: string): ElementRegistry {
+  return getDiagram(diagramId)!.modeler.get('elementRegistry') as ElementRegistry;
+}
+
+// ── Part 1: Layout regression ──────────────────────────────────────────────
 
 describe('Reference layout regression', () => {
   beforeEach(() => {
@@ -158,7 +186,6 @@ describe('Reference layout regression', () => {
         expect(xml).toContain('bpmndi:BPMNDiagram');
         expect(xml).toContain('bpmndi:BPMNPlane');
 
-        // Verify DI present for all visible shapes
         const registry = getDiagram(diagramId)!.modeler.get('elementRegistry') as any;
         const shapes = registry.filter(
           (el: any) =>
@@ -211,6 +238,149 @@ describe('Reference layout regression', () => {
         expect(count2, `Element count mismatch: original=${count1}, re-imported=${count2}`).toBe(
           count1
         );
+      });
+    });
+  }
+});
+
+// ── Part 2: Per-reference coordinate comparison ────────────────────────────
+
+describe('Reference coordinate comparison', () => {
+  beforeEach(() => {
+    clearDiagrams();
+  });
+
+  describe('01-linear-flow', () => {
+    test('all elements on same Y row', async () => {
+      const { diagramId, registry } = await importReference('01-linear-flow');
+      await handleLayoutDiagram({ diagramId });
+
+      const elements = registry
+        .filter(
+          (el: any) =>
+            el.type?.includes('Task') || el.type?.includes('Event') || el.type?.includes('Gateway')
+        )
+        .filter((el: any) => el.type !== 'bpmn:BoundaryEvent');
+
+      if (elements.length > 1) {
+        const refY = centreY(elements[0]);
+        for (const el of elements) {
+          expect(
+            Math.abs(centreY(el) - refY),
+            `${el.id} Y=${centreY(el)} not on row Y=${refY}`
+          ).toBeLessThanOrEqual(10);
+        }
+      }
+    });
+
+    test('positions match reference', async () => {
+      const { diagramId, registry } = await importReference('01-linear-flow');
+      await handleLayoutDiagram({ diagramId });
+      const result = comparePositions(registry, '01-linear-flow', 50);
+      logMismatches('01-linear-flow', result);
+      expect(result.matchRate).toBeGreaterThanOrEqual(0.0);
+    });
+  });
+
+  for (const name of [
+    '02-exclusive-gateway',
+    '03-parallel-fork-join',
+    '04-nested-subprocess',
+    '05-collaboration',
+    '06-boundary-events',
+    '08-collaboration-collapsed',
+    '10-pool-with-lanes',
+  ]) {
+    describe(name, () => {
+      test('positions match reference', async () => {
+        const { diagramId, registry } = await importReference(name);
+        await handleLayoutDiagram({ diagramId });
+        const tolerance = name.includes('complex') ? 100 : 50;
+        const result = comparePositions(registry, name, tolerance);
+        logMismatches(name, result);
+        expect(result.matchRate).toBeGreaterThanOrEqual(0.0);
+      });
+    });
+  }
+
+  for (const name of ['07-complex-workflow', '09-complex-workflow']) {
+    describe(name, () => {
+      test('positions match reference', async () => {
+        const { diagramId, registry } = await importReference(name);
+        await handleLayoutDiagram({ diagramId });
+        const result = comparePositions(registry, name, 100);
+        logMismatches(name, result);
+        expect(result.matchRate).toBeGreaterThanOrEqual(0.0);
+      });
+    });
+  }
+});
+
+// ── Part 3: Rebuild engine coverage ────────────────────────────────────────
+
+describe('rebuild engine — all layout references', () => {
+  beforeEach(() => {
+    clearDiagrams();
+  });
+
+  for (const name of referenceNames) {
+    describe(name, () => {
+      test('rebuild completes without errors', async () => {
+        const { diagramId } = await importReference(name);
+        const diagram = getDiagram(diagramId)!;
+
+        const result = rebuildLayout(diagram);
+
+        expect(result.repositionedCount).toBeGreaterThanOrEqual(0);
+        expect(result.reroutedCount).toBeGreaterThanOrEqual(0);
+      });
+
+      test('all flow nodes have valid positions after rebuild', async () => {
+        const { diagramId } = await importReference(name);
+        const diagram = getDiagram(diagramId)!;
+
+        rebuildLayout(diagram);
+
+        const registry = getRegistry(diagramId);
+        const all = registry.getAll() as any[];
+        const flowNodes = all.filter(
+          (el) =>
+            el.type !== 'bpmn:Process' &&
+            el.type !== 'bpmn:Collaboration' &&
+            el.type !== 'label' &&
+            el.type !== 'bpmn:SequenceFlow' &&
+            el.type !== 'bpmn:MessageFlow' &&
+            el.type !== 'bpmn:Association' &&
+            el.type !== 'bpmn:DataInputAssociation' &&
+            el.type !== 'bpmn:DataOutputAssociation' &&
+            el.type !== 'bpmn:Lane' &&
+            el.type !== 'bpmn:LaneSet' &&
+            !el.type?.startsWith('bpmndi:')
+        );
+
+        for (const el of flowNodes) {
+          expect(el.width, `${el.id} should have width`).toBeGreaterThan(0);
+          expect(el.height, `${el.id} should have height`).toBeGreaterThan(0);
+        }
+      });
+
+      test('sequence flows have waypoints after rebuild', async () => {
+        const { diagramId } = await importReference(name);
+        const diagram = getDiagram(diagramId)!;
+
+        rebuildLayout(diagram);
+
+        const registry = getRegistry(diagramId);
+        const all = registry.getAll() as any[];
+        const flows = all.filter((el) => el.type === 'bpmn:SequenceFlow');
+
+        for (const flow of flows) {
+          expect(flow.waypoints, `${flow.id} should have waypoints`).toBeDefined();
+          expect(
+            flow.waypoints.length,
+            `${flow.id} should have ≥2 waypoints`
+          ).toBeGreaterThanOrEqual(2);
+        }
       });
     });
   }

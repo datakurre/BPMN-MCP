@@ -8,6 +8,7 @@
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { type PromptDefinition, ADDITIONAL_PROMPTS } from './prompt-definitions';
+import { addSubprocessPattern, addMessageExchangePattern } from './prompt-definitions-extra';
 
 const PROMPTS: PromptDefinition[] = [
   {
@@ -253,6 +254,8 @@ const PROMPTS: PromptDefinition[] = [
     },
   },
   ...ADDITIONAL_PROMPTS,
+  addSubprocessPattern,
+  addMessageExchangePattern,
 ];
 
 /** List all available prompts. */

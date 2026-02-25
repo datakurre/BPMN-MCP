@@ -8,6 +8,8 @@
  *   bpmn://diagram/{id}/summary — lightweight diagram summary
  *   bpmn://diagram/{id}/lint    — validation issues + fix suggestions
  *   bpmn://diagram/{id}/variables — process variable references
+ *   bpmn://diagram/{id}/xml    — current BPMN XML
+ *   bpmn://diagram/{id}/elements — all elements with properties
  */
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
@@ -16,6 +18,7 @@ import { handleSummarizeDiagram } from './handlers/core/summarize-diagram';
 import { handleValidate } from './handlers/core/validate';
 import { handleListProcessVariables } from './handlers/core/list-process-variables';
 import { handleListDiagrams } from './handlers/core/list-diagrams';
+import { handleListElements } from './handlers/elements/list-elements';
 
 /** Resource template definitions for bpmn:// URIs. */
 export const RESOURCE_TEMPLATES = [
@@ -47,6 +50,14 @@ export const RESOURCE_TEMPLATES = [
     description:
       'Current BPMN 2.0 XML of the diagram. Useful for re-grounding context during iterative editing sessions.',
     mimeType: 'application/xml',
+  },
+  {
+    uriTemplate: 'bpmn://diagram/{diagramId}/elements',
+    name: 'Diagram elements',
+    description:
+      'All elements in the diagram with types, names, positions, connections, and Camunda properties. ' +
+      'Equivalent to calling list_bpmn_elements without filters.',
+    mimeType: 'application/json',
   },
 ];
 
@@ -110,6 +121,12 @@ export function listResources(): any[] {
       name: `${name} — XML`,
       description: `BPMN 2.0 XML of diagram "${name}"`,
       mimeType: 'application/xml',
+    });
+    resources.push({
+      uri: `bpmn://diagram/${id}/elements`,
+      name: `${name} — elements`,
+      description: `All elements in diagram "${name}"`,
+      mimeType: 'application/json',
     });
   }
 
@@ -178,6 +195,17 @@ export async function readResource(
     const diagram = getDiagram(diagramId)!;
     return {
       contents: [{ uri, mimeType: 'application/xml', text: diagram.xml }],
+    };
+  }
+
+  // bpmn://diagram/{id}/elements
+  const elementsMatch = uri.match(/^bpmn:\/\/diagram\/([^/]+)\/elements$/);
+  if (elementsMatch) {
+    const diagramId = elementsMatch[1];
+    ensureDiagramExists(diagramId);
+    const result = await handleListElements({ diagramId });
+    return {
+      contents: [{ uri, mimeType: 'application/json', text: extractText(result) }],
     };
   }
 
