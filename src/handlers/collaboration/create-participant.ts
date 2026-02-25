@@ -247,17 +247,11 @@ export async function handleCreateParticipant(args: CreateParticipantArgs): Prom
 export const TOOL_DEFINITION = {
   name: 'create_bpmn_participant',
   description:
-    'Create participant(s) (pools) in a BPMN diagram. Supports multiple modes:\n' +
-    '**Single pool** (name): Creates one participant. If the diagram is a plain process, ' +
-    'it will be converted to a collaboration automatically.\n' +
-    '**Wrap existing** (name + wrapExisting: true): Wraps the current process flow nodes into a participant ' +
-    'pool without duplicating elements. Optionally creates additional collapsed partner pools.\n' +
-    '**Multi-pool collaboration** (participants array): Creates multiple participants at once ' +
-    '(minimum 2). **Camunda 7 / Operaton pattern:** Only one pool can be deployed and executed — ' +
-    'additional pools must be **collapsed** (set collapsed: true) and serve only to document ' +
-    'message flow endpoints. **Lanes vs Pools:** If you need role separation within a single ' +
-    'organization/process (e.g. Requester, Approver, Finance), use **lanes** inside one expanded ' +
-    'pool — NOT multiple expanded pools.',
+    'Create participant(s) (pools) in a BPMN diagram. ' +
+    'Single pool: pass name. Wrap existing process: set wrapExisting=true. ' +
+    'Multi-pool collaboration: pass participants array (min 2). ' +
+    'Camunda 7: only one pool is executable; additional pools must be collapsed. ' +
+    'For role separation within one organization, use lanes inside one pool — not multiple expanded pools.',
   inputSchema: {
     type: 'object',
     properties: {

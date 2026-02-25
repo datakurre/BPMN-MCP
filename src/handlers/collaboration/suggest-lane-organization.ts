@@ -161,7 +161,6 @@ function categorizeElement(type: string): string | null {
   return null;
 }
 
-/** Find the process business object from the diagram. */
 /** Calculate coherence score for suggested lane assignments. */
 function calculateCoherence(
   sequenceFlows: any[],

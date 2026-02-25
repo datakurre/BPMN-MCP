@@ -1,7 +1,23 @@
+/**
+ * Lane layout tests.
+ *
+ * Consolidated from:
+ * - lane-layout.test.ts (lane crossing metrics, coherence, bounds)
+ * - lane-multirow.test.ts (multi-row height, backward flow routing)
+ * - lane-graceful-handling.test.ts (unassigned elements, empty lanes)
+ *
+ * 9 tests covering: metrics, coherence, bounds, multi-row, backward flow,
+ * unassigned elements, and empty lanes.
+ */
+
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
+  handleCreateDiagram,
+  handleAddElement,
   handleLayoutDiagram,
+  handleListElements,
   handleCreateLanes,
+  handleCreateParticipant,
   handleAssignElementsToLane,
   handleWrapProcessInCollaboration,
 } from '../../../src/handlers';
@@ -15,24 +31,13 @@ import {
   getRegistry,
 } from '../../helpers';
 
-/**
- * Tests for lane-aware layout and lane-crossing metrics.
- *
- * Covers:
- * - Layout with 2, 3 lanes
- * - Lane-crossing metrics computation
- * - Lane coherence score
- * - Element positioning within lane bounds
- */
-
 describe('lane layout', () => {
   beforeEach(() => {
     clearDiagrams();
   });
 
-  /**
-   * Helper: create a process with a pool and lanes, assign elements.
-   */
+  // ── Helper ─────────────────────────────────────────────────────────────
+
   async function createProcessWithLanes(
     laneCount: number,
     opts?: { taskCount?: number }
@@ -44,7 +49,6 @@ describe('lane layout', () => {
   }> {
     const diagramId = await createDiagram(`Lane Test (${laneCount} lanes)`);
 
-    // Build a simple sequential process
     const taskCount = opts?.taskCount ?? laneCount * 2;
     const elementIds: string[] = [];
 
@@ -59,10 +63,8 @@ describe('lane layout', () => {
     const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
     elementIds.push(end);
 
-    // Connect all in sequence
     await connectAll(diagramId, ...elementIds);
 
-    // Wrap in collaboration
     const wrapResult = parseResult(
       await handleWrapProcessInCollaboration({
         diagramId,
@@ -71,7 +73,6 @@ describe('lane layout', () => {
     );
     const poolId = wrapResult.participantIds[0];
 
-    // Create lanes
     const laneNames = Array.from({ length: laneCount }, (_, i) => ({ name: `Lane ${i + 1}` }));
     const laneResult = parseResult(
       await handleCreateLanes({
@@ -82,7 +83,6 @@ describe('lane layout', () => {
     );
     const laneIds = laneResult.laneIds as string[];
 
-    // Distribute elements across lanes
     const elemsPerLane = Math.ceil(elementIds.length / laneCount);
     for (let i = 0; i < laneCount; i++) {
       const laneElements = elementIds.slice(i * elemsPerLane, (i + 1) * elemsPerLane);
@@ -98,14 +98,14 @@ describe('lane layout', () => {
     return { diagramId, poolId, laneIds, elementIds };
   }
 
+  // ── Crossing metrics ──────────────────────────────────────────────────
+
   test('layout with 2 lanes produces lane crossing metrics', async () => {
     const { diagramId } = await createProcessWithLanes(2);
 
     const res = parseResult(await handleLayoutDiagram({ diagramId }));
     expect(res.success).toBe(true);
 
-    // With a sequential process split across 2 lanes, there should be
-    // at least one lane-crossing flow
     if (res.laneCrossingMetrics) {
       expect(res.laneCrossingMetrics.totalLaneFlows).toBeGreaterThan(0);
       expect(res.laneCrossingMetrics.laneCoherenceScore).toBeGreaterThanOrEqual(0);
@@ -126,7 +126,6 @@ describe('lane layout', () => {
   });
 
   test('elements within same lane have high coherence score', async () => {
-    // Create a process where all elements are in the same lane
     const diagramId = await createDiagram('Single Lane Coherence');
 
     const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
@@ -151,7 +150,6 @@ describe('lane layout', () => {
       })
     );
 
-    // Put all elements in the same lane
     await handleAssignElementsToLane({
       diagramId,
       laneId: laneResult.laneIds[0],
@@ -162,7 +160,6 @@ describe('lane layout', () => {
     expect(res.success).toBe(true);
 
     if (res.laneCrossingMetrics) {
-      // All flows are within the same lane — 100% coherence
       expect(res.laneCrossingMetrics.laneCoherenceScore).toBe(100);
       expect(res.laneCrossingMetrics.crossingLaneFlows).toBe(0);
     }
@@ -176,7 +173,6 @@ describe('lane layout', () => {
     const registry = getRegistry(diagramId);
     const lanes = laneIds.map((id: string) => registry.get(id)).filter(Boolean);
 
-    // Each lane should have positive dimensions
     for (const lane of lanes) {
       expect(lane.width).toBeGreaterThan(0);
       expect(lane.height).toBeGreaterThan(0);
@@ -185,14 +181,218 @@ describe('lane layout', () => {
 
   test('no lane metrics for process without lanes', async () => {
     const diagramId = await createDiagram('No Lanes');
-
     const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
     const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
     await connect(diagramId, start, end);
 
     const res = parseResult(await handleLayoutDiagram({ diagramId }));
     expect(res.success).toBe(true);
-    // No lanes = no lane metrics
     expect(res.laneCrossingMetrics).toBeUndefined();
+  });
+
+  // ── Multi-row content height ──────────────────────────────────────────
+
+  test('lane height accommodates parallel branches within a lane', async () => {
+    const diagramId = await createDiagram('Multi-Row Lane');
+
+    const poolResult = parseResult(await handleCreateParticipant({ diagramId, name: 'Process' }));
+    const participantId = poolResult.participantId as string;
+    const laneResult = parseResult(
+      await handleCreateLanes({
+        diagramId,
+        participantId,
+        lanes: [{ name: 'Management' }, { name: 'Operations' }],
+      })
+    );
+    const topLaneId = laneResult.laneIds[0] as string;
+    const bottomLaneId = laneResult.laneIds[1] as string;
+
+    const start = await addElement(diagramId, 'bpmn:StartEvent', {
+      name: 'Start',
+      laneId: topLaneId,
+    });
+    const mgmtTask = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Approve',
+      laneId: topLaneId,
+    });
+
+    const fork = await addElement(diagramId, 'bpmn:ParallelGateway', {
+      name: 'Fork',
+      laneId: bottomLaneId,
+    });
+    const taskA = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Process A',
+      laneId: bottomLaneId,
+    });
+    const taskB = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Process B',
+      laneId: bottomLaneId,
+    });
+    const join = await addElement(diagramId, 'bpmn:ParallelGateway', {
+      name: 'Join',
+      laneId: bottomLaneId,
+    });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', {
+      name: 'End',
+      laneId: bottomLaneId,
+    });
+
+    await connect(diagramId, start, mgmtTask);
+    await connect(diagramId, mgmtTask, fork);
+    await connect(diagramId, fork, taskA);
+    await connect(diagramId, fork, taskB);
+    await connect(diagramId, taskA, join);
+    await connect(diagramId, taskB, join);
+    await connect(diagramId, join, end);
+
+    const result = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(result.success).toBe(true);
+
+    const reg = getRegistry(diagramId);
+    const topLane = reg.get(topLaneId);
+    const bottomLane = reg.get(bottomLaneId);
+
+    expect(topLane.height).toBeGreaterThan(0);
+    expect(bottomLane.height).toBeGreaterThan(0);
+
+    for (const elId of [fork, taskA, taskB, join, end]) {
+      const el = reg.get(elId);
+      if (!el) continue;
+      expect(el.y).toBeGreaterThanOrEqual(bottomLane.y - 5);
+      expect(el.y + (el.height || 0)).toBeLessThanOrEqual(bottomLane.y + bottomLane.height + 5);
+    }
+  });
+
+  // ── Cross-lane backward flow ──────────────────────────────────────────
+
+  test('backward cross-lane flow is routed below the pool midpoint', async () => {
+    const diagramId = await createDiagram('Cross-Lane Backward Flow');
+
+    const poolResult = parseResult(await handleCreateParticipant({ diagramId, name: 'Process' }));
+    const participantId = poolResult.participantId as string;
+    const laneResult = parseResult(
+      await handleCreateLanes({
+        diagramId,
+        participantId,
+        lanes: [{ name: 'Management' }, { name: 'Operations' }],
+      })
+    );
+    const topLaneId = laneResult.laneIds[0] as string;
+    const bottomLaneId = laneResult.laneIds[1] as string;
+
+    const start = await addElement(diagramId, 'bpmn:StartEvent', {
+      name: 'Start',
+      laneId: topLaneId,
+    });
+    const approve = await addElement(diagramId, 'bpmn:UserTask', {
+      name: 'Approve',
+      laneId: topLaneId,
+    });
+    const execute = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Execute',
+      laneId: bottomLaneId,
+    });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End', laneId: bottomLaneId });
+
+    await connect(diagramId, start, approve);
+    await connect(diagramId, approve, execute);
+    await connect(diagramId, execute, end);
+
+    const loopFlow = await connect(diagramId, execute, approve, { label: 'Reject' });
+
+    const result = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(result.success).toBe(true);
+
+    const reg = getRegistry(diagramId);
+    const loopConn = reg.get(loopFlow);
+    const participant = reg.get(participantId);
+
+    expect(loopConn).toBeDefined();
+    expect(loopConn.waypoints).toBeDefined();
+    expect(loopConn.waypoints.length).toBeGreaterThanOrEqual(4);
+
+    const wps: Array<{ x: number; y: number }> = loopConn.waypoints;
+    const maxWpY = Math.max(...wps.map((wp) => wp.y));
+    const poolMidY = participant.y + participant.height / 2;
+    expect(maxWpY).toBeGreaterThan(poolMidY);
+  });
+
+  // ── Graceful handling ─────────────────────────────────────────────────
+
+  test('layout handles unassigned elements in a pool with lanes', async () => {
+    const createRes = parseResult(await handleCreateDiagram({ name: 'LaneTest' }));
+    const diagramId = createRes.diagramId;
+
+    const startRes = parseResult(
+      await handleAddElement({ diagramId, elementType: 'bpmn:StartEvent' })
+    );
+    const taskRes = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:Task',
+        name: 'Task A',
+        afterElementId: startRes.elementId,
+      })
+    );
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:EndEvent',
+      afterElementId: taskRes.elementId,
+    });
+
+    await handleWrapProcessInCollaboration({ diagramId, participantName: 'My Pool' });
+
+    const elementsRes = parseResult(await handleListElements({ diagramId }));
+    const participant = elementsRes.elements.find((e: any) => e.type === 'bpmn:Participant');
+    expect(participant).toBeDefined();
+
+    await handleCreateLanes({
+      diagramId,
+      participantId: participant.id,
+      lanes: [{ name: 'Lane 1' }, { name: 'Lane 2' }],
+    });
+
+    const layoutRes = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(layoutRes.success).toBe(true);
+  });
+
+  test('layout handles empty lanes gracefully', async () => {
+    const createRes = parseResult(await handleCreateDiagram({ name: 'EmptyLanes' }));
+    const diagramId = createRes.diagramId;
+
+    const startRes = parseResult(
+      await handleAddElement({ diagramId, elementType: 'bpmn:StartEvent' })
+    );
+    const taskRes = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:Task',
+        name: 'Only Task',
+        afterElementId: startRes.elementId,
+      })
+    );
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:EndEvent',
+      afterElementId: taskRes.elementId,
+    });
+
+    await handleWrapProcessInCollaboration({ diagramId, participantName: 'Pool' });
+
+    const elementsRes = parseResult(await handleListElements({ diagramId }));
+    const participant = elementsRes.elements.find((e: any) => e.type === 'bpmn:Participant');
+
+    await handleCreateLanes({
+      diagramId,
+      participantId: participant.id,
+      lanes: [
+        { name: 'Active Lane', elementIds: [startRes.elementId, taskRes.elementId] },
+        { name: 'Empty Lane 1' },
+        { name: 'Empty Lane 2' },
+      ],
+    });
+
+    const layoutRes = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(layoutRes.success).toBe(true);
   });
 });

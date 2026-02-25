@@ -110,6 +110,8 @@ const REFERENCES = [
   '08-collaboration-collapsed',
   '09-complex-workflow',
   '10-pool-with-lanes',
+  '11-event-subprocess',
+  '12-text-annotation',
 ];
 
 interface DiagramConfig {
@@ -130,6 +132,8 @@ const DIAGRAM_CONFIGS: DiagramConfig[] = [
   { name: '08-collaboration-collapsed', tolerance: 25, minMatchRate: 0.6 },
   { name: '09-complex-workflow', tolerance: 50, minMatchRate: 0.5 },
   { name: '10-pool-with-lanes', tolerance: 25, minMatchRate: 0.6 },
+  { name: '11-event-subprocess', tolerance: 25, minMatchRate: 0.5 },
+  { name: '12-text-annotation', tolerance: 25, minMatchRate: 0.4 },
 ];
 
 // ── Part 1: Snapshot generation ────────────────────────────────────────────
