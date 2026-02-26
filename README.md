@@ -132,7 +132,14 @@ No separate "repair layout" tool is needed — chain these existing tools for fi
 
 All mutating tools automatically append bpmnlint error-level issues to their response. This gives AI callers immediate feedback when an operation introduces a rule violation. The `validate_bpmn_diagram` tool returns all severities for a full report.
 
-The default config extends `bpmnlint:recommended`, `plugin:camunda-compat/camunda-platform-7-24`, and `plugin:bpmn-mcp/recommended`, with `label-required` and `no-disconnected` downgraded to warnings for incremental construction.
+The default config extends `bpmnlint:recommended`, `plugin:camunda-compat/camunda-platform-7-24`, and `plugin:bpmn-mcp/recommended`. Key tuning for AI-generated diagrams:
+
+- `label-required` and `no-disconnected` → `warn` (diagrams are built incrementally)
+- `no-overlapping-elements` → `off` (false positives in headless layout mode)
+- `fake-join` → `info` (boundary-event retry patterns produce valid fake-joins)
+- `camunda-compat/history-time-to-live` → `warn` (required for Operaton history cleanup)
+
+The custom `plugin:bpmn-mcp/recommended` adds ~45 Camunda 7 / Operaton-specific rules covering gateway logic, task configuration, lane organization, collaboration patterns, subprocess validation, and layout quality. Override any rule with a `.bpmnlintrc` file in the project root.
 
 ### MCP Resources
 
