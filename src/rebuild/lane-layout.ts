@@ -109,12 +109,14 @@ export function applyLaneLayout(
     laneCenterYs.set(sortedLanes[i].id, originY + i * DEFAULT_LANE_HEIGHT);
   }
 
-  // Move elements to their lane's center Y
+  // Move elements to their lane's center Y.
+  // Use savedLaneMap (not el.parent) so we catch elements that may
+  // have been reparented when moveElements placed them outside pool bounds.
   let repositioned = 0;
   const allElements: BpmnElement[] = registry.getAll();
   const flowNodes = allElements.filter(
     (el) =>
-      el.parent === participant &&
+      savedLaneMap.has(el.id) &&
       el.type !== 'bpmn:SequenceFlow' &&
       el.type !== 'bpmn:Lane' &&
       el.type !== 'bpmn:LaneSet' &&
@@ -146,6 +148,50 @@ export function applyLaneLayout(
   resizePoolAndLanes(sortedLanes, participant, registry, modeling, padding, savedLaneMap);
 
   return repositioned;
+}
+
+// ── Lane assignment restoration ────────────────────────────────────────────
+
+/**
+ * Restore `flowNodeRef` membership lists from a previously-captured
+ * element-to-lane mapping.
+ *
+ * `modeling.moveElements` may silently update `flowNodeRef` lists when
+ * elements are repositioned outside a lane's current visual bounds.
+ * Calling this function after `rebuildContainer()` — but before
+ * `applyLaneLayout()` — ensures the semantic lane assignments match the
+ * intent captured before the rebuild.
+ *
+ * @param registry      Element registry for the modeler.
+ * @param savedLaneMap  Map of elementId → intended lane element.
+ * @param lanes         All lane elements in the participant.
+ */
+export function restoreLaneAssignments(
+  registry: ElementRegistry,
+  savedLaneMap: Map<string, BpmnElement>,
+  lanes: BpmnElement[]
+): void {
+  if (savedLaneMap.size === 0 || lanes.length === 0) return;
+
+  // Clear existing flowNodeRef lists for affected lanes
+  const affectedLaneIds = new Set<string>([...savedLaneMap.values()].map((l) => l.id));
+  for (const lane of lanes) {
+    if (!affectedLaneIds.has(lane.id)) continue;
+    const refs = lane.businessObject?.flowNodeRef;
+    if (Array.isArray(refs)) refs.length = 0;
+  }
+
+  // Re-populate from the saved map
+  for (const [elementId, lane] of savedLaneMap) {
+    const el = registry.get(elementId);
+    if (!el || !lane.businessObject) continue;
+    const laneBo = lane.businessObject;
+    if (!Array.isArray(laneBo.flowNodeRef)) laneBo.flowNodeRef = [];
+    const elBo = el.businessObject;
+    if (elBo && !laneBo.flowNodeRef.includes(elBo)) {
+      laneBo.flowNodeRef.push(elBo);
+    }
+  }
 }
 
 // ── Pool resizing (no lanes) ───────────────────────────────────────────────

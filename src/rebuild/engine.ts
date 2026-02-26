@@ -45,6 +45,7 @@ import {
   buildElementToLaneMap,
   getLanesForParticipant,
   resizePoolToFit,
+  restoreLaneAssignments,
 } from './lane-layout';
 import { positionArtifacts, adjustLabels } from './artifacts';
 
@@ -193,6 +194,11 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
     if (container.type === 'bpmn:Participant') {
       const lanes = getLanesForParticipant(registry, container);
       if (lanes.length > 0) {
+        // Restore flowNodeRef lists that may have been mutated during
+        // rebuildContainer() (modeling.moveElements updates lane membership
+        // when elements cross lane visual boundaries).
+        restoreLaneAssignments(registry, savedLaneMap, lanes);
+
         totalRepositioned += applyLaneLayout(
           registry,
           modeling,

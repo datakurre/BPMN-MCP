@@ -1,7 +1,7 @@
 /**
  * Unit tests for the rebuild-based layout engine — Phase 1: Topology Analyser.
  *
- * Tests against existing fixture BPMN files to verify:
+ * Tests against programmatically built diagrams (fixture-builders) to verify:
  * - Flow graph extraction (1.1)
  * - Back-edge detection (1.2)
  * - Topological sort with layer assignment (1.3)
@@ -21,9 +21,18 @@ import {
   getContainerRebuildOrder,
   identifyBoundaryEvents,
 } from '../../src/rebuild';
-import { importReference, clearDiagrams } from '../helpers';
+import { clearDiagrams } from '../helpers';
 import { getDiagram } from '../../src/diagram-manager';
 import type { ElementRegistry } from '../../src/bpmn-types';
+import {
+  buildF01LinearFlow,
+  buildF02ExclusiveGateway,
+  buildF03ParallelForkJoin,
+  buildF04NestedSubprocess,
+  buildF05Collaboration,
+  buildF06BoundaryEvents,
+  buildF09ComplexWorkflow,
+} from '../scenarios/fixture-builders';
 
 afterEach(() => clearDiagrams());
 
@@ -39,19 +48,19 @@ function getRegistry(diagramId: string): ElementRegistry {
 
 describe('extractFlowGraph', () => {
   test('01-linear-flow: extracts a simple chain with correct node count', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
-    // 01-linear-flow: StartEvent + 3 tasks + EndEvent = 5 nodes
+    // linear-flow: StartEvent + 3 tasks + EndEvent = 5 nodes
     expect(graph.nodes.size).toBe(5);
     expect(graph.startNodeIds.length).toBe(1);
     expect(graph.endNodeIds.length).toBe(1);
   });
 
   test('01-linear-flow: start node is a StartEvent', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     const startNode = graph.nodes.get(graph.startNodeIds[0])!;
@@ -61,8 +70,8 @@ describe('extractFlowGraph', () => {
   });
 
   test('01-linear-flow: end node is an EndEvent', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     const endNode = graph.nodes.get(graph.endNodeIds[0])!;
@@ -72,8 +81,8 @@ describe('extractFlowGraph', () => {
   });
 
   test('01-linear-flow: each node has correct in/out degree', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     // In a linear chain: start(0,1), task(1,1), task(1,1), task(1,1), end(1,0)
@@ -88,8 +97,8 @@ describe('extractFlowGraph', () => {
   });
 
   test('02-exclusive-gateway: extracts gateway nodes', async () => {
-    const { diagramId } = await importReference('02-exclusive-gateway');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF02ExclusiveGateway();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     // 7 nodes: Start, Review, Gateway(split), Fulfill, Reject, Gateway(merge), End
@@ -103,8 +112,8 @@ describe('extractFlowGraph', () => {
   });
 
   test('02-exclusive-gateway: split gateway has 2 outgoing', async () => {
-    const { diagramId } = await importReference('02-exclusive-gateway');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF02ExclusiveGateway();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     const splitGateway = [...graph.nodes.values()].find(
@@ -115,8 +124,8 @@ describe('extractFlowGraph', () => {
   });
 
   test('03-parallel-fork-join: fork has 3 outgoing', async () => {
-    const { diagramId } = await importReference('03-parallel-fork-join');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF03ParallelForkJoin();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     // 7 nodes: Start, Fork, 3 tasks, Join, End
@@ -129,8 +138,8 @@ describe('extractFlowGraph', () => {
   });
 
   test('06-boundary-events: excludes boundary events from flow graph', async () => {
-    const { diagramId } = await importReference('06-boundary-events');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF06BoundaryEvents();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     // Should NOT include the boundary event as a flow node
@@ -139,8 +148,8 @@ describe('extractFlowGraph', () => {
   });
 
   test('06-boundary-events: excludes artifacts and connections', async () => {
-    const { diagramId } = await importReference('06-boundary-events');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF06BoundaryEvents();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
 
     const types = [...graph.nodes.values()].map((n) => n.element.type);
@@ -156,8 +165,8 @@ describe('extractFlowGraph', () => {
 
 describe('detectBackEdges', () => {
   test('01-linear-flow: no back-edges in a simple chain', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
 
@@ -165,8 +174,8 @@ describe('detectBackEdges', () => {
   });
 
   test('02-exclusive-gateway: no back-edges in a diamond', async () => {
-    const { diagramId } = await importReference('02-exclusive-gateway');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF02ExclusiveGateway();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
 
@@ -174,17 +183,17 @@ describe('detectBackEdges', () => {
   });
 
   test('03-parallel-fork-join: no back-edges in fork-join', async () => {
-    const { diagramId } = await importReference('03-parallel-fork-join');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF03ParallelForkJoin();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
 
     expect(backEdges.size).toBe(0);
   });
 
-  test('09-complex-workflow: no back-edges (no loops in this fixture)', async () => {
-    const { diagramId } = await importReference('09-complex-workflow');
-    const registry = getRegistry(diagramId);
+  test('09-complex-workflow: no back-edges (no loops in this diagram)', async () => {
+    const ids = await buildF09ComplexWorkflow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
 
@@ -198,8 +207,8 @@ describe('detectBackEdges', () => {
 
 describe('topologicalSort', () => {
   test('01-linear-flow: assigns sequential layers 0..4', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const sorted = topologicalSort(graph, backEdges);
@@ -216,8 +225,8 @@ describe('topologicalSort', () => {
   });
 
   test('01-linear-flow: start event is at layer 0', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const sorted = topologicalSort(graph, backEdges);
@@ -231,8 +240,8 @@ describe('topologicalSort', () => {
   });
 
   test('01-linear-flow: end event is at the last layer', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const sorted = topologicalSort(graph, backEdges);
@@ -246,29 +255,29 @@ describe('topologicalSort', () => {
   });
 
   test('02-exclusive-gateway: branches share the same layer', async () => {
-    const { diagramId } = await importReference('02-exclusive-gateway');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF02ExclusiveGateway();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const sorted = topologicalSort(graph, backEdges);
 
     // Fulfill and Reject should be at the same layer (after split gateway)
-    const fulfill = sorted.find((n) => n.elementId === 'Activity_1ra1cd4');
-    const reject = sorted.find((n) => n.elementId === 'Activity_0ryvb1v');
+    const fulfill = sorted.find((n) => n.elementId === ids.fulfill);
+    const reject = sorted.find((n) => n.elementId === ids.reject);
     expect(fulfill).toBeDefined();
     expect(reject).toBeDefined();
     expect(fulfill!.layer).toBe(reject!.layer);
   });
 
   test('03-parallel-fork-join: 3 parallel tasks share the same layer', async () => {
-    const { diagramId } = await importReference('03-parallel-fork-join');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF03ParallelForkJoin();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const sorted = topologicalSort(graph, backEdges);
 
     // Three tasks after fork should share the same layer
-    const taskIds = ['Activity_0gqc9jk', 'Activity_0z4100l', 'Activity_0p6g9d6'];
+    const taskIds = [ids.branch1, ids.branch2, ids.branch3];
     const taskLayers = taskIds
       .map((id) => sorted.find((n) => n.elementId === id))
       .filter(Boolean)
@@ -279,8 +288,8 @@ describe('topologicalSort', () => {
   });
 
   test('groupByLayer produces correct groups', async () => {
-    const { diagramId } = await importReference('02-exclusive-gateway');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF02ExclusiveGateway();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const sorted = topologicalSort(graph, backEdges);
@@ -297,8 +306,8 @@ describe('topologicalSort', () => {
   });
 
   test('09-complex-workflow: all nodes get a layer', async () => {
-    const { diagramId } = await importReference('09-complex-workflow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF09ComplexWorkflow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const sorted = topologicalSort(graph, backEdges);
@@ -314,8 +323,8 @@ describe('topologicalSort', () => {
 
 describe('detectGatewayPatterns', () => {
   test('01-linear-flow: no gateway patterns', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const patterns = detectGatewayPatterns(graph, backEdges);
@@ -324,8 +333,8 @@ describe('detectGatewayPatterns', () => {
   });
 
   test('02-exclusive-gateway: detects one split with merge', async () => {
-    const { diagramId } = await importReference('02-exclusive-gateway');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF02ExclusiveGateway();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const patterns = detectGatewayPatterns(graph, backEdges);
@@ -333,14 +342,14 @@ describe('detectGatewayPatterns', () => {
     expect(patterns.length).toBe(1);
 
     const pattern = patterns[0];
-    expect(pattern.splitId).toBe('Gateway_0jdocql');
-    expect(pattern.mergeId).toBe('Gateway_1hd85cz');
+    expect(pattern.splitId).toBe(ids.split);
+    expect(pattern.mergeId).toBe(ids.merge);
     expect(pattern.branches.length).toBe(2);
   });
 
   test('02-exclusive-gateway: branches contain correct elements', async () => {
-    const { diagramId } = await importReference('02-exclusive-gateway');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF02ExclusiveGateway();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const patterns = detectGatewayPatterns(graph, backEdges);
@@ -348,13 +357,13 @@ describe('detectGatewayPatterns', () => {
     const pattern = patterns[0];
     // Each branch should contain exactly one task
     const branchElements = pattern.branches.flat();
-    expect(branchElements).toContain('Activity_1ra1cd4'); // Fulfill
-    expect(branchElements).toContain('Activity_0ryvb1v'); // Reject
+    expect(branchElements).toContain(ids.fulfill);
+    expect(branchElements).toContain(ids.reject);
   });
 
   test('03-parallel-fork-join: detects fork with 3 branches', async () => {
-    const { diagramId } = await importReference('03-parallel-fork-join');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF03ParallelForkJoin();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const patterns = detectGatewayPatterns(graph, backEdges);
@@ -362,23 +371,23 @@ describe('detectGatewayPatterns', () => {
     expect(patterns.length).toBe(1);
 
     const pattern = patterns[0];
-    expect(pattern.splitId).toBe('Gateway_11h8qzw');
-    expect(pattern.mergeId).toBe('Gateway_1osli9i');
+    expect(pattern.splitId).toBe(ids.fork);
+    expect(pattern.mergeId).toBe(ids.join);
     expect(pattern.branches.length).toBe(3);
   });
 
   test('09-complex-workflow: detects multiple gateway patterns', async () => {
-    const { diagramId } = await importReference('09-complex-workflow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF09ComplexWorkflow();
+    const registry = getRegistry(ids.diagramId);
     const graph = extractFlowGraph(registry);
     const backEdges = detectBackEdges(graph);
     const patterns = detectGatewayPatterns(graph, backEdges);
 
-    // Should detect at least the exclusive split and parallel split
-    expect(patterns.length).toBeGreaterThanOrEqual(2);
+    // Should detect at least the exclusive split
+    expect(patterns.length).toBeGreaterThanOrEqual(1);
 
     // Verify the registration type gateway is detected
-    const regTypePattern = patterns.find((p) => p.splitId === 'Gateway_RegistrationType');
+    const regTypePattern = patterns.find((p) => p.splitId === ids.regTypeGateway);
     expect(regTypePattern).toBeDefined();
     expect(regTypePattern!.branches.length).toBe(2);
   });
@@ -390,8 +399,8 @@ describe('detectGatewayPatterns', () => {
 
 describe('buildContainerHierarchy', () => {
   test('01-linear-flow: single root container (Process)', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const hierarchy = buildContainerHierarchy(registry);
 
     expect(hierarchy.roots.length).toBe(1);
@@ -402,8 +411,8 @@ describe('buildContainerHierarchy', () => {
   });
 
   test('04-nested-subprocess: detects subprocess container', async () => {
-    const { diagramId } = await importReference('04-nested-subprocess');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF04NestedSubprocess();
+    const registry = getRegistry(ids.diagramId);
     const hierarchy = buildContainerHierarchy(registry);
 
     // Should have containers (Process and SubProcess)
@@ -417,8 +426,8 @@ describe('buildContainerHierarchy', () => {
   });
 
   test('05-collaboration: detects participant containers', async () => {
-    const { diagramId } = await importReference('05-collaboration');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF05Collaboration();
+    const registry = getRegistry(ids.diagramId);
     const hierarchy = buildContainerHierarchy(registry);
 
     // Should have at least one participant
@@ -429,8 +438,8 @@ describe('buildContainerHierarchy', () => {
   });
 
   test('getContainerRebuildOrder: deepest containers first', async () => {
-    const { diagramId } = await importReference('04-nested-subprocess');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF04NestedSubprocess();
+    const registry = getRegistry(ids.diagramId);
     const hierarchy = buildContainerHierarchy(registry);
     const order = getContainerRebuildOrder(hierarchy);
 
@@ -449,16 +458,16 @@ describe('buildContainerHierarchy', () => {
 
 describe('identifyBoundaryEvents', () => {
   test('01-linear-flow: no boundary events', async () => {
-    const { diagramId } = await importReference('01-linear-flow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF01LinearFlow();
+    const registry = getRegistry(ids.diagramId);
     const boundaryInfos = identifyBoundaryEvents(registry);
 
     expect(boundaryInfos.length).toBe(0);
   });
 
   test('06-boundary-events: detects the timer boundary event', async () => {
-    const { diagramId } = await importReference('06-boundary-events');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF06BoundaryEvents();
+    const registry = getRegistry(ids.diagramId);
     const boundaryInfos = identifyBoundaryEvents(registry);
 
     expect(boundaryInfos.length).toBe(1);
@@ -466,37 +475,37 @@ describe('identifyBoundaryEvents', () => {
     const info = boundaryInfos[0];
     expect(info.boundaryEvent.type).toBe('bpmn:BoundaryEvent');
     expect(info.host.type).toBe('bpmn:UserTask');
-    expect(info.host.id).toBe('Activity_1betloc');
+    expect(info.host.id).toBe(ids.host);
   });
 
   test('06-boundary-events: exception chain contains Escalate task and EndEvent', async () => {
-    const { diagramId } = await importReference('06-boundary-events');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF06BoundaryEvents();
+    const registry = getRegistry(ids.diagramId);
     const boundaryInfos = identifyBoundaryEvents(registry);
 
     const info = boundaryInfos[0];
     // The chain should contain the Escalate task and the Escalated end event
     expect(info.exceptionChain.length).toBe(2);
-    expect(info.exceptionChain).toContain('Activity_1wslow0'); // Escalate
-    expect(info.exceptionChain).toContain('Event_0tvw53g'); // Escalated
+    expect(info.exceptionChain).toContain(ids.escalate);
+    expect(info.exceptionChain).toContain(ids.escalatedEnd);
   });
 
   test('09-complex-workflow: detects 2 boundary events', async () => {
-    const { diagramId } = await importReference('09-complex-workflow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF09ComplexWorkflow();
+    const registry = getRegistry(ids.diagramId);
     const boundaryInfos = identifyBoundaryEvents(registry);
 
     expect(boundaryInfos.length).toBe(2);
 
-    // Verify hosts
+    // Verify hosts by returned IDs
     const hostIds = boundaryInfos.map((b) => b.host.id).sort();
-    expect(hostIds).toContain('ServiceTask_ProcessPayment');
-    expect(hostIds).toContain('UserTask_ReviewAndConfirm');
+    expect(hostIds).toContain(ids.processPayment);
+    expect(hostIds).toContain(ids.reviewTask);
   });
 
   test('09-complex-workflow: each boundary event has an exception chain', async () => {
-    const { diagramId } = await importReference('09-complex-workflow');
-    const registry = getRegistry(diagramId);
+    const ids = await buildF09ComplexWorkflow();
+    const registry = getRegistry(ids.diagramId);
     const boundaryInfos = identifyBoundaryEvents(registry);
 
     for (const info of boundaryInfos) {

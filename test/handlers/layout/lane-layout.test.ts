@@ -395,4 +395,109 @@ describe('lane layout', () => {
     const layoutRes = parseResult(await handleLayoutDiagram({ diagramId }));
     expect(layoutRes.success).toBe(true);
   });
+
+  // ── 1c: Lane membership preserved after layout ─────────────────────────
+
+  test('1c: pool with 3 lanes — lane membership is preserved after layout', async () => {
+    // Build a pool with 3 lanes (Requester, Reviewer, Publisher)
+    // and elements explicitly assigned to each lane.
+    // After layout, every element must still be in its original lane.
+    const diagramId = await createDiagram('1c Lane Preservation');
+
+    // Create a participant pool with 3 lanes
+    const poolRes = parseResult(
+      await handleCreateParticipant({ diagramId, name: 'Review Process' })
+    );
+    const participantId = poolRes.participantId as string;
+
+    const lanesRes = parseResult(
+      await handleCreateLanes({
+        diagramId,
+        participantId,
+        lanes: [{ name: 'Requester' }, { name: 'Reviewer' }, { name: 'Publisher' }],
+      })
+    );
+    const [laneRequester, laneReviewer, lanePublisher] = lanesRes.laneIds as string[];
+
+    // Add elements to specific lanes
+    const start = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:StartEvent',
+        name: 'Start',
+        participantId,
+        laneId: laneRequester,
+      })
+    ).elementId;
+    const submit = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Submit',
+        participantId,
+        laneId: laneRequester,
+      })
+    ).elementId;
+    const review = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Review',
+        participantId,
+        laneId: laneReviewer,
+      })
+    ).elementId;
+    const publish = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:ServiceTask',
+        name: 'Publish',
+        participantId,
+        laneId: lanePublisher,
+      })
+    ).elementId;
+    const end = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:EndEvent',
+        name: 'Done',
+        participantId,
+        laneId: laneRequester,
+      })
+    ).elementId;
+
+    await connect(diagramId, start, submit);
+    await connect(diagramId, submit, review);
+    await connect(diagramId, review, publish);
+    await connect(diagramId, publish, end);
+
+    // Run layout
+    const layoutRes = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(layoutRes.success).toBe(true);
+
+    // Assert every element is in its assigned lane
+    const registry = getRegistry(diagramId);
+    const laneRequesterEl = registry.get(laneRequester)!;
+    const laneReviewerEl = registry.get(laneReviewer)!;
+    const lanePublisherEl = registry.get(lanePublisher)!;
+
+    function elementInLane(elId: string, lane: any): boolean {
+      const el = registry.get(elId)!;
+      return el.y >= lane.y - 1 && el.y + el.height <= lane.y + lane.height + 1;
+    }
+
+    expect(elementInLane(start, laneRequesterEl), `start in Requester lane`).toBe(true);
+    expect(elementInLane(submit, laneRequesterEl), `submit in Requester lane`).toBe(true);
+    expect(elementInLane(review, laneReviewerEl), `review in Reviewer lane`).toBe(true);
+    expect(elementInLane(publish, lanePublisherEl), `publish in Publisher lane`).toBe(true);
+    expect(elementInLane(end, laneRequesterEl), `end in Requester lane`).toBe(true);
+
+    // Reviewer and Publisher lanes must be at different Y bands than Requester
+    const requesterY = laneRequesterEl.y + laneRequesterEl.height / 2;
+    const reviewerY = laneReviewerEl.y + laneReviewerEl.height / 2;
+    const publisherY = lanePublisherEl.y + lanePublisherEl.height / 2;
+    expect(Math.abs(requesterY - reviewerY)).toBeGreaterThan(50);
+    expect(Math.abs(requesterY - publisherY)).toBeGreaterThan(50);
+    expect(Math.abs(reviewerY - publisherY)).toBeGreaterThan(50);
+  });
 });

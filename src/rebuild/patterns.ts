@@ -99,6 +99,11 @@ function isGateway(type: string): boolean {
  * Uses the "balanced gateway" heuristic: the merge is the first node
  * reachable from ALL branches of the split.  This handles simple
  * diamond patterns (split → tasks → merge) and nested patterns.
+ *
+ * For "open fan" splits (branches that don't all reconverge), each
+ * branch's element list is limited to elements EXCLUSIVELY reachable
+ * from that branch.  Shared continuation elements (reachable from
+ * multiple branches) fall through to `positionAfterPredecessor`.
  */
 function findMergePattern(
   splitId: string,
@@ -107,14 +112,11 @@ function findMergePattern(
   backEdgeIds: Set<string>
 ): GatewayPattern {
   // Trace each branch forward, collecting reachable node sets
-  const branchPaths: string[][] = [];
   const branchReachable: Set<string>[] = [];
 
   for (const { node: startNode } of forwardOutgoing) {
-    const path: string[] = [];
     const reachable = new Set<string>();
-    traceBranch(startNode, splitId, nodes, backEdgeIds, path, reachable, new Set());
-    branchPaths.push(path);
+    traceBranch(startNode, splitId, nodes, backEdgeIds, reachable, new Set());
     branchReachable.push(reachable);
   }
 
@@ -146,23 +148,37 @@ function findMergePattern(
     }
   }
 
-  // Build branch element lists (elements between split and merge)
-  const branches: string[][] = [];
-  for (const { node: startNode } of forwardOutgoing) {
-    const branch: string[] = [];
-    collectBranchElements(
-      startNode.element.id,
-      splitId,
-      mergeId,
-      nodes,
-      backEdgeIds,
-      branch,
-      new Set()
-    );
-    branches.push(branch);
+  if (mergeId !== null) {
+    // Closed fan: build branch element lists stopping at the merge gateway
+    const branches: string[][] = [];
+    for (const { node: startNode } of forwardOutgoing) {
+      const branch: string[] = [];
+      collectBranchElements(
+        startNode.element.id,
+        splitId,
+        mergeId,
+        nodes,
+        backEdgeIds,
+        branch,
+        new Set()
+      );
+      branches.push(branch);
+    }
+    return { splitId, mergeId, branches };
   }
 
-  return { splitId, mergeId, branches };
+  // Open fan: no common convergence point across all branches.
+  // Only include elements EXCLUSIVELY reachable from each branch
+  // (not reachable from any other branch).  Shared elements (e.g.
+  // the continuation after a partial merge) are excluded from all
+  // branch lists so they fall through to positionAfterPredecessor.
+  const branches: string[][] = forwardOutgoing.map((_, i) => {
+    return [...branchReachable[i]].filter(
+      (id) => !branchReachable.some((reachable, j) => j !== i && reachable.has(id))
+    );
+  });
+
+  return { splitId, mergeId: null, branches };
 }
 
 /**
@@ -174,7 +190,6 @@ function traceBranch(
   splitId: string,
   nodes: Map<string, FlowNode>,
   backEdgeIds: Set<string>,
-  path: string[],
   reachable: Set<string>,
   visited: Set<string>
 ): void {
@@ -186,7 +201,6 @@ function traceBranch(
     if (currentId === splitId) continue; // Don't loop back to split
     visited.add(currentId);
     reachable.add(currentId);
-    path.push(currentId);
 
     const node = nodes.get(currentId);
     if (!node) continue;

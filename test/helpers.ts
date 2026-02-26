@@ -18,6 +18,4 @@ export {
   getRegistry,
   createSimpleProcess,
   clearDiagrams,
-  importReference,
-  importAndLayout,
 } from './utils/diagram';

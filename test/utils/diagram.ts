@@ -7,11 +7,8 @@ import {
   handleAddElement,
   handleConnect,
   handleExportBpmn,
-  handleImportXml,
-  handleLayoutDiagram,
 } from '../../src/handlers';
 import { clearDiagrams, getDiagram } from '../../src/diagram-manager';
-import { resolve } from 'node:path';
 
 export function parseResult(result: any) {
   return JSON.parse(result.content[0].text);
@@ -79,30 +76,3 @@ export async function createSimpleProcess(
 }
 
 export { clearDiagrams };
-
-// ── Reference BPMN helpers ─────────────────────────────────────────────────
-
-const REFERENCES_DIR = resolve(__dirname, '..', 'fixtures', 'layout-snapshots');
-
-/**
- * Import a reference BPMN by short name (e.g. '01-linear-flow', '06-boundary-events').
- * Returns the diagramId and the elementRegistry.
- */
-export async function importReference(name: string) {
-  const filePath = resolve(REFERENCES_DIR, `${name}.bpmn`);
-  const result = parseResult(await handleImportXml({ filePath }));
-  const diagramId = result.diagramId as string;
-  const registry = getDiagram(diagramId)!.modeler.get('elementRegistry') as any;
-  return { diagramId, registry };
-}
-
-/**
- * Import a reference BPMN, run layout, and return the registry.
- * Convenience for tests that need layout results against a reference.
- */
-export async function importAndLayout(name: string) {
-  const { diagramId, registry } = await importReference(name);
-  await handleLayoutDiagram({ diagramId });
-  // Re-fetch registry after layout (same object, but clearer intent)
-  return { diagramId, registry };
-}
