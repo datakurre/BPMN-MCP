@@ -118,7 +118,8 @@ export function computePositions(
   origin: { x: number; y: number },
   gap: number,
   branchSpacing: number,
-  excludeIds?: Set<string>
+  excludeIds?: Set<string>,
+  elementLaneYs?: Map<string, number>
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
 
@@ -152,10 +153,11 @@ export function computePositions(
         node.element,
         gap,
         branchSpacing,
-        graph
+        graph,
+        elementLaneYs
       );
     } else {
-      positionAfterPredecessor(positions, node, node.element, gap, backEdgeIds);
+      positionAfterPredecessor(positions, node, node.element, gap, backEdgeIds, elementLaneYs);
     }
   }
 
@@ -167,13 +169,17 @@ export function computePositions(
 /**
  * Position an element to the right of its rightmost positioned predecessor,
  * at the same Y as that predecessor.  Ignores back-edge predecessors.
+ *
+ * When the element belongs to a specific lane (elementLaneYs provided),
+ * the Y is overridden with the lane's estimated center Y (task 3a).
  */
 function positionAfterPredecessor(
   positions: Map<string, { x: number; y: number }>,
   node: FlowNode,
   element: BpmnElement,
   gap: number,
-  backEdgeIds: Set<string>
+  backEdgeIds: Set<string>,
+  elementLaneYs?: Map<string, number>
 ): void {
   // Collect positioned forward predecessors
   const predecessors: Array<{ element: BpmnElement; pos: { x: number; y: number } }> = [];
@@ -205,7 +211,7 @@ function positionAfterPredecessor(
 
   positions.set(element.id, {
     x: maxRight + gap + element.width / 2,
-    y: best.pos.y,
+    y: elementLaneYs?.get(element.id) ?? best.pos.y,
   });
 }
 
@@ -217,6 +223,10 @@ function positionAfterPredecessor(
  *   2 branches → ±branchSpacing/2
  *   3 branches → -branchSpacing, 0, +branchSpacing
  *   N branches → (i - (N-1)/2) * branchSpacing
+ *
+ * When the element belongs to a specific lane (elementLaneYs provided),
+ * the lane's estimated center Y is used instead of the symmetric offset.
+ * This aligns parallel branches with their assigned lanes (task 3c).
  */
 function positionBranchElement(
   positions: Map<string, { x: number; y: number }>,
@@ -226,7 +236,8 @@ function positionBranchElement(
   element: BpmnElement,
   gap: number,
   branchSpacing: number,
-  graph: FlowGraph
+  graph: FlowGraph,
+  elementLaneYs?: Map<string, number>
 ): void {
   const splitPos = positions.get(pattern.splitId);
   if (!splitPos) {
@@ -234,10 +245,10 @@ function positionBranchElement(
     return;
   }
 
-  // Symmetric branch Y offset
+  // Symmetric branch Y offset — overridden by lane Y when known
   const numBranches = pattern.branches.length;
   const branchOffset = (branchIndex - (numBranches - 1) / 2) * branchSpacing;
-  const branchY = splitPos.y + branchOffset;
+  const branchY = elementLaneYs?.get(elementId) ?? splitPos.y + branchOffset;
 
   // X based on position within the branch
   const branch = pattern.branches[branchIndex];

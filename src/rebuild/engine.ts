@@ -43,6 +43,7 @@ import { buildPatternLookups, computePositions, resolvePositionOverlaps } from '
 import {
   applyLaneLayout,
   buildElementToLaneMap,
+  buildElementLaneYMap,
   getLanesForParticipant,
   resizePoolToFit,
   restoreLaneAssignments,
@@ -124,108 +125,157 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
   const branchSpacing = options?.branchSpacing ?? DEFAULT_BRANCH_SPACING;
   const pinnedElementIds = options?.pinnedElementIds;
 
-  // Build container hierarchy for recursive processing
   const hierarchy = buildContainerHierarchy(registry);
   const rebuildOrder = getContainerRebuildOrder(hierarchy);
 
   let totalRepositioned = 0;
   let totalRerouted = 0;
-
-  // Track which participants we've rebuilt (for pool stacking)
   const rebuiltParticipants: BpmnElement[] = [];
 
-  // Process containers inside-out (deepest first)
   for (const containerNode of rebuildOrder) {
-    const container = containerNode.element;
-
-    // Skip Collaboration root — it doesn't hold flow nodes directly
-    if (container.type === 'bpmn:Collaboration') continue;
-
-    // Use subprocess-internal origin for subprocesses
-    const containerOrigin =
-      container.type === 'bpmn:SubProcess' ? { x: SUBPROCESS_PADDING + 18, y: origin.y } : origin;
-
-    // Detect event subprocesses to exclude from main flow positioning
-    const eventSubIds = getEventSubprocessIds(registry, container);
-
-    // Save lane assignments BEFORE rebuild — bpmn-js mutates
-    // flowNodeRef when elements are moved, so we need the original mapping
-    const savedLaneMap =
-      container.type === 'bpmn:Participant'
-        ? buildElementToLaneMap(getLanesForParticipant(registry, container))
-        : new Map<string, BpmnElement>();
-
-    const result = rebuildContainer(
+    const counts = processContainerNode(
+      containerNode,
       registry,
       modeling,
-      container,
-      containerOrigin,
+      origin,
       gap,
       branchSpacing,
-      eventSubIds,
-      pinnedElementIds
+      pinnedElementIds,
+      rebuiltParticipants
     );
-
-    totalRepositioned += result.repositionedCount;
-    totalRerouted += result.reroutedCount;
-
-    // Position event subprocesses below main flow
-    if (eventSubIds.size > 0) {
-      totalRepositioned += positionEventSubprocesses(
-        eventSubIds,
-        registry,
-        modeling,
-        container,
-        gap,
-        containerOrigin.x
-      );
-    }
-
-    // Resize expanded subprocesses to fit their contents
-    if (container.type === 'bpmn:SubProcess' && containerNode.isExpanded) {
-      resizeSubprocessToFit(modeling, registry, container, SUBPROCESS_PADDING);
-    }
-
-    // Position artifacts (text annotations, data objects) relative to
-    // their associated flow nodes
-    totalRepositioned += positionArtifacts(registry, modeling, container);
-
-    // Handle participants: lane layout + pool resizing + stacking
-    if (container.type === 'bpmn:Participant') {
-      const lanes = getLanesForParticipant(registry, container);
-      if (lanes.length > 0) {
-        // Restore flowNodeRef lists that may have been mutated during
-        // rebuildContainer() (modeling.moveElements updates lane membership
-        // when elements cross lane visual boundaries).
-        restoreLaneAssignments(registry, savedLaneMap, lanes);
-
-        totalRepositioned += applyLaneLayout(
-          registry,
-          modeling,
-          container,
-          origin.y,
-          SUBPROCESS_PADDING,
-          savedLaneMap
-        );
-      } else {
-        resizePoolToFit(modeling, registry, container, SUBPROCESS_PADDING);
-      }
-      rebuiltParticipants.push(container);
-    }
+    totalRepositioned += counts.repositionedCount;
+    totalRerouted += counts.reroutedCount;
   }
 
-  // Stack pools vertically for collaborations
   if (rebuiltParticipants.length > 1) {
     totalRepositioned += stackPools(rebuiltParticipants, modeling, POOL_GAP);
   }
 
-  // Layout message flows after all pools are positioned
   totalRerouted += layoutMessageFlows(registry, modeling);
-
-  // Adjust all labels to bpmn-js default positions
   totalRepositioned += adjustLabels(registry, modeling);
 
   return { repositionedCount: totalRepositioned, reroutedCount: totalRerouted };
+}
+
+// ── Per-container processing ───────────────────────────────────────────────
+
+/**
+ * Process a single container node in the rebuild order.
+ * Returns repositioned/rerouted counts (zeros for skipped containers).
+ */
+function processContainerNode(
+  containerNode: ReturnType<typeof getContainerRebuildOrder>[number],
+  registry: ElementRegistry,
+  modeling: Modeling,
+  origin: { x: number; y: number },
+  gap: number,
+  branchSpacing: number,
+  pinnedElementIds: Set<string> | undefined,
+  rebuiltParticipants: BpmnElement[]
+): RebuildResult {
+  const container = containerNode.element;
+
+  // Skip Collaboration root — it doesn't hold flow nodes directly
+  if (container.type === 'bpmn:Collaboration') return { repositionedCount: 0, reroutedCount: 0 };
+
+  // Use subprocess-internal origin for subprocesses
+  const containerOrigin =
+    container.type === 'bpmn:SubProcess' ? { x: SUBPROCESS_PADDING + 18, y: origin.y } : origin;
+
+  // Detect event subprocesses to exclude from main flow positioning
+  const eventSubIds = getEventSubprocessIds(registry, container);
+
+  // Save lane assignments BEFORE rebuild — bpmn-js mutates flowNodeRef
+  // when elements are moved, so we need the original mapping.
+  const participantLanes =
+    container.type === 'bpmn:Participant' ? getLanesForParticipant(registry, container) : [];
+  const savedLaneMap =
+    participantLanes.length > 0
+      ? buildElementToLaneMap(participantLanes)
+      : new Map<string, BpmnElement>();
+
+  // Lane-aware positioning: precompute element → lane center Y (tasks 3a/3c)
+  const elementLaneYs =
+    participantLanes.length > 0
+      ? buildElementLaneYMap(participantLanes, savedLaneMap, containerOrigin.y)
+      : undefined;
+
+  const result = rebuildContainer(
+    registry,
+    modeling,
+    container,
+    containerOrigin,
+    gap,
+    branchSpacing,
+    eventSubIds,
+    pinnedElementIds,
+    elementLaneYs
+  );
+
+  let repositionedCount = result.repositionedCount;
+  const reroutedCount = result.reroutedCount;
+
+  if (eventSubIds.size > 0) {
+    repositionedCount += positionEventSubprocesses(
+      eventSubIds,
+      registry,
+      modeling,
+      container,
+      gap,
+      containerOrigin.x
+    );
+  }
+
+  if (container.type === 'bpmn:SubProcess' && containerNode.isExpanded) {
+    resizeSubprocessToFit(modeling, registry, container, SUBPROCESS_PADDING);
+  }
+
+  repositionedCount += positionArtifacts(registry, modeling, container);
+
+  if (container.type === 'bpmn:Participant') {
+    repositionedCount += applyParticipantLayout(
+      container,
+      participantLanes,
+      savedLaneMap,
+      registry,
+      modeling,
+      origin,
+      rebuiltParticipants
+    );
+  }
+
+  return { repositionedCount, reroutedCount };
+}
+
+/**
+ * Apply lane layout (or pool-fit resize) for a participant container.
+ * Pushes the participant to `rebuiltParticipants` for pool stacking.
+ */
+function applyParticipantLayout(
+  container: BpmnElement,
+  participantLanes: BpmnElement[],
+  savedLaneMap: Map<string, BpmnElement>,
+  registry: ElementRegistry,
+  modeling: Modeling,
+  origin: { x: number; y: number },
+  rebuiltParticipants: BpmnElement[]
+): number {
+  let repositioned = 0;
+  if (participantLanes.length > 0) {
+    restoreLaneAssignments(registry, savedLaneMap, participantLanes);
+    repositioned += applyLaneLayout(
+      registry,
+      modeling,
+      container,
+      origin.y,
+      SUBPROCESS_PADDING,
+      savedLaneMap
+    );
+  } else {
+    resizePoolToFit(modeling, registry, container, SUBPROCESS_PADDING);
+  }
+  rebuiltParticipants.push(container);
+  return repositioned;
 }
 
 // ── Container rebuild ──────────────────────────────────────────────────────
@@ -243,7 +293,8 @@ function rebuildContainer(
   gap: number,
   branchSpacing: number,
   additionalExcludeIds?: Set<string>,
-  pinnedElementIds?: Set<string>
+  pinnedElementIds?: Set<string>,
+  elementLaneYs?: Map<string, number>
 ): RebuildResult {
   // Extract flow graph scoped to this container
   const graph = extractFlowGraph(registry, container);
@@ -274,7 +325,8 @@ function rebuildContainer(
     origin,
     gap,
     branchSpacing,
-    allExcludeIds
+    allExcludeIds,
+    elementLaneYs
   );
 
   // Safety-net: spread any overlapping elements (e.g. open-fan parallel branches)

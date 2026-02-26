@@ -36,6 +36,66 @@ const BPMN_MESSAGE_FLOW_TYPE = 'bpmn:MessageFlow';
 const BPMN_ASSOCIATION_TYPE = 'bpmn:Association';
 const BPMN_FORMAL_EXPRESSION_TYPE = 'bpmn:FormalExpression';
 
+// ── Parallel gateway balance check (task 4a) ───────────────────────────────
+
+/**
+ * Walk forward from a node through outgoing sequence flows, looking for
+ * a parallel gateway that acts as a join (≤1 outgoing flow).
+ * Returns the join gateway business object, or null if not found.
+ */
+function findParallelJoin(node: any, visited: Set<string>, depth = 0): any | null {
+  if (!node || visited.has(node.id) || depth > 25) return null;
+  visited.add(node.id);
+  const t: string = node.$type || '';
+  // A parallel gateway with ≤1 outgoing flows is a join
+  if (t === 'bpmn:ParallelGateway' && (node.outgoing?.length || 0) <= 1) return node;
+  // Dead ends — no join reachable from here
+  if (t === 'bpmn:EndEvent' || !node.outgoing?.length) return null;
+  for (const flow of node.outgoing as any[]) {
+    const target = flow.targetRef;
+    if (!target) continue;
+    const join = findParallelJoin(target, visited, depth + 1);
+    if (join) return join;
+  }
+  return null;
+}
+
+/**
+ * Check whether all outgoing branches of a parallel split gateway reach
+ * a corresponding parallel join gateway.
+ *
+ * Returns a warning string if any branch terminates without a join,
+ * or null when the gateway is balanced (or has <2 outgoing branches).
+ *
+ * Called after `connect_bpmn_elements` creates a flow from a parallel
+ * gateway, so AI callers get immediate feedback when a branch is left
+ * open (task 4a).
+ */
+function checkParallelGatewayBalance(gatewayBo: any): string | null {
+  const outgoing: any[] = gatewayBo.outgoing || [];
+  if (outgoing.length < 2) return null; // Not yet a split
+
+  const missingBranches: string[] = [];
+  for (const flow of outgoing) {
+    const target = flow.targetRef;
+    if (!target) {
+      missingBranches.push('unknown');
+      continue;
+    }
+    const join = findParallelJoin(target, new Set([gatewayBo.id]));
+    if (!join) missingBranches.push(target.name || target.id || 'unknown');
+  }
+
+  if (missingBranches.length === 0) return null;
+
+  return (
+    `⚠️ Parallel gateway “${gatewayBo.name || gatewayBo.id}” has ${outgoing.length} outgoing ` +
+    `branches but branch(es) via [${missingBranches.join(', ')}] do not reach a ` +
+    `parallel join gateway — the join will deadlock waiting for missing tokens. ` +
+    `Connect all branches to the join gateway, or use an inclusive gateway if branches are optional.`
+  );
+}
+
 export interface ConnectArgs {
   diagramId: string;
   sourceElementId?: string;
@@ -297,6 +357,15 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
     await handleLayoutDiagram({ diagramId });
   }
 
+  // Check parallel gateway branch balance (task 4a): warn when a branch
+  // from a parallel split doesn't reach a matching join gateway.
+  const hints: string[] = [];
+  if (autoHint) hints.push(autoHint);
+  if (sourceType === 'bpmn:ParallelGateway') {
+    const balanceWarning = checkParallelGatewayBalance(source.businessObject);
+    if (balanceWarning) hints.push(balanceWarning);
+  }
+
   const result = jsonResult({
     success: true,
     connectionId: connection.id,
@@ -304,7 +373,7 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
     isDefault: isDefault || false,
     diagramCounts: buildElementCounts(elementRegistry),
     message: `Connected ${sourceElementId} to ${targetElementId}`,
-    ...(autoHint ? { hint: autoHint } : {}),
+    ...(hints.length > 0 ? { hint: hints.join('\n\n') } : {}),
     nextSteps: [
       {
         tool: 'layout_bpmn_diagram',

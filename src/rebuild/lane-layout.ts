@@ -14,8 +14,9 @@ import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 /**
  * Default height (px) for each lane in a pool.
  * Matches typical BPMN lane sizing in Camunda Modeler.
+ * Exported so the rebuild engine can use it for lane-aware Y pre-positioning.
  */
-const DEFAULT_LANE_HEIGHT = 250;
+export const DEFAULT_LANE_HEIGHT = 250;
 
 /**
  * Minimum lane height (px) even for empty / sparse lanes.
@@ -71,6 +72,52 @@ export function buildElementToLaneMap(lanes: BpmnElement[]): Map<string, BpmnEle
   }
 
   return elementToLane;
+}
+
+/**
+ * Build a map from element ID to estimated lane center Y.
+ *
+ * Used by the rebuild engine to pre-compute lane-aware Y positions
+ * before calling computePositions().  Elements with a known lane
+ * will be positioned at their lane's estimated center Y rather than
+ * at their predecessor's Y (tasks 3a and 3c).
+ *
+ * The estimate is based on the topological lane order (sorted by
+ * current Y) and the default lane height.  The actual lane heights
+ * are computed later by resizePoolAndLanes() / handleAutosizePoolsAndLanes().
+ *
+ * @param lanes       All lane elements in the participant.
+ * @param savedLaneMap  Element-ID → lane mapping captured before rebuild.
+ * @param originY     Y origin for the first lane (matches rebuildLayout origin.y).
+ */
+export function buildElementLaneYMap(
+  lanes: BpmnElement[],
+  savedLaneMap: Map<string, BpmnElement>,
+  originY: number
+): Map<string, number> {
+  if (lanes.length === 0 || savedLaneMap.size === 0) return new Map();
+
+  // Sort lanes by current Y position to get top-to-bottom order.
+  const sortedLanes = [...lanes].sort((a, b) => a.y - b.y);
+
+  // Compute estimated center Y for each lane (stacked from originY).
+  // Each lane occupies DEFAULT_LANE_HEIGHT pixels; center is at the midpoint.
+  const laneCenterYs = new Map<string, number>();
+  for (let i = 0; i < sortedLanes.length; i++) {
+    laneCenterYs.set(
+      sortedLanes[i].id,
+      originY + i * DEFAULT_LANE_HEIGHT + DEFAULT_LANE_HEIGHT / 2
+    );
+  }
+
+  // Map each element to its lane's estimated center Y.
+  const elementLaneYs = new Map<string, number>();
+  for (const [elId, lane] of savedLaneMap) {
+    const laneY = laneCenterYs.get(lane.id);
+    if (laneY !== undefined) elementLaneYs.set(elId, laneY);
+  }
+
+  return elementLaneYs;
 }
 
 // ── Lane layout application ────────────────────────────────────────────────
@@ -137,15 +184,17 @@ export function applyLaneLayout(
     }
   }
 
-  // Re-layout connections within the pool (Y positions changed)
+  // Resize pool and lanes to fit content BEFORE re-routing connections,
+  // so that connection waypoints reflect the final pool/lane geometry.
+  resizePoolAndLanes(sortedLanes, participant, registry, modeling, padding, savedLaneMap);
+
+  // Re-layout connections within the pool AFTER resize (task 9a):
+  // waypoints now account for the final lane widths and heights.
   for (const el of allElements) {
     if (el.parent === participant && el.type === 'bpmn:SequenceFlow') {
       modeling.layoutConnection(el);
     }
   }
-
-  // Resize pool and lanes to fit content (proportional lane heights)
-  resizePoolAndLanes(sortedLanes, participant, registry, modeling, padding, savedLaneMap);
 
   return repositioned;
 }

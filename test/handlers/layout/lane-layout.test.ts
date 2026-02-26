@@ -21,6 +21,8 @@ import {
   handleAssignElementsToLane,
   handleWrapProcessInCollaboration,
 } from '../../../src/handlers';
+import { handleExportBpmn } from '../../../src/handlers/core/export';
+import { handleImportXml } from '../../../src/handlers/core/import-xml';
 import {
   parseResult,
   createDiagram,
@@ -499,5 +501,70 @@ describe('lane layout', () => {
     expect(Math.abs(requesterY - reviewerY)).toBeGreaterThan(50);
     expect(Math.abs(requesterY - publisherY)).toBeGreaterThan(50);
     expect(Math.abs(reviewerY - publisherY)).toBeGreaterThan(50);
+  });
+
+  // ── Task 6c: pool/lane DI integrity after layout round-trip ───────────────
+
+  test('pool and lanes remain visible after layout → export → re-import (6c)', async () => {
+    // Build a process with two elements assigned to different lanes
+    const diagramId = await createDiagram('Lane DI Round Trip');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const task1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Review' });
+    const task2 = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Process' });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+    await connectAll(diagramId, start, task1, task2, end);
+
+    // Wrap in a collaboration pool
+    const wrapResult = parseResult(
+      await handleWrapProcessInCollaboration({ diagramId, participantName: 'Test Process' })
+    );
+    const poolId = wrapResult.participantIds[0];
+
+    // Add two lanes
+    const laneResult = parseResult(
+      await handleCreateLanes({
+        diagramId,
+        participantId: poolId,
+        lanes: [{ name: 'Lane A' }, { name: 'Lane B' }],
+      })
+    );
+    const [laneA, laneB] = laneResult.laneIds as string[];
+
+    // Assign elements to lanes
+    await handleAssignElementsToLane({ diagramId, laneId: laneA, elementIds: [start, task1] });
+    await handleAssignElementsToLane({ diagramId, laneId: laneB, elementIds: [task2, end] });
+
+    // Run layout
+    const layoutResult = parseResult(await handleLayoutDiagram({ diagramId }));
+    expect(layoutResult.success).toBe(true);
+
+    // After layout the pool and both lanes must still be in the registry
+    const registryAfterLayout = getRegistry(diagramId);
+    expect(registryAfterLayout.get(poolId)).toBeTruthy();
+    expect(registryAfterLayout.get(laneA)).toBeTruthy();
+    expect(registryAfterLayout.get(laneB)).toBeTruthy();
+
+    // Export to XML
+    const exportResult = await handleExportBpmn({ diagramId, format: 'xml', skipLint: true });
+    const xml: string = exportResult.content[0].text as string;
+    expect(xml).toContain('Test Process');
+    expect(xml).toContain('Lane A');
+    expect(xml).toContain('Lane B');
+
+    // Re-import the exported XML
+    const importResult = parseResult(await handleImportXml({ xml }));
+    const reimportedId: string = importResult.diagramId;
+
+    // After re-import, participant and lanes must be visible in the registry
+    const registryAfterImport = getRegistry(reimportedId);
+    const allElements = registryAfterImport.getAll();
+    const participantEl = allElements.find((el: any) => el.type === 'bpmn:Participant');
+    expect(participantEl, 'participant visible after re-import').toBeTruthy();
+    const laneEls = allElements.filter((el: any) => el.type === 'bpmn:Lane');
+    expect(laneEls.length, 'two lanes visible after re-import').toBeGreaterThanOrEqual(2);
+
+    // And the flow nodes must still be present
+    const taskEl = allElements.find((el: any) => el.businessObject?.name === 'Review');
+    expect(taskEl, 'Review task visible after re-import').toBeTruthy();
   });
 });

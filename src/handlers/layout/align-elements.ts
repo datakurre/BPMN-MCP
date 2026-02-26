@@ -122,6 +122,45 @@ function applyCompactRedistribution(elements: any[], alignment: string, modeling
   }
 }
 
+// ── X-axis overlap resolution (task 8a) ─────────────────────────────────────
+
+/**
+ * Detect and resolve horizontal overlaps among elements that share the
+ * same Y row after alignment.
+ *
+ * When `compact: true` is combined with a horizontal alignment
+ * (top/middle/bottom), all elements land on the same Y center line.
+ * If any two elements still overlap on the X axis (e.g. from parallel
+ * branches that were at different depths), this function nudges later
+ * elements to the right with a STANDARD_BPMN_GAP margin.
+ */
+function resolveXOverlaps(elements: any[], modeling: any): void {
+  // Group elements by their rounded Y-center (same row)
+  const rows = new Map<number, any[]>();
+  for (const el of elements) {
+    const rowKey = Math.round(el.y + (el.height || 0) / 2);
+    if (!rows.has(rowKey)) rows.set(rowKey, []);
+    rows.get(rowKey)!.push(el);
+  }
+
+  for (const [, row] of rows) {
+    if (row.length < 2) continue;
+    // Sort by current X
+    const sorted = [...row].sort((a: any, b: any) => a.x - b.x);
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1];
+      const curr = sorted[i];
+      const minX = prev.x + (prev.width || 0) + STANDARD_BPMN_GAP;
+      if (curr.x < minX) {
+        const delta = minX - curr.x;
+        modeling.moveElements([curr], { x: delta, y: 0 });
+        // Update position for subsequent elements
+        sorted[i] = { ...curr, x: curr.x + delta };
+      }
+    }
+  }
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 export async function handleAlignElements(args: AlignElementsArgs): Promise<ToolResult> {
@@ -149,6 +188,12 @@ export async function handleAlignElements(args: AlignElementsArgs): Promise<Tool
   // Optional compact redistribution
   if (compact && elements.length >= 2) {
     applyCompactRedistribution(elements, alignment, modeling);
+    // For horizontal alignments (top/middle/bottom), elements land on the
+    // same Y row.  Resolve any remaining X overlaps (task 8a): parallel
+    // branch elements may have identical X coordinates after alignment.
+    if (['top', 'middle', 'bottom'].includes(alignment)) {
+      resolveXOverlaps(elements, modeling);
+    }
   }
 
   await syncXml(diagram);
