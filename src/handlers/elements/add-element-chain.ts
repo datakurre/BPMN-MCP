@@ -9,7 +9,7 @@
 // @mutating
 
 import { type ToolResult } from '../../types';
-import { missingRequiredError, typeMismatchError } from '../../errors';
+import { missingRequiredError, typeMismatchError, semanticViolationError } from '../../errors';
 import { requireDiagram, jsonResult, validateArgs, buildElementCounts } from '../helpers';
 import { getService } from '../../bpmn-types';
 import { appendLintFeedback } from '../../linter';
@@ -64,15 +64,15 @@ const CHAIN_ELEMENT_TYPES = new Set([
   'bpmn:SubProcess',
 ]);
 
-export async function handleAddElementChain(args: AddElementChainArgs): Promise<ToolResult> {
-  validateArgs(args, ['diagramId', 'elements']);
-  const { diagramId, elements, afterElementId } = args;
-
-  if (!Array.isArray(elements) || elements.length === 0) {
-    throw missingRequiredError(['elements']);
-  }
-
-  // Validate all element types up front before creating anything
+/**
+ * Validate chain element types and EndEvent placement before creating anything.
+ */
+function validateChainElements(
+  elements: AddElementChainArgs['elements'],
+  afterElementId: string | undefined,
+  diagram: ReturnType<typeof requireDiagram>
+): void {
+  // Validate all element types up front
   for (let i = 0; i < elements.length; i++) {
     const el = elements[i];
     if (!el.elementType) {
@@ -83,7 +83,43 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
     }
   }
 
+  // Check if afterElementId is an EndEvent — cannot place elements after a flow sink
+  if (afterElementId) {
+    const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+    const afterEl = elementRegistry.get(afterElementId);
+    if (afterEl) {
+      const afterType: string = afterEl.type || afterEl.businessObject?.$type || '';
+      if (afterType === 'bpmn:EndEvent') {
+        throw semanticViolationError(
+          `Cannot add elements after ${afterElementId} — bpmn:EndEvent is a flow sink and must not have outgoing sequence flows. ` +
+            `Use a different element as afterElementId, or replace the EndEvent with an IntermediateThrowEvent if the flow should continue.`
+        );
+      }
+    }
+  }
+
+  // Validate that EndEvent is only used as the last element in the chain
+  for (let i = 0; i < elements.length - 1; i++) {
+    if (elements[i].elementType === 'bpmn:EndEvent') {
+      throw semanticViolationError(
+        `elements[${i}] is bpmn:EndEvent but is not the last element in the chain. ` +
+          `EndEvent is a flow sink and must not have outgoing sequence flows. ` +
+          `Move the EndEvent to the end of the chain, or use bpmn:IntermediateThrowEvent instead.`
+      );
+    }
+  }
+}
+
+export async function handleAddElementChain(args: AddElementChainArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'elements']);
+  const { diagramId, elements, afterElementId } = args;
+
+  if (!Array.isArray(elements) || elements.length === 0) {
+    throw missingRequiredError(['elements']);
+  }
+
   const diagram = requireDiagram(diagramId);
+  validateChainElements(elements, afterElementId, diagram);
 
   const createdElements: Array<{
     elementId: string;

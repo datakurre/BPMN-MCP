@@ -79,6 +79,47 @@ describe('connect_bpmn_elements', () => {
       })
     ).rejects.toThrow(/Element not found/);
   });
+
+  test('rejects EndEvent as source (pair mode)', async () => {
+    const diagramId = await createDiagram();
+    const endId = await addElement(diagramId, 'bpmn:EndEvent', {
+      x: 100,
+      y: 100,
+    });
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      x: 300,
+      y: 100,
+    });
+    await expect(
+      handleConnect({
+        diagramId,
+        sourceElementId: endId,
+        targetElementId: taskId,
+      })
+    ).rejects.toThrow(/EndEvent is a flow sink/);
+  });
+
+  test('rejects EndEvent as source in chain mode', async () => {
+    const diagramId = await createDiagram();
+    const startId = await addElement(diagramId, 'bpmn:StartEvent', {
+      x: 100,
+      y: 100,
+    });
+    const endId = await addElement(diagramId, 'bpmn:EndEvent', {
+      x: 300,
+      y: 100,
+    });
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', {
+      x: 500,
+      y: 100,
+    });
+    await expect(
+      handleConnect({
+        diagramId,
+        elementIds: [startId, endId, taskId],
+      })
+    ).rejects.toThrow(/EndEvent is a flow sink/);
+  });
 });
 
 describe('connect_bpmn_elements — descriptive flow IDs', () => {

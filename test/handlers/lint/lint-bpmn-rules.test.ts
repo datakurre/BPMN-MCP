@@ -516,6 +516,72 @@ describe('bpmnlint new rules', () => {
     });
   });
 
+  describe('parallel-gateway-balance', () => {
+    test('warns when parallel split has a branch that terminates without reaching join', async () => {
+      const diagramId = await createDiagram('Unbalanced Parallel');
+      const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+      const psplit = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Fork' });
+      const taskA = await addElement(diagramId, 'bpmn:Task', { name: 'Branch A' });
+      const taskB = await addElement(diagramId, 'bpmn:Task', { name: 'Branch B' });
+      const pjoin = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Join' });
+      const endA = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End B' });
+      const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+
+      await connect(diagramId, start, psplit);
+      await connect(diagramId, psplit, taskA);
+      await connect(diagramId, psplit, taskB);
+      // Branch A reaches join
+      await connect(diagramId, taskA, pjoin);
+      // Branch B terminates at end event — doesn't reach join
+      await connect(diagramId, taskB, endA);
+      await connect(diagramId, pjoin, end);
+
+      const res = parseResult(
+        await handleLintDiagram({
+          diagramId,
+          config: {
+            extends: 'plugin:bpmn-mcp/recommended',
+            rules: { 'bpmn-mcp/parallel-gateway-balance': 'warn' },
+          },
+        })
+      );
+
+      const issues = res.issues.filter((i: any) => i.rule === 'bpmn-mcp/parallel-gateway-balance');
+      expect(issues.length).toBeGreaterThan(0);
+      expect(issues[0].message).toContain('deadlock');
+    });
+
+    test('does not warn when all branches reach the same join', async () => {
+      const diagramId = await createDiagram('Balanced Parallel');
+      const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+      const psplit = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Fork' });
+      const taskA = await addElement(diagramId, 'bpmn:Task', { name: 'Branch A' });
+      const taskB = await addElement(diagramId, 'bpmn:Task', { name: 'Branch B' });
+      const pjoin = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Join' });
+      const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done' });
+
+      await connect(diagramId, start, psplit);
+      await connect(diagramId, psplit, taskA);
+      await connect(diagramId, psplit, taskB);
+      await connect(diagramId, taskA, pjoin);
+      await connect(diagramId, taskB, pjoin);
+      await connect(diagramId, pjoin, end);
+
+      const res = parseResult(
+        await handleLintDiagram({
+          diagramId,
+          config: {
+            extends: 'plugin:bpmn-mcp/recommended',
+            rules: { 'bpmn-mcp/parallel-gateway-balance': 'warn' },
+          },
+        })
+      );
+
+      const issues = res.issues.filter((i: any) => i.rule === 'bpmn-mcp/parallel-gateway-balance');
+      expect(issues.length).toBe(0);
+    });
+  });
+
   describe('user-task-missing-assignee', () => {
     test('warns when user task has no assignee or candidates', async () => {
       const diagramId = await createDiagram('No Assignee');

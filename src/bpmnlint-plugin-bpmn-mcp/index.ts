@@ -22,6 +22,7 @@ import loopWithoutLimit from './rules/loop-without-limit';
 import multipleExpandedPools from './rules/multiple-expanded-pools';
 import exclusiveGatewayConditions from './rules/exclusive-gateway-conditions';
 import parallelGatewayMergeExclusive from './rules/parallel-gateway-merge-exclusive';
+import parallelGatewayBalance from './rules/parallel-gateway-balance';
 import userTaskMissingAssignee from './rules/user-task-missing-assignee';
 import implicitMerge from './rules/implicit-merge';
 import undefinedVariable from './rules/undefined-variable';
@@ -75,6 +76,7 @@ export const rules: Record<string, any> = {
   'multiple-expanded-pools': multipleExpandedPools,
   'exclusive-gateway-conditions': exclusiveGatewayConditions,
   'parallel-gateway-merge-exclusive': parallelGatewayMergeExclusive,
+  'parallel-gateway-balance': parallelGatewayBalance,
   'user-task-missing-assignee': userTaskMissingAssignee,
   'implicit-merge': implicitMerge,
   'undefined-variable': undefinedVariable,
@@ -126,6 +128,7 @@ export const configs = {
       'bpmn-mcp/multiple-expanded-pools': 'warn',
       'bpmn-mcp/exclusive-gateway-conditions': 'error',
       'bpmn-mcp/parallel-gateway-merge-exclusive': 'warn',
+      'bpmn-mcp/parallel-gateway-balance': 'warn',
       'bpmn-mcp/user-task-missing-assignee': 'warn',
       'bpmn-mcp/implicit-merge': 'warn',
       'bpmn-mcp/undefined-variable': 'warn',

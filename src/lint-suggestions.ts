@@ -44,6 +44,8 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Exclusive gateway{elementRef} has outgoing flows without conditions. Use set_bpmn_element_properties with conditionExpression on the sequence flows, or mark one as default with isDefault: true',
   'bpmn-mcp/parallel-gateway-merge-exclusive':
     'A parallel gateway is merging mutually exclusive paths{elementRef}. Replace with an exclusive gateway using replace_bpmn_element',
+  'bpmn-mcp/parallel-gateway-balance':
+    'The parallel split gateway{elementRef} has branches that do not reach the join gateway. Connect all branches to the join using connect_bpmn_elements, or use an inclusive gateway if branches are optional',
   'camunda-compat/history-time-to-live':
     'Set historyTimeToLive on the process. Use set_bpmn_element_properties on the process element with camunda:historyTimeToLive',
   'bpmn-mcp/no-duplicate-named-flow-nodes':

@@ -275,6 +275,15 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
     throw elementNotFoundError(targetElementId!);
   }
 
+  // EndEvents are flow sinks — they must not have outgoing sequence flows
+  const sourceType: string = source.type || source.businessObject?.$type || '';
+  if (sourceType === 'bpmn:EndEvent') {
+    throw semanticViolationError(
+      `Cannot connect from ${sourceElementId} — bpmn:EndEvent is a flow sink and must not have outgoing sequence flows. ` +
+        `Use a different element as the source, or replace the EndEvent with an IntermediateThrowEvent if the flow should continue.`
+    );
+  }
+
   const { connection, connectionType, autoHint } = connectPair(diagram, source, target, {
     connectionType: args.connectionType,
     label,
@@ -335,6 +344,15 @@ async function handleChainConnect(diagramId: string, elementIds: string[]): Prom
     }
     if (!target) {
       throw elementNotFoundError(targetId);
+    }
+
+    // EndEvents are flow sinks — they must not have outgoing sequence flows
+    const srcType: string = source.type || source.businessObject?.$type || '';
+    if (srcType === 'bpmn:EndEvent') {
+      throw semanticViolationError(
+        `Cannot connect from ${sourceId} — bpmn:EndEvent is a flow sink and must not have outgoing sequence flows. ` +
+          `Use a different element as the source, or replace the EndEvent with an IntermediateThrowEvent if the flow should continue.`
+      );
     }
 
     const { connection } = connectPair(diagram, source, target, {});

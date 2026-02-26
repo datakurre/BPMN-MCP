@@ -124,4 +124,50 @@ describe('add_bpmn_element_chain', () => {
       })
     ).rejects.toThrow();
   });
+
+  test('rejects EndEvent in middle of chain', async () => {
+    const diagramId = await createDiagram();
+
+    await expect(
+      handleAddElementChain({
+        diagramId,
+        elements: [
+          { elementType: 'bpmn:StartEvent', name: 'Start' },
+          { elementType: 'bpmn:EndEvent', name: 'End' },
+          { elementType: 'bpmn:UserTask', name: 'After End' },
+        ],
+      })
+    ).rejects.toThrow(/EndEvent is a flow sink/);
+  });
+
+  test('rejects afterElementId pointing to EndEvent', async () => {
+    const diagramId = await createDiagram();
+    const endId = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
+
+    await expect(
+      handleAddElementChain({
+        diagramId,
+        afterElementId: endId,
+        elements: [{ elementType: 'bpmn:UserTask', name: 'After End' }],
+      })
+    ).rejects.toThrow(/EndEvent is a flow sink/);
+  });
+
+  test('allows EndEvent as last element in chain', async () => {
+    const diagramId = await createDiagram();
+
+    const res = parseResult(
+      await handleAddElementChain({
+        diagramId,
+        elements: [
+          { elementType: 'bpmn:StartEvent', name: 'Start' },
+          { elementType: 'bpmn:UserTask', name: 'Task' },
+          { elementType: 'bpmn:EndEvent', name: 'End' },
+        ],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.elementCount).toBe(3);
+  });
 });
