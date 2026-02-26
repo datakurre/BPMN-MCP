@@ -39,7 +39,7 @@ import {
   getEventSubprocessIds,
   positionEventSubprocesses,
 } from './container-layout';
-import { buildPatternLookups, computePositions } from './positioning';
+import { buildPatternLookups, computePositions, resolvePositionOverlaps } from './positioning';
 import {
   applyLaneLayout,
   buildElementToLaneMap,
@@ -270,6 +270,9 @@ function rebuildContainer(
     branchSpacing,
     allExcludeIds
   );
+
+  // Safety-net: spread any overlapping elements (e.g. open-fan parallel branches)
+  resolvePositionOverlaps(positions, branchSpacing);
 
   // Apply positions (skip pinned elements)
   let repositionedCount = 0;

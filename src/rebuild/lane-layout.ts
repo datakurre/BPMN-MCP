@@ -18,6 +18,11 @@ import type { BpmnElement, ElementRegistry, Modeling } from '../bpmn-types';
 const DEFAULT_LANE_HEIGHT = 250;
 
 /**
+ * Minimum lane height (px) even for empty / sparse lanes.
+ */
+const MIN_LANE_HEIGHT = 120;
+
+/**
  * Width (px) of the pool's left header strip.
  * Lanes start after this strip.
  */
@@ -137,8 +142,8 @@ export function applyLaneLayout(
     }
   }
 
-  // Resize pool and lanes to fit content
-  resizePoolAndLanes(sortedLanes, participant, registry, modeling, padding);
+  // Resize pool and lanes to fit content (proportional lane heights)
+  resizePoolAndLanes(sortedLanes, participant, registry, modeling, padding, savedLaneMap);
 
   return repositioned;
 }
@@ -170,40 +175,84 @@ export function resizePoolToFit(
 
 /**
  * Resize lanes and their parent pool to fit element content.
- * Lanes are divided equally within the pool height.
+ *
+ * Lane heights are proportional to their content extent, clamped to
+ * MIN_LANE_HEIGHT.  Lanes are stacked contiguously from the pool's top
+ * edge.  The pool is resized to enclose all lanes.
+ *
+ * This function runs AFTER applyLaneLayout() has moved elements to their
+ * lane center-Y positions.  Element Y coordinates are the ground truth for
+ * computing required lane extents.
  */
 function resizePoolAndLanes(
   sortedLanes: BpmnElement[],
   participant: BpmnElement,
   registry: ElementRegistry,
   modeling: Modeling,
-  padding: number
+  padding: number,
+  elementToLane: Map<string, BpmnElement>
 ): void {
   const bbox = computePoolContentBBox(registry, participant);
   if (!bbox) return;
 
-  // Pool bounds
-  const poolBounds = {
-    x: bbox.minX - padding - POOL_HEADER_WIDTH,
-    y: bbox.minY - padding,
-    width: bbox.maxX - bbox.minX + 2 * padding + POOL_HEADER_WIDTH,
-    height: bbox.maxY - bbox.minY + 2 * padding,
-  };
+  // Overall pool horizontal bounds from content
+  const poolX = bbox.minX - padding - POOL_HEADER_WIDTH;
+  const poolWidth = bbox.maxX - bbox.minX + 2 * padding + POOL_HEADER_WIDTH;
+  const poolY = bbox.minY - padding;
 
-  modeling.resizeShape(participant, poolBounds);
+  // Compute proportional lane heights
+  const allElements: BpmnElement[] = registry.getAll();
+  const skipTypes = new Set(['bpmn:SequenceFlow', 'bpmn:Lane', 'bpmn:LaneSet', 'label']);
+  const flowNodes = allElements.filter((el) => !skipTypes.has(el.type) && typeof el.y === 'number');
 
-  // Resize each lane: divide pool height equally
-  const laneX = poolBounds.x + POOL_HEADER_WIDTH;
-  const laneWidth = poolBounds.width - POOL_HEADER_WIDTH;
-  const laneHeight = poolBounds.height / sortedLanes.length;
+  // For each lane, find element Y extents
+  const laneExtents = sortedLanes.map((lane) => {
+    const laneEls = flowNodes.filter((el) => elementToLane.get(el.id)?.id === lane.id);
+    if (laneEls.length === 0) return null;
+    const minY = Math.min(...laneEls.map((el) => el.y));
+    const maxY = Math.max(...laneEls.map((el) => el.y + el.height));
+    return { minY, maxY };
+  });
+
+  // Compute raw lane heights (content height + 2*padding, min MIN_LANE_HEIGHT)
+  const rawHeights = laneExtents.map((ext) => {
+    if (!ext) return MIN_LANE_HEIGHT;
+    return Math.max(MIN_LANE_HEIGHT, ext.maxY - ext.minY + 2 * padding);
+  });
+
+  // Total pool height must fit all content: max of (sum of raw heights) and
+  // (maxElement.bottom - minElement.top + 2*padding)
+  const contentSpan = bbox.maxY - bbox.minY + 2 * padding;
+  const rawTotal = rawHeights.reduce((s, h) => s + h, 0);
+  const totalHeight = Math.max(rawTotal, contentSpan);
+
+  // Scale up proportionally if needed
+  const scale = totalHeight / rawTotal;
+  const laneHeights = rawHeights.map((h) => Math.round(h * scale));
+  // Adjust last lane to avoid rounding errors
+  const heightSum = laneHeights.slice(0, -1).reduce((s, h) => s + h, 0);
+  laneHeights[laneHeights.length - 1] = totalHeight - heightSum;
+
+  modeling.resizeShape(participant, {
+    x: poolX,
+    y: poolY,
+    width: poolWidth,
+    height: totalHeight,
+  });
+
+  // Stack lanes contiguously from poolY
+  const laneX = poolX + POOL_HEADER_WIDTH;
+  const laneWidth = poolWidth - POOL_HEADER_WIDTH;
+  let currentY = poolY;
 
   for (let i = 0; i < sortedLanes.length; i++) {
     modeling.resizeShape(sortedLanes[i], {
       x: laneX,
-      y: poolBounds.y + i * laneHeight,
+      y: currentY,
       width: laneWidth,
-      height: laneHeight,
+      height: laneHeights[i],
     });
+    currentY += laneHeights[i];
   }
 }
 

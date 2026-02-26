@@ -564,4 +564,46 @@ describe('Layout quality regression', () => {
     const reworkY = centreY(reg.get(rework));
     expect(Math.abs(reworkY - refY)).toBeGreaterThan(10);
   });
+
+  // ── Task 2c: open-fan parallel split (one branch joins, one ends) ──────────
+
+  test('open-fan parallel split: branch tasks must not overlap', async () => {
+    // Parallel gateway → [Branch A: ReviewTask → JoinGateway → End]
+    //                 → [Branch B: PublishTask → TerminalEnd]
+    // Pattern: "open fan" where branch B never reaches the join.
+    // The two branch tasks must land at different Y positions after layout.
+    const diagramId = await createDiagram('Open Fan Parallel');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const split = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Split' });
+    const review = await addElement(diagramId, 'bpmn:UserTask', { name: 'Review Request' });
+    const publish = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Publish Content' });
+    const join = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Join' });
+    const endA = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Reviewed Done' });
+    const endB = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Published Done' });
+
+    await connect(diagramId, start, split);
+    await connect(diagramId, split, review);
+    await connect(diagramId, split, publish);
+    await connect(diagramId, review, join);
+    await connect(diagramId, join, endA);
+    await connect(diagramId, publish, endB); // branch B never reaches join
+
+    await handleLayoutDiagram({ diagramId });
+
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+
+    const reviewEl = reg.get(review);
+    const publishEl = reg.get(publish);
+
+    // The two branch tasks must be on distinct Y rows (not overlapping)
+    expect(
+      Math.abs(centreY(reviewEl) - centreY(publishEl)),
+      'Branch tasks ReviewRequest and PublishContent must not share the same Y'
+    ).toBeGreaterThan(10);
+
+    // Both tasks should be to the right of the split gateway
+    const splitEl = reg.get(split);
+    expect(centreX(reviewEl)).toBeGreaterThan(centreX(splitEl));
+    expect(centreX(publishEl)).toBeGreaterThan(centreX(splitEl));
+  });
 });

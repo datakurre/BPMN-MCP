@@ -172,7 +172,25 @@ const addParallelTasksPattern: PromptDefinition = {
             `- Do NOT set a default flow on parallel gateways.\n` +
             `- Each branch is independent \u2014 no sequence flows between parallel branches.\n` +
             `- If a branch has multiple tasks, connect them in sequence within the branch.\n` +
-            `- Consider adding error boundary events on tasks that might fail.`,
+            `- Consider adding error boundary events on tasks that might fail.\n\n` +
+            `**\u26a0\ufe0f Critical: Avoid deadlocks \u2014 EVERY branch MUST connect to the merge gateway:**\n` +
+            `- A parallel join gateway waits for a token from EVERY incoming branch. If even one ` +
+            `branch terminates at an EndEvent without flowing through the join, the join will ` +
+            `DEADLOCK waiting for a token that never arrives.\n` +
+            `- Never let a parallel branch end at an EndEvent if there is a join gateway. ` +
+            `If a branch should be optional, use an InclusiveGateway instead of a ` +
+            `ParallelGateway.\n` +
+            `- After connecting all branches, verify: every outgoing flow of the split gateway ` +
+            `traces a path to the merge gateway. Use \`validate_bpmn_diagram\` \u2014 the ` +
+            `\`bpmn-mcp/parallel-gateway-balance\` rule will warn if branches are missing.\n\n` +
+            `**\u26a0\ufe0f Critical: Never use implicit splits (task with multiple outgoing flows):**\n` +
+            `- Always route outgoing flows through an explicit ParallelGateway or ` +
+            `ExclusiveGateway. Connecting two sequence flows directly from the same task ` +
+            `(without a gateway) creates an \u201cimplicit split\u201d that is ` +
+            `semantically ambiguous and will be flagged by \`bpmn-mcp/implicit-split\`.\n` +
+            `- Example of CORRECT pattern: Task \u2192 ParallelGateway \u2192 Branch A, Branch B\n` +
+            `- Example of INCORRECT pattern: Task \u2192 Branch A AND Task \u2192 Branch B ` +
+            `(two outgoing flows from the same task, no gateway)`,
         },
       },
     ];

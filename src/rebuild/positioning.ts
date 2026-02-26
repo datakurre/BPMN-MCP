@@ -40,6 +40,63 @@ export function buildPatternLookups(patterns: GatewayPattern[]): {
   return { mergeToPattern, elementToBranch };
 }
 
+// ── Overlap resolution ─────────────────────────────────────────────────────
+
+/**
+ * Detect and resolve overlapping positions in the computed layout.
+ *
+ * When two or more elements share identical (x, y) coordinates after
+ * `computePositions()`, nudge them vertically apart by branchSpacing/2.
+ * This is a safety-net fallback for open-fan parallel patterns where the
+ * gateway-pattern detector could not spread branches symmetrically.
+ *
+ * Elements are grouped by their X coordinate. Within each X group,
+ * any elements sharing the same Y are spread out symmetrically around
+ * the common Y center using the given spacing.
+ */
+export function resolvePositionOverlaps(
+  positions: Map<string, { x: number; y: number }>,
+  branchSpacing: number
+): void {
+  // Group elements by rounded X coordinate (elements in the same "column")
+  const byX = new Map<number, string[]>();
+  for (const [id, pos] of positions) {
+    const xKey = Math.round(pos.x);
+    if (!byX.has(xKey)) byX.set(xKey, []);
+    byX.get(xKey)!.push(id);
+  }
+
+  // Within each X column, detect same-Y clusters and spread them
+  for (const [, columnIds] of byX) {
+    if (columnIds.length < 2) continue;
+
+    // Group by rounded Y
+    const byY = new Map<number, string[]>();
+    for (const id of columnIds) {
+      const pos = positions.get(id)!;
+      const yKey = Math.round(pos.y);
+      if (!byY.has(yKey)) byY.set(yKey, []);
+      byY.get(yKey)!.push(id);
+    }
+
+    for (const [, cluster] of byY) {
+      if (cluster.length < 2) continue;
+
+      // Multiple elements at same (x, y) — spread them vertically
+      // Use the cluster's current Y as the center
+      const clusterY = positions.get(cluster[0])!.y;
+      const spacing = branchSpacing / 2;
+
+      for (let i = 0; i < cluster.length; i++) {
+        const id = cluster[i];
+        const pos = positions.get(id)!;
+        const offset = (i - (cluster.length - 1) / 2) * spacing;
+        positions.set(id, { x: pos.x, y: clusterY + offset });
+      }
+    }
+  }
+}
+
 // ── Position computation ───────────────────────────────────────────────────
 
 /**
