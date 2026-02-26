@@ -69,6 +69,20 @@ export interface RebuildOptions {
    * around them.
    */
   pinnedElementIds?: Set<string>;
+  /**
+   * When true, skip the internal pool/lane resize that normally runs after
+   * element positioning.  Use this when the caller intends to run
+   * `autosize_bpmn_pools_and_lanes` (or `handleAutosizePoolsAndLanes`)
+   * afterwards, to avoid a redundant double-resize.
+   *
+   * Task 7b: `rebuildLayout` uses a proportional lane-height algorithm
+   * (`resizePoolAndLanes`) while `handleAutosizePoolsAndLanes` uses the
+   * `autosize-pools-and-lanes` handler algorithm.  When `poolExpansion`
+   * is enabled in `handleLayoutDiagram`, the handler calls
+   * `handleAutosizePoolsAndLanes` after rebuild, which overrides the
+   * internal resize anyway — setting this flag avoids the redundant step.
+   */
+  skipPoolResize?: boolean;
 }
 
 /** Result returned by the rebuild layout engine. */
@@ -124,6 +138,7 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
   const gap = options?.gap ?? STANDARD_BPMN_GAP;
   const branchSpacing = options?.branchSpacing ?? DEFAULT_BRANCH_SPACING;
   const pinnedElementIds = options?.pinnedElementIds;
+  const skipPoolResize = options?.skipPoolResize ?? false;
 
   const hierarchy = buildContainerHierarchy(registry);
   const rebuildOrder = getContainerRebuildOrder(hierarchy);
@@ -141,7 +156,8 @@ export function rebuildLayout(diagram: DiagramState, options?: RebuildOptions): 
       gap,
       branchSpacing,
       pinnedElementIds,
-      rebuiltParticipants
+      rebuiltParticipants,
+      skipPoolResize
     );
     totalRepositioned += counts.repositionedCount;
     totalRerouted += counts.reroutedCount;
@@ -171,7 +187,8 @@ function processContainerNode(
   gap: number,
   branchSpacing: number,
   pinnedElementIds: Set<string> | undefined,
-  rebuiltParticipants: BpmnElement[]
+  rebuiltParticipants: BpmnElement[],
+  skipPoolResize: boolean
 ): RebuildResult {
   const container = containerNode.element;
 
@@ -240,7 +257,8 @@ function processContainerNode(
       registry,
       modeling,
       origin,
-      rebuiltParticipants
+      rebuiltParticipants,
+      skipPoolResize
     );
   }
 
@@ -250,6 +268,10 @@ function processContainerNode(
 /**
  * Apply lane layout (or pool-fit resize) for a participant container.
  * Pushes the participant to `rebuiltParticipants` for pool stacking.
+ *
+ * @param skipPoolResize  When true, skip the internal pool/lane resize step.
+ *   Use when the caller will run `handleAutosizePoolsAndLanes` afterwards
+ *   (task 7b: avoids redundant double-resize with a different algorithm).
  */
 function applyParticipantLayout(
   container: BpmnElement,
@@ -258,7 +280,8 @@ function applyParticipantLayout(
   registry: ElementRegistry,
   modeling: Modeling,
   origin: { x: number; y: number },
-  rebuiltParticipants: BpmnElement[]
+  rebuiltParticipants: BpmnElement[],
+  skipPoolResize: boolean
 ): number {
   let repositioned = 0;
   if (participantLanes.length > 0) {
@@ -269,9 +292,10 @@ function applyParticipantLayout(
       container,
       origin.y,
       SUBPROCESS_PADDING,
-      savedLaneMap
+      savedLaneMap,
+      skipPoolResize
     );
-  } else {
+  } else if (!skipPoolResize) {
     resizePoolToFit(modeling, registry, container, SUBPROCESS_PADDING);
   }
   rebuiltParticipants.push(container);

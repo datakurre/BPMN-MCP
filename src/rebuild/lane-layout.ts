@@ -29,6 +29,9 @@ const MIN_LANE_HEIGHT = 120;
  */
 const POOL_HEADER_WIDTH = 30;
 
+/** BPMN type string for sequence flows (used in multiple filters). */
+const SEQUENCE_FLOW_TYPE = 'bpmn:SequenceFlow';
+
 // ── Lane detection ─────────────────────────────────────────────────────────
 
 /**
@@ -129,11 +132,14 @@ export function buildElementLaneYMap(
  * this function:
  * 1. Moves each element vertically to its assigned lane's center Y
  * 2. Re-layouts all sequence flow connections (Y positions changed)
- * 3. Resizes lanes and pool to fit the content
+ * 3. Resizes lanes and pool to fit the content (unless skipResize is true)
  *
  * @param savedLaneMap  Pre-computed element-to-lane mapping, captured
  *                      BEFORE the rebuild (movements mutate bpmn-js
  *                      lane assignments).
+ * @param skipResize    When true, skip the pool/lane resize step (task 7b).
+ *                      Use when the caller will run handleAutosizePoolsAndLanes
+ *                      afterwards to avoid a redundant double-resize.
  * @returns Number of elements repositioned.
  */
 export function applyLaneLayout(
@@ -142,7 +148,8 @@ export function applyLaneLayout(
   participant: BpmnElement,
   originY: number,
   padding: number,
-  savedLaneMap: Map<string, BpmnElement>
+  savedLaneMap: Map<string, BpmnElement>,
+  skipResize?: boolean
 ): number {
   const lanes = getLanesForParticipant(registry, participant);
   if (lanes.length === 0) return 0;
@@ -164,7 +171,7 @@ export function applyLaneLayout(
   const flowNodes = allElements.filter(
     (el) =>
       savedLaneMap.has(el.id) &&
-      el.type !== 'bpmn:SequenceFlow' &&
+      el.type !== SEQUENCE_FLOW_TYPE &&
       el.type !== 'bpmn:Lane' &&
       el.type !== 'bpmn:LaneSet' &&
       el.type !== 'label'
@@ -186,17 +193,108 @@ export function applyLaneLayout(
 
   // Resize pool and lanes to fit content BEFORE re-routing connections,
   // so that connection waypoints reflect the final pool/lane geometry.
-  resizePoolAndLanes(sortedLanes, participant, registry, modeling, padding, savedLaneMap);
+  // Skip when the caller will run handleAutosizePoolsAndLanes afterwards (task 7b).
+  if (!skipResize) {
+    resizePoolAndLanes(sortedLanes, participant, registry, modeling, padding, savedLaneMap);
+  }
 
   // Re-layout connections within the pool AFTER resize (task 9a):
   // waypoints now account for the final lane widths and heights.
+  // For cross-lane flows, apply a smarter vertical-drop routing (task 3b/9b)
+  // that avoids routing back through unrelated lanes.
   for (const el of allElements) {
-    if (el.parent === participant && el.type === 'bpmn:SequenceFlow') {
+    if (el.parent === participant && el.type === SEQUENCE_FLOW_TYPE) {
       modeling.layoutConnection(el);
     }
   }
 
+  // Post-process: improve waypoints for cross-lane sequence flows (tasks 3b, 9b).
+  // After ManhattanLayout routes connections, cross-lane flows that go from one
+  // lane to another may produce Z/U-paths that route through other lane regions.
+  // Replace these with clean L-shaped paths (source right → target mid-Y → target).
+  routeCrossLaneConnections(allElements, participant, savedLaneMap, modeling);
+
   return repositioned;
+}
+
+// ── Cross-lane connection routing (tasks 3b, 9b) ───────────────────────────
+
+/**
+ * Improve waypoint routing for cross-lane sequence flows.
+ *
+ * After `modeling.layoutConnection()` runs, flows between different lanes
+ * can produce multi-bend paths that route through unrelated lane content.
+ * This function replaces those with cleaner L-shaped paths:
+ *
+ *   source right-edge → vertical midpoint → target left-edge
+ *
+ * The routing prefers a single vertical segment at the X midpoint
+ * between source and target, which cleanly traverses the lane boundary
+ * without crossing other lanes' elements.
+ *
+ * Only applies to forward flows (where target.x > source.x and the
+ * source and target are in different lanes).  Back-edges and same-lane
+ * flows are left as-is.
+ */
+function routeCrossLaneConnections(
+  allElements: BpmnElement[],
+  participant: BpmnElement,
+  savedLaneMap: Map<string, BpmnElement>,
+  modeling: Modeling
+): void {
+  const sequenceFlows = allElements.filter(
+    (el) => el.parent === participant && el.type === SEQUENCE_FLOW_TYPE && el.source && el.target
+  );
+
+  for (const flow of sequenceFlows) {
+    const src = flow.source as BpmnElement;
+    const tgt = flow.target as BpmnElement;
+
+    // Only process forward flows (target is to the right of or at same X as source)
+    const srcCenterX = src.x + (src.width || 0) / 2;
+    const tgtCenterX = tgt.x + (tgt.width || 0) / 2;
+    if (tgtCenterX <= srcCenterX) continue;
+
+    // Only process cross-lane flows
+    const srcLane = savedLaneMap.get(src.id);
+    const tgtLane = savedLaneMap.get(tgt.id);
+    if (!srcLane || !tgtLane || srcLane.id === tgtLane.id) continue;
+
+    // Check current waypoints — if they already look like a clean L-shape
+    // (3 waypoints, horizontal then vertical or vice versa), leave them.
+    const wps = flow.waypoints;
+    if (wps && wps.length <= 3) continue;
+
+    // Compute clean L-shaped route:
+    // 1. Leave source's right edge at source center Y
+    // 2. Drop/rise vertically at mid-X to target center Y
+    // 3. Enter target's left edge at target center Y
+    const srcRightX = src.x + (src.width || 0);
+    const srcCenterY = src.y + (src.height || 0) / 2;
+    const tgtLeftX = tgt.x;
+    const tgtCenterY = tgt.y + (tgt.height || 0) / 2;
+
+    // Mid-X is halfway between source right edge and target left edge
+    const midX = Math.round((srcRightX + tgtLeftX) / 2);
+
+    // Only re-route if the current path is longer than 3 waypoints
+    // (fewer waypoints = already clean)
+    if (!wps || wps.length <= 3) continue;
+
+    // Build a 4-waypoint L-shaped path: right → corner1 → corner2 → entry
+    const cleanWaypoints = [
+      { x: srcRightX, y: Math.round(srcCenterY) },
+      { x: midX, y: Math.round(srcCenterY) },
+      { x: midX, y: Math.round(tgtCenterY) },
+      { x: tgtLeftX, y: Math.round(tgtCenterY) },
+    ];
+
+    try {
+      modeling.updateWaypoints(flow, cleanWaypoints);
+    } catch {
+      // Non-fatal: fall back to layoutConnection's result
+    }
+  }
 }
 
 // ── Lane assignment restoration ────────────────────────────────────────────
@@ -297,7 +395,7 @@ function resizePoolAndLanes(
 
   // Compute proportional lane heights
   const allElements: BpmnElement[] = registry.getAll();
-  const skipTypes = new Set(['bpmn:SequenceFlow', 'bpmn:Lane', 'bpmn:LaneSet', 'label']);
+  const skipTypes = new Set([SEQUENCE_FLOW_TYPE, 'bpmn:Lane', 'bpmn:LaneSet', 'label']);
   const flowNodes = allElements.filter((el) => !skipTypes.has(el.type) && typeof el.y === 'number');
 
   // For each lane, find element Y extents
@@ -362,7 +460,7 @@ function computePoolContentBBox(
   const children = allElements.filter(
     (el) =>
       el.parent === participant &&
-      el.type !== 'bpmn:SequenceFlow' &&
+      el.type !== SEQUENCE_FLOW_TYPE &&
       el.type !== 'bpmn:Lane' &&
       el.type !== 'bpmn:LaneSet' &&
       el.type !== 'label'

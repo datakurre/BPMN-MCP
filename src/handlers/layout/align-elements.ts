@@ -285,7 +285,9 @@ export const TOOL_DEFINITION = {
   description:
     'Align or distribute selected elements. Supports two operations: ' +
     '(1) **align** — align elements along an axis (left, center, right, top, middle, bottom), requires at least 2 elements. Use compact=true to also redistribute with ~50px gaps. ' +
-    '(2) **distribute** — evenly distribute elements horizontally or vertically using edge-to-edge spacing, requires at least 3 elements. Use gap for exact pixel spacing (recommended: 50).',
+    '(2) **distribute** — evenly distribute elements horizontally or vertically using edge-to-edge spacing, requires at least 3 elements. Use gap for exact pixel spacing (recommended: 50). ' +
+    '⚠️ **Warning:** `alignment: middle` on a process with parallel branches collapses all branches onto a single Y row, causing horizontal overlaps. Use `layout_bpmn_diagram` instead to re-arrange the full diagram while preserving branch separation. ' +
+    'If you must use `alignment: middle`, pass `compact: true` to detect and spread overlapping elements on the X axis afterwards.',
   inputSchema: {
     type: 'object',
     properties: {

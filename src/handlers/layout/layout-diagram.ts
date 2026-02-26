@@ -295,6 +295,31 @@ function countFlowElements(elementRegistry: any): number {
   ).length;
 }
 
+/** Validate the scopeElementId argument — throws if invalid. */
+function validateScopeElement(diagram: any, scopeElementId: string): void {
+  const registry = getService(diagram.modeler, 'elementRegistry');
+  const scopeEl = registry.get(scopeElementId);
+  if (!scopeEl) {
+    throw new Error(`Scope element '${scopeElementId}' not found in diagram`);
+  }
+  const t = scopeEl.type;
+  if (t !== 'bpmn:Participant' && t !== 'bpmn:SubProcess' && t !== 'bpmn:Process') {
+    throw new Error(
+      `scopeElementId must reference a Participant, SubProcess, or Process, got '${t}'`
+    );
+  }
+}
+
+/**
+ * Determine whether pool autosize will run after layout.
+ * Used to skip the redundant internal resize in rebuildLayout (task 7b).
+ */
+function shouldAutosizePools(args: LayoutDiagramArgs, diagram: any): boolean {
+  if (args.poolExpansion === false) return false;
+  const registry = getService(diagram.modeler, 'elementRegistry');
+  return args.poolExpansion === true || isCollaboration(registry);
+}
+
 export async function handleLayoutDiagram(
   args: LayoutDiagramArgs,
   context?: ToolContext
@@ -306,32 +331,34 @@ export async function handleLayoutDiagram(
   const diagram = requireDiagram(diagramId);
   const progress = context?.sendProgress;
 
-  // Validate scope element if specified
-  if (scopeElementId) {
-    const registry = getService(diagram.modeler, 'elementRegistry');
-    const scopeEl = registry.get(scopeElementId);
-    if (!scopeEl) {
-      throw new Error(`Scope element '${scopeElementId}' not found in diagram`);
-    }
-    const t = scopeEl.type;
-    if (t !== 'bpmn:Participant' && t !== 'bpmn:SubProcess' && t !== 'bpmn:Process') {
-      throw new Error(
-        `scopeElementId must reference a Participant, SubProcess, or Process, got '${t}'`
-      );
-    }
-  }
+  if (scopeElementId) validateScopeElement(diagram, scopeElementId);
 
   await progress?.(0, 100, 'Preparing layout…');
   const subprocessesExpanded = args.expandSubprocesses ? expandCollapsedSubprocesses(diagram) : 0;
-  const repairs = repairMissingDiShapes(diagram);
+  const preRepairs = repairMissingDiShapes(diagram);
+
+  // Determine whether pool autosize will run after layout (task 7b):
+  // when poolExpansion is enabled (or auto-detected), `handleAutosizePoolsAndLanes`
+  // will resize pools/lanes — skip the redundant internal resize in rebuildLayout.
+  const willAutosize = shouldAutosizePools(args, diagram);
 
   await progress?.(10, 100, 'Running rebuild layout…');
-  const result = rebuildLayout(diagram, { pinnedElementIds: diagram.pinnedElements });
+  const result = rebuildLayout(diagram, {
+    pinnedElementIds: diagram.pinnedElements,
+    skipPoolResize: willAutosize,
+  });
 
   await progress?.(60, 100, 'Post-processing layout…');
   const pixelGridSnap = typeof args.gridSnap === 'number' ? args.gridSnap : undefined;
   if (pixelGridSnap && pixelGridSnap > 0) applyPixelGridSnap(diagram, pixelGridSnap);
   deduplicateDiInModeler(diagram);
+
+  // DI integrity check + post-layout repair (task 6b):
+  // Re-run repairMissingDiShapes after layout to recover any pool/lane/flow DI shapes
+  // that may have been lost or invalidated by element repositioning (e.g. jsdom
+  // headless polyfill inconsistencies with resizeShape on stale element references).
+  const postRepairs = repairMissingDiShapes(diagram);
+  const allRepairs = [...preRepairs, ...postRepairs];
 
   if (!scopeElementId) {
     diagram.pinnedElements = undefined;
@@ -358,7 +385,7 @@ export async function handleLayoutDiagram(
     laneCrossingMetrics: computeLaneCrossingMetrics(elementRegistry),
     sizingIssues: detectContainerSizingIssues(elementRegistry),
     qualityMetrics: computeLayoutQualityMetrics(elementRegistry),
-    diWarnings: [...repairs, ...checkDiIntegrity(diagram, elementRegistry)],
+    diWarnings: [...allRepairs, ...checkDiIntegrity(diagram, elementRegistry)],
     poolExpansionApplied,
     subprocessesExpanded,
   });
