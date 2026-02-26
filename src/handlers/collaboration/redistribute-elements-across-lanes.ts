@@ -21,14 +21,466 @@ import {
 } from '../helpers';
 import { typeMismatchError } from '../../errors';
 import { appendLintFeedback } from '../../linter';
-import { extractPrimaryRole, isFlowControl } from './auto-distribute';
-import {
-  findParticipantWithLanes,
-  validateAndRedistribute,
-  buildRedistributeResult,
-} from './validate-and-redistribute';
+import { handleValidateLaneOrganization } from './analyze-lanes';
+import { removeFromAllLanes, addToLane } from '../lane-helpers';
 import { handleAssignElementsToLane } from './assign-elements-to-lane';
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Inlined from auto-distribute.ts
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Types ──────────────────────────────────────────────────────────────────
+
+export interface AutoDistributeResult {
+  assignedCount: number;
+  assignments: Record<string, string[]>;
+  unassigned: string[];
+}
+
+export type NameToLaneMap = Map<string, { laneId: string; index: number }>;
+
+// ── Classification helpers ─────────────────────────────────────────────────
+
+/** Element types that are flow-control (gateways, events) rather than work items. */
+export function isFlowControl(type: string): boolean {
+  return type.includes('Gateway') || type.includes('Event');
+}
+
+/** BPMN types considered "human" tasks. */
+const HUMAN_TASK_TYPES = new Set(['bpmn:UserTask', 'bpmn:ManualTask']);
+
+/** BPMN types considered "automated" tasks. */
+const AUTO_TASK_TYPES = new Set([
+  'bpmn:ServiceTask',
+  'bpmn:ScriptTask',
+  'bpmn:BusinessRuleTask',
+  'bpmn:SendTask',
+  'bpmn:ReceiveTask',
+  'bpmn:CallActivity',
+]);
+
+/**
+ * Extract the primary role (assignee or first candidateGroup) from a flow node
+ * business object. Returns null when no role assignment is found.
+ */
+export function extractPrimaryRole(node: any): string | null {
+  const assignee = node.$attrs?.['camunda:assignee'] ?? node.assignee;
+  if (assignee && typeof assignee === 'string' && assignee.trim()) {
+    return assignee.trim();
+  }
+  const candidateGroups = node.$attrs?.['camunda:candidateGroups'] ?? node.candidateGroups;
+  if (candidateGroups) {
+    const first = String(candidateGroups).split(',')[0]?.trim();
+    if (first) return first;
+  }
+  return null;
+}
+
+// ── Lane manipulation helpers ──────────────────────────────────────────────
+
+/** Reposition an element vertically to center within lane bounds. */
+function repositionElementInLane(modeling: any, element: any, lane: any): void {
+  const laneCenterY = lane.y + (lane.height || 0) / 2;
+  const elCenterY = element.y + (element.height || 0) / 2;
+  const dy = laneCenterY - elCenterY;
+  if (Math.abs(dy) > 0.5) {
+    modeling.moveElements([element], { x: 0, y: dy });
+  }
+}
+
+// ── Assignment phases ──────────────────────────────────────────────────────
+
+/** Build a case-insensitive name→laneId map. */
+export function buildNameToLaneMap(laneIds: string[], laneNames: string[]): NameToLaneMap {
+  const map: NameToLaneMap = new Map();
+  for (let i = 0; i < laneNames.length; i++) {
+    map.set(laneNames[i].toLowerCase(), { laneId: laneIds[i], index: i });
+  }
+  return map;
+}
+
+/** Phase 1: Match elements to lanes by role (assignee/candidateGroups). */
+export function assignByRole(
+  flowNodes: any[],
+  nameToLane: NameToLaneMap,
+  elementToLane: Map<string, string>
+): void {
+  for (const node of flowNodes) {
+    if (isFlowControl(node.$type)) continue;
+    const role = extractPrimaryRole(node);
+    if (role) {
+      const match = nameToLane.get(role.toLowerCase());
+      if (match) elementToLane.set(node.id, match.laneId);
+    }
+  }
+}
+
+/** Find a lane whose name contains one of the hint substrings (case-insensitive). */
+function findLaneByHints(
+  nameToLane: Map<string, { laneId: string; index: number }>,
+  hints: string[]
+): string | null {
+  for (const [name, { laneId }] of nameToLane) {
+    for (const hint of hints) {
+      if (name.includes(hint)) return laneId;
+    }
+  }
+  return null;
+}
+
+/** Phase 2: Type-based fallback for unmatched task elements. */
+export function assignByType(
+  flowNodes: any[],
+  nameToLane: NameToLaneMap,
+  elementToLane: Map<string, string>,
+  laneIds: string[]
+): void {
+  const unmatched = flowNodes.filter(
+    (n: any) => !elementToLane.has(n.id) && !isFlowControl(n.$type)
+  );
+  if (unmatched.length === 0 || laneIds.length < 2) return;
+
+  const humanLaneId = findLaneByHints(nameToLane, ['human', 'manual', 'user', 'review']);
+  const autoLaneId = findLaneByHints(nameToLane, [
+    'auto',
+    'system',
+    'service',
+    'script',
+    'external',
+  ]);
+
+  for (const node of unmatched) {
+    if (humanLaneId && HUMAN_TASK_TYPES.has(node.$type)) {
+      elementToLane.set(node.id, humanLaneId);
+    } else if (autoLaneId && AUTO_TASK_TYPES.has(node.$type)) {
+      elementToLane.set(node.id, autoLaneId);
+    } else {
+      elementToLane.set(node.id, laneIds[0]);
+    }
+  }
+}
+
+/** Pick the lane with the most votes from a flow-control element's connections. */
+function voteBestLane(el: any, elementToLane: Map<string, string>): string | null {
+  const votes = new Map<string, number>();
+  for (const f of el.incoming || []) {
+    const lane = elementToLane.get(f.sourceRef?.id);
+    if (lane) votes.set(lane, (votes.get(lane) || 0) + 2);
+  }
+  for (const f of el.outgoing || []) {
+    const lane = elementToLane.get(f.targetRef?.id);
+    if (lane) votes.set(lane, (votes.get(lane) || 0) + 1);
+  }
+  let best: string | null = null;
+  let bestN = 0;
+  for (const [lane, n] of votes) {
+    if (n > bestN) {
+      bestN = n;
+      best = lane;
+    }
+  }
+  return best;
+}
+
+/** Phase 3: Assign gateways/events based on most-connected neighbor's lane. */
+export function assignFlowControlElements(
+  flowNodes: any[],
+  elementToLane: Map<string, string>,
+  laneIds: string[]
+): void {
+  const controls = flowNodes.filter((n: any) => isFlowControl(n.$type));
+  for (let pass = 0; pass < 3; pass++) {
+    for (const el of controls) {
+      if (elementToLane.has(el.id)) continue;
+      const best = voteBestLane(el, elementToLane);
+      if (best) elementToLane.set(el.id, best);
+    }
+  }
+  // Assign remaining controls to first lane
+  for (const el of controls) {
+    if (!elementToLane.has(el.id)) elementToLane.set(el.id, laneIds[0]);
+  }
+}
+
+/** Execute lane assignments: update flowNodeRef and reposition elements. */
+function executeAssignments(
+  diagram: any,
+  flowNodes: any[],
+  elementToLane: Map<string, string>
+): AutoDistributeResult {
+  const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const modeling = getService(diagram.modeler, 'modeling');
+  const assignments: Record<string, string[]> = {};
+  let assignedCount = 0;
+  const unassigned: string[] = [];
+
+  for (const node of flowNodes) {
+    const laneId = elementToLane.get(node.id);
+    if (!laneId) {
+      unassigned.push(node.id);
+      continue;
+    }
+    const shape = elementRegistry.get(node.id);
+    const lane = elementRegistry.get(laneId);
+    if (!shape || !lane) {
+      unassigned.push(node.id);
+      continue;
+    }
+    removeFromAllLanes(elementRegistry, node);
+    addToLane(lane, node);
+    repositionElementInLane(modeling, shape, lane);
+
+    if (!assignments[laneId]) assignments[laneId] = [];
+    assignments[laneId].push(node.id);
+    assignedCount++;
+  }
+  return { assignedCount, assignments, unassigned };
+}
+
+// ── Main orchestrator ──────────────────────────────────────────────────────
+
+/**
+ * Automatically distribute existing elements in a participant to the given lanes.
+ * Strategy:
+ * 1. Role-based: match lane names to camunda:assignee / candidateGroups (case-insensitive)
+ * 2. Type-based fallback: group human tasks vs automated tasks
+ * 3. Flow-control: assign gateways/events to their most-connected neighbor's lane
+ */
+export function autoDistributeElements(
+  diagram: any,
+  participant: any,
+  laneIds: string[],
+  laneNames: string[]
+): AutoDistributeResult {
+  const process = participant.businessObject?.processRef;
+  if (!process) return { assignedCount: 0, assignments: {}, unassigned: [] };
+
+  const flowElements: any[] = process.flowElements || [];
+  const flowNodes = flowElements.filter(
+    (el: any) => !el.$type.includes('SequenceFlow') && !el.$type.includes('Association')
+  );
+
+  if (flowNodes.length === 0) return { assignedCount: 0, assignments: {}, unassigned: [] };
+
+  const nameToLane = buildNameToLaneMap(laneIds, laneNames);
+  const elementToLane = new Map<string, string>();
+
+  // Phase 1–3: build the assignment map
+  assignByRole(flowNodes, nameToLane, elementToLane);
+  assignByType(flowNodes, nameToLane, elementToLane, laneIds);
+  assignFlowControlElements(flowNodes, elementToLane, laneIds);
+
+  // Execute assignments: update flowNodeRef and reposition
+  return executeAssignments(diagram, flowNodes, elementToLane);
+}
+// ══════════════════════════════════════════════════════════════════════════════
+// Inlined from validate-and-redistribute.ts
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Redistribute result builder ────────────────────────────────────────────
+
+export function buildRedistributeResult(
+  moves: any[],
+  totalElements: number,
+  dryRun: boolean,
+  strategy: string,
+  participantId: string,
+  pool: any
+): ToolResult {
+  const msg = dryRun
+    ? `Dry run: would move ${moves.length} of ${totalElements} element(s) using "${strategy}" strategy.`
+    : `Moved ${moves.length} of ${totalElements} element(s) using "${strategy}" strategy.`;
+  return jsonResult({
+    success: true,
+    dryRun,
+    strategy,
+    participantId,
+    participantName: pool.businessObject?.name || participantId,
+    movedCount: moves.length,
+    totalElements,
+    moves,
+    message: msg,
+    nextSteps:
+      moves.length > 0
+        ? [
+            {
+              tool: 'layout_bpmn_diagram',
+              description: 'Re-layout diagram after lane redistribution',
+            },
+            {
+              tool: 'analyze_bpmn_lanes',
+              description: 'Check if the new lane organization is coherent (mode: validate)',
+            },
+          ]
+        : [],
+  });
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+/** Find the first participant that has at least 2 lanes. */
+export function findParticipantWithLanes(elementRegistry: any): string | null {
+  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  for (const p of participants) {
+    const lanes = elementRegistry.filter(
+      (el: any) => el.type === 'bpmn:Lane' && el.parent?.id === p.id
+    );
+    if (lanes.length >= 2) return p.id;
+  }
+  return null;
+}
+
+/** Parse JSON from an MCP tool result. */
+function parseToolResult(result: ToolResult): any {
+  return JSON.parse(result.content[0].text as string);
+}
+
+/** Extract the list of fixable issue codes from validation data. */
+function getFixableIssues(validationData: any): any[] {
+  return (validationData.issues || []).filter(
+    (i: any) =>
+      i.code === 'zigzag-flow' || i.code === 'low-coherence' || i.code === 'elements-not-in-lane'
+  );
+}
+
+/** Build a coherence-metrics summary object. */
+function coherenceMetrics(data: any): {
+  coherenceScore: number;
+  crossLaneFlows: number;
+  intraLaneFlows: number;
+} {
+  return {
+    coherenceScore: data.coherenceScore,
+    crossLaneFlows: data.crossLaneFlows,
+    intraLaneFlows: data.intraLaneFlows,
+  };
+}
+
+// ── Validate-result builder ────────────────────────────────────────────────
+
+function buildValidateResult(
+  moves: any[],
+  totalElements: number,
+  dryRun: boolean,
+  strategy: string,
+  participantId: string,
+  beforeData: any,
+  afterData: any
+): ToolResult {
+  const resultData: any = {
+    success: true,
+    optimized: true,
+    dryRun,
+    strategy,
+    participantId,
+    movedCount: moves.length,
+    totalElements,
+    moves,
+    before: coherenceMetrics(beforeData),
+    ...(afterData
+      ? {
+          after: coherenceMetrics(afterData),
+          improvement: afterData.coherenceScore - beforeData.coherenceScore,
+        }
+      : {}),
+    message: dryRun
+      ? `Dry run: would move ${moves.length} element(s) to improve lane assignments.`
+      : `Optimized lane assignments: moved ${moves.length} element(s). ` +
+        `Coherence: ${beforeData.coherenceScore}% → ${afterData?.coherenceScore ?? '?'}%.`,
+    nextSteps: dryRun
+      ? [
+          {
+            tool: 'redistribute_bpmn_elements_across_lanes',
+            description: 'Run again without dryRun to apply the changes.',
+          },
+        ]
+      : [
+          {
+            tool: 'layout_bpmn_diagram',
+            description: 'Re-layout diagram after lane optimization for clean visual positioning.',
+          },
+        ],
+  };
+  return jsonResult(resultData);
+}
+
+// ── Main validate-and-redistribute flow ────────────────────────────────────
+
+export async function validateAndRedistribute(
+  diagram: any,
+  diagramId: string,
+  participantId: string,
+  lanes: any[],
+  flowNodes: any[],
+  strategy: string,
+  reposition: boolean,
+  dryRun: boolean,
+  _reg: any,
+  modeling: any,
+  buildCurrentLaneMap: (lanes: any[]) => Map<string, any>,
+  collectMoves: (
+    flowNodes: any[],
+    strategy: string,
+    lanes: any[],
+    laneMap: Map<string, any>,
+    dryRun: boolean,
+    reposition: boolean,
+    modeling: any
+  ) => any[]
+): Promise<ToolResult> {
+  const beforeData = parseToolResult(
+    await handleValidateLaneOrganization({ diagramId, participantId })
+  );
+  const fixableIssues = getFixableIssues(beforeData);
+
+  if (fixableIssues.length === 0 && beforeData.coherenceScore >= 70) {
+    return jsonResult({
+      success: true,
+      optimized: false,
+      message: `Lane organization is already good (coherence: ${beforeData.coherenceScore}%). No optimization needed.`,
+      ...coherenceMetrics(beforeData),
+    });
+  }
+
+  const laneMap = buildCurrentLaneMap(lanes);
+  const effectiveStrategy = strategy === 'role-based' ? 'minimize-crossings' : strategy;
+  const moves = collectMoves(
+    flowNodes,
+    effectiveStrategy,
+    lanes,
+    laneMap,
+    dryRun,
+    reposition,
+    modeling
+  );
+
+  if (moves.length === 0) {
+    return jsonResult({
+      success: true,
+      optimized: false,
+      message: `No elements could be moved to improve lane assignments (coherence: ${beforeData.coherenceScore}%).`,
+      ...coherenceMetrics(beforeData),
+      issues: fixableIssues,
+    });
+  }
+
+  let afterData: any = null;
+  if (!dryRun) {
+    await syncXml(diagram);
+    afterData = parseToolResult(await handleValidateLaneOrganization({ diagramId, participantId }));
+  }
+
+  return buildValidateResult(
+    moves,
+    flowNodes.length,
+    dryRun,
+    effectiveStrategy,
+    participantId,
+    beforeData,
+    afterData
+  );
+}
+// ══════════════════════════════════════════════════════════════════════════════
+// Main handler
+// ══════════════════════════════════════════════════════════════════════════════
 export interface RedistributeElementsAcrossLanesArgs {
   diagramId: string;
   participantId?: string;
@@ -161,7 +613,7 @@ function findLeastPopulated(lanes: LaneInfo[]): LaneInfo {
 
 // ── Lane mutation helpers ──────────────────────────────────────────────────
 
-function removeFromAllLanes(lanes: LaneInfo[], bo: any): void {
+function removeFromRedistLanes(lanes: LaneInfo[], bo: any): void {
   for (const lane of lanes) {
     const refs = lane.element.businessObject?.flowNodeRef;
     if (!Array.isArray(refs)) continue;
@@ -170,7 +622,7 @@ function removeFromAllLanes(lanes: LaneInfo[], bo: any): void {
   }
 }
 
-function addToLane(lane: LaneInfo, bo: any): void {
+function addToRedistLane(lane: LaneInfo, bo: any): void {
   const laneBo = lane.element.businessObject;
   if (!laneBo) return;
   const refs: unknown[] = (laneBo.flowNodeRef as unknown[] | undefined) || [];
@@ -250,8 +702,8 @@ function applyMove(
 ): void {
   const bo = el.businessObject;
   const target = lanes.find((l) => l.id === move.toLaneId)!;
-  removeFromAllLanes(lanes, bo);
-  addToLane(target, bo);
+  removeFromRedistLanes(lanes, bo);
+  addToRedistLane(target, bo);
   laneMap.set(bo.id, target);
   if (reposition) repositionInLane(modeling, el, target);
 }

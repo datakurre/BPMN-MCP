@@ -82,7 +82,7 @@ export { clearDiagrams };
 
 // ── Reference BPMN helpers ─────────────────────────────────────────────────
 
-const REFERENCES_DIR = resolve(__dirname, '..', 'fixtures', 'layout-references');
+const REFERENCES_DIR = resolve(__dirname, '..', 'fixtures', 'layout-snapshots');
 
 /**
  * Import a reference BPMN by short name (e.g. '01-linear-flow', '06-boundary-events').

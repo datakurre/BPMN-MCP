@@ -37,7 +37,7 @@ In Camunda 7, **only one pool is executable**. Additional pools must be **collap
 
 **MCP workflow:**
 
-1. `create_bpmn_collaboration` with `collapsed: true` for external participants.
+1. `create_bpmn_participant` with `collapsed: true` for external participants.
 2. Build the process flow inside the expanded (executable) pool.
 3. Use `connect_bpmn_elements` to create message flows between pools — the tool auto-detects `bpmn:MessageFlow` for cross-pool connections.
 
@@ -140,7 +140,7 @@ Configure with `camunda:type="external"` and `camunda:topic` for Camunda 7 exter
 
 | Task                  | Tool                            | Notes                                          |
 | --------------------- | ------------------------------- | ---------------------------------------------- |
-| Create collaboration  | `create_bpmn_collaboration`     | Set `collapsed: true` for non-executable pools |
+| Create collaboration  | `create_bpmn_participant`       | Set `collapsed: true` for non-executable pools |
 | Connect across pools  | `connect_bpmn_elements`         | Auto-detects `bpmn:MessageFlow`                |
 | Define messages       | `manage_bpmn_root_elements`     | Create shared `bpmn:Message` definitions       |
 | Set message on event  | `set_bpmn_event_definition`     | With `messageRef` to reference shared message  |

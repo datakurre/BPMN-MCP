@@ -15,9 +15,10 @@ import {
   fixConnectionId,
   buildElementCounts,
   getVisibleElements,
+  getTypeSpecificHints,
+  getNamingHint,
 } from '../helpers';
 import { handleSetEventDefinition } from '../properties/set-event-definition';
-import { getTypeSpecificHints, getNamingHint } from '../hints';
 import { buildZShapeRoute } from '../../geometry';
 
 // ── Auto-connect ────────────────────────────────────────────────────────────

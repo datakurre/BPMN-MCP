@@ -29,7 +29,7 @@ import {
   reconnectThroughElement,
   postInsertCleanup,
 } from './insert-element-helpers';
-import { validateElementType, INSERTABLE_ELEMENT_TYPES } from '../element-type-validation';
+import { validateElementType, INSERTABLE_ELEMENT_TYPES } from '../validation';
 
 export interface InsertElementArgs {
   diagramId: string;

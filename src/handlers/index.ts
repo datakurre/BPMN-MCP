@@ -153,18 +153,17 @@ import {
   handleHandoffToLane,
   TOOL_DEFINITION as HANDOFF_TO_LANE_DEF,
 } from './collaboration/handoff-to-lane';
-import { handleSuggestLaneOrganization } from './collaboration/suggest-lane-organization';
-import { handleValidateLaneOrganization } from './collaboration/validate-lane-organization';
+import {
+  handleSuggestLaneOrganization,
+  handleValidateLaneOrganization,
+  handleSuggestPoolVsLanes,
+  handleAnalyzeLanes,
+  TOOL_DEFINITION as ANALYZE_LANES_DEF,
+} from './collaboration/analyze-lanes';
 import {
   handleConvertCollaborationToLanes,
   TOOL_DEFINITION as CONVERT_COLLABORATION_TO_LANES_DEF,
 } from './collaboration/convert-collaboration-to-lanes';
-
-import { handleSuggestPoolVsLanes } from './collaboration/suggest-pool-vs-lanes';
-import {
-  handleAnalyzeLanes,
-  TOOL_DEFINITION as ANALYZE_LANES_DEF,
-} from './collaboration/analyze-lanes';
 import {
   handleRedistributeElementsAcrossLanes,
   TOOL_DEFINITION as REDISTRIBUTE_ELEMENTS_ACROSS_LANES_DEF,

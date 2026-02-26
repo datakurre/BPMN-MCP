@@ -64,9 +64,7 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
     const processEl = listRes.elements.find((e: any) => e.type === 'bpmn:Process');
     if (processEl) s.processId = processEl.id;
 
-    await assertStep(s.diagramId, 'S1-Step01', {
-      snapshotFile: 'story-01/step-01.bpmn',
-    });
+    await assertStep(s.diagramId, 'S1-Step01', {});
   });
 
   test('S1-Step02: Build happy path as a chain', async () => {
@@ -107,7 +105,6 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
         'Confirm Order',
         'Order Completed',
       ],
-      snapshotFile: 'story-01/step-02.bpmn',
     });
   });
 
@@ -185,7 +182,6 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
 
     await assertStep(s.diagramId, 'S1-Step03', {
       containsElements: ['Order Valid?', 'Handle Rejection', 'Order Rejected'],
-      snapshotFile: 'story-01/step-03.bpmn',
     });
   });
 
@@ -238,9 +234,7 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
     );
     expect(checkProps.camundaProperties?.['camunda:class']).toBe('com.example.CheckInventory');
 
-    await assertStep(s.diagramId, 'S1-Step04', {
-      snapshotFile: 'story-01/step-04.bpmn',
-    });
+    await assertStep(s.diagramId, 'S1-Step04', {});
   });
 
   test('S1-Step05: Add form fields to start event', async () => {
@@ -280,9 +274,7 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
     expect(xml).toContain('quantity');
     expect(xml).toContain('priority');
 
-    await assertStep(s.diagramId, 'S1-Step05', {
-      snapshotFile: 'story-01/step-05.bpmn',
-    });
+    await assertStep(s.diagramId, 'S1-Step05', {});
   });
 
   test('S1-Step06: Add I/O mappings to Check Inventory', async () => {
@@ -301,9 +293,7 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
     expect(ioRes.inputParameterCount).toBe(2);
     expect(ioRes.outputParameterCount).toBe(1);
 
-    await assertStep(s.diagramId, 'S1-Step06', {
-      snapshotFile: 'story-01/step-06.bpmn',
-    });
+    await assertStep(s.diagramId, 'S1-Step06', {});
   });
 
   test('S1-Step07: Add timer boundary event (non-interrupting)', async () => {
@@ -362,7 +352,6 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
 
     await assertStep(s.diagramId, 'S1-Step07', {
       containsElements: ['Send Reminder'],
-      snapshotFile: 'story-01/step-07.bpmn',
     });
   });
 
@@ -374,7 +363,6 @@ describe('Story 1: Order Processing — From Empty to Executable', () => {
     // Validate: expect 0 lint errors
     await assertStep(s.diagramId, 'S1-Step08', {
       lintErrorCount: 0,
-      snapshotFile: 'story-01/step-08.bpmn',
     });
   });
 

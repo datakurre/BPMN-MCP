@@ -10,8 +10,8 @@ import {
   getVisibleElements,
   generateFlowId,
   fixConnectionId,
+  getTypeSpecificHints,
 } from '../helpers';
-import { getTypeSpecificHints } from '../hints';
 import { resizeParentContainers, collectDownstreamElements } from './add-element-helpers';
 import { buildZShapeRoute } from '../../geometry';
 import { adjustElementLabel } from '../layout/labels/adjust-labels';

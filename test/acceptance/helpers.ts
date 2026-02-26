@@ -2,31 +2,21 @@
  * Shared helpers for acceptance (multi-step story) tests.
  *
  * The `assertStep` function verifies element existence, properties,
- * lint errors, and optionally compares against a golden BPMN snapshot.
- *
- * Snapshot behaviour:
- *   • If UPDATE_SNAPSHOTS=1 or the snapshot file does not exist → write the file (first-run bootstrap).
- *   • Otherwise → compare exported XML byte-for-byte against the stored snapshot.
+ * and lint errors against the current diagram state.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import { expect } from 'vitest';
-import { handleListElements, handleValidate, handleExportBpmn } from '../../src/handlers';
+import { handleListElements, handleValidate } from '../../src/handlers';
 
 function parseResult(result: any): any {
   return JSON.parse(result.content[0].text);
 }
-
-const SNAPSHOTS_DIR = resolve(__dirname, '..', 'fixtures', 'story-references');
 
 export interface StepChecks {
   /** Element names that must appear in the diagram. */
   containsElements?: string[];
   /** Maximum number of lint error-level issues (default: not checked). */
   lintErrorCount?: number;
-  /** Snapshot path relative to story-references/ (e.g. 'story-01/step-01.bpmn'). */
-  snapshotFile?: string;
 }
 
 /**
@@ -35,13 +25,12 @@ export interface StepChecks {
  * @param diagramId  The diagram to inspect.
  * @param stepName   Human-readable label used in failure messages.
  * @param checks     The checks to run.
- * @returns Exported XML (if snapshotFile was provided), else empty string.
  */
 export async function assertStep(
   diagramId: string,
   stepName: string,
   checks: StepChecks
-): Promise<string> {
+): Promise<void> {
   // ── Element-name checks ──────────────────────────────────────────────────
   if (checks.containsElements && checks.containsElements.length > 0) {
     const listRes = parseResult(await handleListElements({ diagramId }));
@@ -64,27 +53,6 @@ export async function assertStep(
       `${stepName}: expected ${checks.lintErrorCount} lint error(s) but got ${errors.length}: ${errors.map((e: any) => `${e.elementId}: ${e.message} [${e.rule}]`).join(', ')}`
     ).toBe(checks.lintErrorCount);
   }
-
-  // ── Snapshot write (always write; no comparison) ──────────────────────────
-  // BPMN XML contains non-deterministic DI element IDs generated at creation
-  // time, so byte-level comparison would fail on every fresh test run.
-  // Snapshots are kept as human-readable artifacts for debugging only.
-  // Both XML (.bpmn) and SVG (.svg) are written for each snapshot step.
-  if (checks.snapshotFile) {
-    const exportRes = await handleExportBpmn({ format: 'both', diagramId, skipLint: true });
-    const xml = exportRes.content[0].text;
-    const svg = exportRes.content[1]?.text ?? '';
-    const snapshotPath = resolve(SNAPSHOTS_DIR, checks.snapshotFile);
-    mkdirSync(dirname(snapshotPath), { recursive: true });
-    writeFileSync(snapshotPath, xml, 'utf-8');
-    if (svg) {
-      const svgPath = snapshotPath.replace(/\.bpmn$/, '.svg');
-      writeFileSync(svgPath, svg, 'utf-8');
-    }
-    return xml;
-  }
-
-  return '';
 }
 
 /** Find an element in the diagram by name. Returns undefined if not found. */

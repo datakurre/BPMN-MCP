@@ -9,7 +9,7 @@ import {
   resolveOrCreateMessage,
   resolveOrCreateSignal,
   resolveOrCreateEscalation,
-} from '../../../src/handlers/root-element-helpers';
+} from '../../../src/handlers/moddle-utils';
 import { createDiagram, clearDiagrams } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
 

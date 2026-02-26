@@ -125,7 +125,6 @@ Individual ADRs are in [`agents/adrs/`](agents/adrs/):
 
 - [ADR-001](agents/adrs/ADR-001-co-located-tool-definitions.md) — Co-located tool definitions
 - [ADR-002](agents/adrs/ADR-002-merged-auto-layout.md) — Merged auto_layout into layout_diagram
-- [ADR-003](agents/adrs/ADR-003-elkjs-over-bpmn-auto-layout.md) — elkjs instead of bpmn-auto-layout
 - [ADR-004](agents/adrs/ADR-004-merged-export-tools.md) — Merged export_bpmn_xml and export_bpmn_svg
 - [ADR-005](agents/adrs/ADR-005-canonical-loop-tool.md) — set_loop_characteristics is canonical
 - [ADR-006](agents/adrs/ADR-006-bpmnlint-mcp-plugin-resolver.md) — bpmnlint via McpPluginResolver
@@ -136,11 +135,9 @@ Individual ADRs are in [`agents/adrs/`](agents/adrs/):
 - [ADR-011](agents/adrs/ADR-011-bottom-label-extra-spacing.md) — Extra bottom label spacing
 - [ADR-012](agents/adrs/ADR-012-geometry-based-label-adjustment.md) — Geometry-based label adjustment
 - [ADR-013](agents/adrs/ADR-013-element-id-naming.md) — 2-part element ID naming
-- [ADR-014](agents/adrs/ADR-014-post-elk-grid-snapping.md) — Post-ELK grid snapping
 - [ADR-015](agents/adrs/ADR-015-bpmn-in-tool-names.md) — All tool names include "bpmn"
-- [ADR-016](agents/adrs/ADR-016-elk-pipeline-anatomy.md) — ELK pipeline anatomy
-- [ADR-017](agents/adrs/ADR-017-layout-simplification-outcome.md) — Layout simplification outcome
 - [ADR-018](agents/adrs/ADR-018-elk-removal-rebuild-only.md) — ELK removal — rebuild-only layout
+- [ADR-019](agents/adrs/ADR-019-tool-consolidation.md) — Tool consolidation
 
 ## Key Gotchas
 

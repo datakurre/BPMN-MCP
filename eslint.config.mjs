@@ -118,6 +118,21 @@ export default tseslint.config(
     },
   },
 
+  // ── Large merged handler files — consolidated from multiple source files ──
+  {
+    files: [
+      'src/handlers/collaboration/analyze-lanes.ts',
+      'src/handlers/collaboration/redistribute-elements-across-lanes.ts',
+      'src/handlers/collaboration/create-lanes.ts',
+      'src/handlers/helpers.ts',
+      'src/prompt-definitions.ts',
+      'src/rebuild/container-layout.ts',
+    ],
+    rules: {
+      'max-lines': 'off',
+    },
+  },
+
   // ── ELK layout engine — algorithmic code with inherent complexity ────────
   {
     files: ['src/elk/**/*.ts'],

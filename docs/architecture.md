@@ -39,12 +39,8 @@ graph TD
     end
 
     subgraph "Layout Engine"
-        elkapi["elk/api.ts"]
-        elkcore["elk/index.ts + internals"]
-    end
-
-    subgraph "Shared Types"
-        shared["shared/index.ts"]
+        rebuild["rebuild/engine.ts"]
+        rebuildcore["rebuild/ internals"]
     end
 
     index --> bpmnmod
@@ -59,7 +55,7 @@ graph TD
     handlers --> linter
     handlers --> dm
     handlers --> persist
-    handlers --> elkapi
+    handlers --> rebuild
 
     helpers --> dm
     helpers --> persist
@@ -77,30 +73,26 @@ graph TD
 
     persist --> dm
 
-    elkapi --> elkcore
-    elkcore --> types
-    elkcore --> bpmntypes
-
-    shared --> types
-    shared --> bpmntypes
-    shared --> linttypes
+    rebuild --> rebuildcore
+    rebuildcore --> types
+    rebuildcore --> bpmntypes
 
     style lintplugin fill:#e8f5e9
-    style elkcore fill:#e8f5e9
-    style elkapi fill:#e8f5e9
+    style rebuildcore fill:#e8f5e9
+    style rebuild fill:#e8f5e9
 ```
 
 ## Module Boundaries
 
 The project enforces strict dependency boundaries (via ESLint `no-restricted-imports`):
 
-| Module                          | May import from                                      | Must NOT import from                     |
-| ------------------------------- | ---------------------------------------------------- | ---------------------------------------- |
-| `src/elk/`                      | `types.ts`, `bpmn-types.ts`, `constants.ts`, `elkjs` | `handlers/`, `bpmnlint-plugin-bpmn-mcp/` |
-| `src/bpmnlint-plugin-bpmn-mcp/` | `bpmnlint`                                           | `handlers/`, `elk/`                      |
-| `src/handlers/`                 | Everything above                                     | _(no restrictions)_                      |
+| Module                          | May import from                             | Must NOT import from                     |
+| ------------------------------- | ------------------------------------------- | ---------------------------------------- |
+| `src/rebuild/`                  | `types.ts`, `bpmn-types.ts`, `constants.ts` | `handlers/`, `bpmnlint-plugin-bpmn-mcp/` |
+| `src/bpmnlint-plugin-bpmn-mcp/` | `bpmnlint`                                  | `handlers/`, `rebuild/`                  |
+| `src/handlers/`                 | Everything above                            | _(no restrictions)_                      |
 
-These rules keep `elk/` and `bpmnlint-plugin-bpmn-mcp/` as independent leaf modules that can be extracted into separate packages if needed.
+These rules keep `rebuild/` and `bpmnlint-plugin-bpmn-mcp/` as independent leaf modules that can be extracted into separate packages if needed.
 
 ## Dependency Flow
 
@@ -113,7 +105,7 @@ Allowed dependency direction: top → bottom
            │
     handlers/*.ts
       │    │    │
-      │    │    └──► elk/api.ts ──► elk/ internals
+      │    │    └──► rebuild/engine.ts ──► rebuild/ internals
       │    │
       │    └──► linter.ts ──► bpmnlint-plugin-bpmn-mcp/
       │
@@ -122,38 +114,43 @@ Allowed dependency direction: top → bottom
 
 ## Directory Layout
 
-| Directory / File                | Responsibility                                                   |
-| ------------------------------- | ---------------------------------------------------------------- |
-| `src/index.ts`                  | Entry point — wires MCP server, transport, and tool modules      |
-| `src/module.ts`                 | Generic `ToolModule` interface for pluggable editor back-ends    |
-| `src/bpmn-module.ts`            | BPMN tool module — registers tools and dispatches calls          |
-| `src/types.ts`                  | Shared interfaces (`DiagramState`, `ToolResult`, arg types)      |
-| `src/bpmn-types.ts`             | TypeScript interfaces for bpmn-js services                       |
-| `src/constants.ts`              | Centralised magic numbers (`STANDARD_BPMN_GAP`, `ELEMENT_SIZES`) |
-| `src/headless-canvas.ts`        | jsdom setup, lazy `BpmnModeler` init                             |
-| `src/headless-polyfills.ts`     | SVG/CSS polyfills for headless bpmn-js                           |
-| `src/headless-bbox.ts`          | Element-type-aware bounding box estimation                       |
-| `src/headless-path.ts`          | SVG path `d` attribute parser                                    |
-| `src/diagram-manager.ts`        | In-memory `Map<string, DiagramState>` store                      |
-| `src/linter.ts`                 | Centralised bpmnlint integration                                 |
-| `src/lint-suggestions.ts`       | Fix suggestion generation for lint issues                        |
-| `src/bpmnlint-types.ts`         | TypeScript types for bpmnlint                                    |
-| `src/persistence.ts`            | Optional file-backed diagram persistence                         |
-| `src/tool-definitions.ts`       | Thin re-export of TOOL_DEFINITIONS                               |
-| `src/shared/index.ts`           | Cross-cutting type re-export barrel                              |
-| `src/handlers/`                 | One handler file per MCP tool (34 tools)                         |
-| `src/handlers/index.ts`         | Tool registry + dispatch map + re-exports                        |
-| `src/handlers/helpers.ts`       | Shared utilities barrel (validation, element access, etc.)       |
-| `src/elk/`                      | ELK-based auto-layout engine (Sugiyama layered algorithm)        |
-| `src/elk/api.ts`                | Public API: `elkLayout`, `elkLayoutSubset`                       |
-| `src/bpmnlint-plugin-bpmn-mcp/` | Custom bpmnlint plugin with Camunda 7 rules                      |
+| Directory / File                | Responsibility                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `src/index.ts`                  | Entry point — wires MCP server, transport, and tool modules                                    |
+| `src/module.ts`                 | Generic `ToolModule` interface for pluggable editor back-ends                                  |
+| `src/bpmn-module.ts`            | BPMN tool module — registers tools and dispatches calls                                        |
+| `src/types.ts`                  | Shared interfaces (`DiagramState`, `ToolResult`, arg types)                                    |
+| `src/bpmn-types.ts`             | TypeScript interfaces for bpmn-js services                                                     |
+| `src/constants.ts`              | Centralised magic numbers (`STANDARD_BPMN_GAP`, `ELEMENT_SIZES`)                               |
+| `src/headless-canvas.ts`        | jsdom setup, lazy `BpmnModeler` init                                                           |
+| `src/headless-polyfills.ts`     | SVG/CSS polyfills for headless bpmn-js                                                         |
+| `src/headless-bbox.ts`          | Element-type-aware bounding box estimation                                                     |
+| `src/headless-path.ts`          | SVG path `d` attribute parser                                                                  |
+| `src/geometry.ts`               | Geometry utilities (rectangle overlap, label scoring)                                          |
+| `src/diagram-manager.ts`        | In-memory `Map<string, DiagramState>` store                                                    |
+| `src/linter.ts`                 | Centralised bpmnlint integration                                                               |
+| `src/lint-suggestions.ts`       | Fix suggestion generation for lint issues                                                      |
+| `src/bpmnlint-types.ts`         | TypeScript types for bpmnlint                                                                  |
+| `src/persistence.ts`            | Optional file-backed diagram persistence                                                       |
+| `src/tool-definitions.ts`       | Thin re-export of TOOL_DEFINITIONS                                                             |
+| `src/handlers/`                 | Handler files organised by domain (38 registered MCP tools)                                    |
+| `src/handlers/index.ts`         | Tool registry + dispatch map + re-exports                                                      |
+| `src/handlers/helpers.ts`       | Shared utilities barrel (validation, element access, etc.)                                     |
+| `src/handlers/core/`            | Diagram lifecycle: create, delete, clone, list, import, export, validate, batch, history, diff |
+| `src/handlers/elements/`        | Element CRUD: add, connect, delete, move, duplicate, insert, replace, list, get-properties     |
+| `src/handlers/properties/`      | Property setters: set-properties, set-input-output, set-event-definition, set-form-data, etc.  |
+| `src/handlers/layout/`          | Layout & alignment: layout-diagram, align-elements, label adjustment                           |
+| `src/handlers/collaboration/`   | Collaboration: create-participant, create-lanes, assign-to-lane, wrap-process, handoff, etc.   |
+| `src/rebuild/`                  | Rebuild-based layout engine — topology-driven positioning using bpmn-js native AutoPlace       |
+| `src/rebuild/engine.ts`         | Main layout entry point: topological walk + positioning                                        |
+| `src/bpmnlint-plugin-bpmn-mcp/` | Custom bpmnlint plugin with Camunda 7 rules                                                    |
 
 ## Where to Put New Code
 
 ```
 Need to add…                         → Put it in…
 ─────────────────────────────────────────────────────────────────
-A new MCP tool                       → src/handlers/<name>.ts
+A new MCP tool                       → src/handlers/<domain>/<name>.ts
                                        (export handler + TOOL_DEFINITION,
                                         add to TOOL_REGISTRY in index.ts)
 
@@ -162,7 +159,7 @@ A shared handler utility             → src/handlers/helpers.ts barrel
 
 A new bpmnlint rule                  → src/bpmnlint-plugin-bpmn-mcp/rules/
 
-A layout algorithm improvement       → src/elk/ (keep behind elk/api.ts)
+A layout algorithm improvement       → src/rebuild/
 
 A new bpmn-js type/interface         → src/bpmn-types.ts
 
@@ -170,8 +167,6 @@ A new shared constant                → src/constants.ts
 
 A polyfill for headless bpmn-js      → src/headless-polyfills.ts
                                        or src/headless-bbox.ts
-
-Cross-cutting types needed by tests  → src/shared/index.ts (re-export barrel)
 ```
 
 ## Core Patterns
@@ -190,6 +185,6 @@ Cross-cutting types needed by tests  → src/shared/index.ts (re-export barrel)
 
 7. **Export lint gate** — `export_bpmn` blocks export when error-level lint issues exist, unless `skipLint: true` is passed.
 
-8. **ELK auto-layout** — The `elkjs` Sugiyama layered algorithm provides automatic diagram arrangement via an 8-step pipeline: boundary save/restore, ELK graph building and layout, position application, boundary chain handling, artifact positioning, and label adjustment. Edge routing is delegated to bpmn-js's built-in ManhattanLayout.
+8. **Rebuild layout engine** — The rebuild engine in `src/rebuild/` walks the process graph topologically and positions elements using `STANDARD_BPMN_GAP` spacing. Containers (subprocesses, participants) are rebuilt inside-out: deepest first. Connections are re-routed via `modeling.layoutConnection()`.
 
 9. **Label adjustment** — Geometry-based scoring positions external labels away from connection paths to reduce visual overlap.

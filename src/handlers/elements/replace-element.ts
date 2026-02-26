@@ -22,9 +22,10 @@ import {
   syncXml,
   validateArgs,
   getService,
+  getTypeSpecificHints,
+  getNamingHint,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
-import { getTypeSpecificHints, getNamingHint } from '../hints';
 
 export interface ReplaceElementArgs {
   diagramId: string;

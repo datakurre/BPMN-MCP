@@ -16,8 +16,6 @@ import namingConvention from './rules/naming-convention';
 import gatewayPairMismatch from './rules/gateway-pair-mismatch';
 import backwardSequenceFlow from './rules/backward-sequence-flow';
 import implicitSplit from './rules/implicit-split';
-import laneUsage from './rules/lane-usage';
-import exclusiveGatewayMarker from './rules/exclusive-gateway-marker';
 import compensationMissingAssociation from './rules/compensation-missing-association';
 import boundaryEventScope from './rules/boundary-event-scope';
 import loopWithoutLimit from './rules/loop-without-limit';
@@ -34,28 +32,19 @@ import elementsOutsideParticipantBounds from './rules/elements-outside-participa
 import duplicateEdgesSameWaypoints from './rules/duplicate-edges-same-waypoints';
 import noOverlappingShapes from './rules/no-overlapping-shapes';
 import unpairedLinkEvent from './rules/unpaired-link-event';
-import lanesExpectedButMissing from './rules/lanes-expected-but-missing';
 import emptyParticipantWithLanes from './rules/empty-participant-with-lanes';
 import laneZigzagFlow from './rules/lane-zigzag-flow';
 import processTooComplex from './rules/process-too-complex';
 import collaborationTooComplex from './rules/collaboration-too-complex';
 import laneCrossingExcessive from './rules/lane-crossing-excessive';
-import laneSingleElement from './rules/lane-single-element';
 import laneMissingStartOrEnd from './rules/lane-missing-start-or-end';
-import inconsistentLaneNaming from './rules/inconsistent-lane-naming';
 import subprocessExpansionIssue from './rules/subprocess-expansion-issue';
 import laneOvercrowding from './rules/lane-overcrowding';
-import preferLanesOverPools from './rules/prefer-lanes-over-pools';
 import roleMismatchWithLane from './rules/role-mismatch-with-lane';
-import laneCandidateDetection from './rules/lane-candidate-detection';
 import laneWithoutAssignments from './rules/lane-without-assignments';
-import longMessageFlowPath from './rules/long-message-flow-path';
 import collaborationPatternMismatch from './rules/collaboration-pattern-mismatch';
 import poolSizeInsufficient from './rules/pool-size-insufficient';
-import messageFlowNecessity from './rules/message-flow-necessity';
-import unalignedMessageEvents from './rules/unaligned-message-events';
 import inconsistentAssigneeGrouping from './rules/inconsistent-assignee-grouping';
-import detectSingleOrganizationCollaboration from './rules/detect-single-organization-collaboration';
 import messageFlowCrossingExcessive from './rules/message-flow-crossing-excessive';
 import missingDiShape from './rules/missing-di-shape';
 import serviceTaskMissingImplementation from './rules/service-task-missing-implementation';
@@ -80,8 +69,6 @@ export const rules: Record<string, any> = {
   'gateway-pair-mismatch': gatewayPairMismatch,
   'backward-sequence-flow': backwardSequenceFlow,
   'implicit-split': implicitSplit,
-  'lane-usage': laneUsage,
-  'exclusive-gateway-marker': exclusiveGatewayMarker,
   'compensation-missing-association': compensationMissingAssociation,
   'boundary-event-scope': boundaryEventScope,
   'loop-without-limit': loopWithoutLimit,
@@ -99,28 +86,19 @@ export const rules: Record<string, any> = {
   'duplicate-edges-same-waypoints': duplicateEdgesSameWaypoints,
   'no-overlapping-shapes': noOverlappingShapes,
   'unpaired-link-event': unpairedLinkEvent,
-  'lanes-expected-but-missing': lanesExpectedButMissing,
   'empty-participant-with-lanes': emptyParticipantWithLanes,
   'lane-zigzag-flow': laneZigzagFlow,
   'process-too-complex': processTooComplex,
   'collaboration-too-complex': collaborationTooComplex,
   'lane-crossing-excessive': laneCrossingExcessive,
-  'lane-single-element': laneSingleElement,
   'lane-missing-start-or-end': laneMissingStartOrEnd,
-  'inconsistent-lane-naming': inconsistentLaneNaming,
   'subprocess-expansion-issue': subprocessExpansionIssue,
   'lane-overcrowding': laneOvercrowding,
-  'prefer-lanes-over-pools': preferLanesOverPools,
   'role-mismatch-with-lane': roleMismatchWithLane,
-  'lane-candidate-detection': laneCandidateDetection,
   'lane-without-assignments': laneWithoutAssignments,
-  'long-message-flow-path': longMessageFlowPath,
   'collaboration-pattern-mismatch': collaborationPatternMismatch,
   'pool-size-insufficient': poolSizeInsufficient,
-  'message-flow-necessity': messageFlowNecessity,
-  'unaligned-message-events': unalignedMessageEvents,
   'inconsistent-assignee-grouping': inconsistentAssigneeGrouping,
-  'detect-single-organization-collaboration': detectSingleOrganizationCollaboration,
   'message-flow-crossing-excessive': messageFlowCrossingExcessive,
   'missing-di-shape': missingDiShape,
   'service-task-missing-implementation': serviceTaskMissingImplementation,
@@ -142,8 +120,6 @@ export const configs = {
       'bpmn-mcp/gateway-pair-mismatch': 'warn',
       'bpmn-mcp/backward-sequence-flow': 'warn',
       'bpmn-mcp/implicit-split': 'warn',
-      'bpmn-mcp/lane-usage': 'info',
-      'bpmn-mcp/exclusive-gateway-marker': 'info',
       'bpmn-mcp/compensation-missing-association': 'error',
       'bpmn-mcp/boundary-event-scope': 'warn',
       'bpmn-mcp/loop-without-limit': 'warn',
@@ -160,28 +136,19 @@ export const configs = {
       'bpmn-mcp/duplicate-edges-same-waypoints': 'warn',
       'bpmn-mcp/no-overlapping-shapes': 'warn',
       'bpmn-mcp/unpaired-link-event': 'warn',
-      'bpmn-mcp/lanes-expected-but-missing': 'info',
       'bpmn-mcp/empty-participant-with-lanes': 'error',
       'bpmn-mcp/lane-zigzag-flow': 'warn',
       'bpmn-mcp/process-too-complex': 'warn',
       'bpmn-mcp/collaboration-too-complex': 'warn',
       'bpmn-mcp/lane-crossing-excessive': 'warn',
-      'bpmn-mcp/lane-single-element': 'info',
       'bpmn-mcp/lane-missing-start-or-end': 'warn',
-      'bpmn-mcp/inconsistent-lane-naming': 'info',
       'bpmn-mcp/subprocess-expansion-issue': 'warn',
       'bpmn-mcp/lane-overcrowding': 'warn',
-      'bpmn-mcp/prefer-lanes-over-pools': 'info',
       'bpmn-mcp/role-mismatch-with-lane': 'warn',
-      'bpmn-mcp/lane-candidate-detection': 'info',
       'bpmn-mcp/lane-without-assignments': 'warn',
-      'bpmn-mcp/long-message-flow-path': 'info',
       'bpmn-mcp/collaboration-pattern-mismatch': 'warn',
       'bpmn-mcp/pool-size-insufficient': 'warn',
-      'bpmn-mcp/message-flow-necessity': 'info',
-      'bpmn-mcp/unaligned-message-events': 'info',
       'bpmn-mcp/inconsistent-assignee-grouping': 'warn',
-      'bpmn-mcp/detect-single-organization-collaboration': 'info',
       'bpmn-mcp/message-flow-crossing-excessive': 'warn',
       'bpmn-mcp/missing-di-shape': 'warn',
       'bpmn-mcp/service-task-missing-implementation': 'warn',

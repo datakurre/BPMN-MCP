@@ -20,9 +20,9 @@ import {
   validateArgs,
   upsertExtensionElement,
   getService,
+  buildPropertyHints,
 } from '../helpers';
 import { appendLintFeedback } from '../../linter';
-import { buildPropertyHints } from '../hints';
 import { handleScriptProperties } from './set-script-properties';
 
 export interface SetPropertiesArgs {

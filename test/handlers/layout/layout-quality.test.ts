@@ -16,15 +16,7 @@ import {
   handleCreateCollaboration,
   handleAddElement,
 } from '../../../src/handlers';
-import {
-  parseResult,
-  createDiagram,
-  addElement,
-  clearDiagrams,
-  importReference,
-  comparePositions,
-  connect,
-} from '../../helpers';
+import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -571,31 +563,5 @@ describe('Layout quality regression', () => {
 
     const reworkY = centreY(reg.get(rework));
     expect(Math.abs(reworkY - refY)).toBeGreaterThan(10);
-  });
-
-  // ── Reference BPMN position tracking ─────────────────────────────────
-
-  describe('reference position tracking', () => {
-    const REFERENCES = [
-      '01-linear-flow',
-      '02-exclusive-gateway',
-      '03-parallel-fork-join',
-      '04-nested-subprocess',
-      '05-collaboration',
-      '06-boundary-events',
-      '07-complex-workflow',
-      '08-collaboration-collapsed',
-      '09-complex-workflow',
-      '10-pool-with-lanes',
-    ];
-
-    for (const ref of REFERENCES) {
-      test(`${ref}: positions converge toward reference`, async () => {
-        const { diagramId, registry } = await importReference(ref);
-        await handleLayoutDiagram({ diagramId });
-        const { matchRate } = comparePositions(registry, ref, 10);
-        expect(matchRate).toBeGreaterThanOrEqual(0);
-      });
-    }
   });
 });

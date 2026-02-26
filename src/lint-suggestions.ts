@@ -26,8 +26,6 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Replace conditional flows with an explicit gateway{elementRef} — add a bpmn:ExclusiveGateway after the task',
   'bpmn-mcp/backward-sequence-flow':
     'Use layout_bpmn_diagram to re-arrange elements left-to-right, or restructure the flow{elementRef}',
-  'bpmn-mcp/lane-usage':
-    'Consider using create_bpmn_collaboration with separate pools instead of lanes',
   'bpmn-mcp/camunda-topic-without-external-type':
     'Use set_bpmn_element_properties to set camunda:type to "external"{elementRef}',
   'bpmn-mcp/loop-without-limit':
@@ -72,8 +70,6 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Consider moving the element{elementRef} to the same lane as its predecessor and successor using move_bpmn_element with laneId, or restructure the process to avoid unnecessary lane crossings',
   'bpmn-mcp/gateway-pair-mismatch':
     'Add a matching join gateway of the same type downstream{elementRef}. Pair split/join gateways for readability — use add_bpmn_element to add the join gateway',
-  'bpmn-mcp/exclusive-gateway-marker':
-    'Use set_bpmn_element_properties{elementRef} or re-export the diagram to ensure isMarkerVisible is set on exclusive gateway DI shapes',
   'bpmn-mcp/boundary-event-scope':
     'Consider replacing the boundary event{elementRef} with an event subprocess (bpmn:SubProcess with triggeredByEvent: true) for process-wide scope coverage',
   'bpmn-mcp/user-task-missing-assignee':
@@ -82,20 +78,18 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Add an explicit merge gateway before element{elementRef} — use add_bpmn_element to insert a bpmn:ExclusiveGateway or bpmn:ParallelGateway to combine the incoming flows',
   'bpmn-mcp/undefined-variable':
     'Ensure variable{elementRef} is defined upstream via a form field, output parameter, script result variable, or call activity out-mapping before it is referenced',
-  'bpmn-mcp/lanes-expected-but-missing':
-    'Consider adding lanes to clarify role assignments — use add_bpmn_element with bpmn:Lane to create swimlanes within the participant',
   'bpmn-mcp/lane-crossing-excessive':
     'Reorganize tasks into lanes to reduce cross-lane flows. Use move_bpmn_element with laneId to move elements between lanes',
-  'bpmn-mcp/lane-single-element':
-    'Lane{elementRef} has very few elements. Consider merging it with an adjacent lane using move_bpmn_element with laneId',
   'bpmn-mcp/lane-missing-start-or-end':
     'Assign start and end events to appropriate lanes using move_bpmn_element with laneId',
   'bpmn-mcp/pool-size-insufficient':
     'Use autosize_bpmn_pools_and_lanes with participantId to auto-resize the pool{elementRef}, or use move_bpmn_element with width/height to manually resize',
-  'bpmn-mcp/message-flow-necessity':
-    'If the connected pools represent roles within the same organization, consider using a single pool with lanes and sequence flows instead of message flows{elementRef}',
-  'bpmn-mcp/unaligned-message-events':
-    'Align message flow endpoints vertically (same X coordinate) using move_bpmn_element{elementRef} to create straight vertical message flows',
+  'bpmn-mcp/subprocess-expansion-issue':
+    'Use move_bpmn_element with width/height to resize the subprocess{elementRef}, or run layout_bpmn_diagram to re-arrange elements',
+  'bpmn-mcp/lane-overcrowding':
+    'Redistribute elements across lanes using move_bpmn_element with laneId, or split the lane into more specific roles using create_bpmn_lanes',
+  'bpmn-mcp/role-mismatch-with-lane':
+    'Use set_bpmn_element_properties to update camunda:assignee or camunda:candidateGroups to match the lane role, or move the element to the correct lane with move_bpmn_element{elementRef}',
   'bpmn-mcp/inconsistent-assignee-grouping':
     'Group elements with the same assignee/candidateGroups into a single lane using redistribute_bpmn_elements_across_lanes (strategy: manual) or move_bpmn_element with laneId',
   'bpmn-mcp/service-task-missing-implementation':
@@ -112,26 +106,10 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
     'Connect the boundary event{elementRef} to a downstream element using connect_bpmn_elements, or remove it with delete_bpmn_element',
   'bpmn-mcp/receive-task-missing-message':
     'Use manage_bpmn_root_elements to create a message definition, then set_bpmn_element_properties to assign messageRef{elementRef}',
-  'bpmn-mcp/inconsistent-lane-naming':
-    'Rename lanes to follow a consistent naming convention (e.g. role-based or department-based) using set_bpmn_element_properties',
-  'bpmn-mcp/subprocess-expansion-issue':
-    'Use move_bpmn_element with width/height to resize the subprocess{elementRef}, or run layout_bpmn_diagram to re-arrange elements',
-  'bpmn-mcp/lane-overcrowding':
-    'Redistribute elements across lanes using move_bpmn_element with laneId, or split the lane into more specific roles using create_bpmn_lanes',
-  'bpmn-mcp/prefer-lanes-over-pools':
-    'Consider converting separate pools into lanes within a single pool. Use analyze_bpmn_lanes (mode: pool-vs-lanes) to analyze, then create_bpmn_lanes (with mergeFrom) to convert',
-  'bpmn-mcp/role-mismatch-with-lane':
-    'Use set_bpmn_element_properties to update camunda:assignee or camunda:candidateGroups to match the lane role, or move the element to the correct lane with move_bpmn_element{elementRef}',
-  'bpmn-mcp/lane-candidate-detection':
-    'Consider adding lanes to organize tasks by role — use create_bpmn_lanes followed by redistribute_bpmn_elements_across_lanes (strategy: manual)',
   'bpmn-mcp/lane-without-assignments':
     'Assign elements to the lane using redistribute_bpmn_elements_across_lanes (strategy: manual), or remove the empty lane with delete_bpmn_element{elementRef}',
-  'bpmn-mcp/long-message-flow-path':
-    'Reposition the message flow endpoints closer together using move_bpmn_element, or run layout_bpmn_diagram to re-arrange pools',
   'bpmn-mcp/collaboration-pattern-mismatch':
     'Review the collaboration structure. In Camunda 7 / Operaton, use one expanded executable pool with collapsed partner pools for external systems',
-  'bpmn-mcp/detect-single-organization-collaboration':
-    'Convert to a single pool with lanes using create_bpmn_lanes (with mergeFrom). Roles within the same organization should use lanes, not separate pools',
   'bpmn-mcp/message-flow-crossing-excessive':
     'Reorder participants or reposition elements to reduce message flow crossings. Use move_bpmn_element or layout_bpmn_diagram',
   'bpmn-mcp/layout-needs-alignment':

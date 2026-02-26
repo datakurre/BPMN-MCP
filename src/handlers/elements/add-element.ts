@@ -25,7 +25,7 @@ import {
   collectAddElementWarnings,
   buildAddElementResult,
 } from './add-element-response';
-import { validateElementType, ALLOWED_ELEMENT_TYPES } from '../element-type-validation';
+import { validateElementType, ALLOWED_ELEMENT_TYPES } from '../validation';
 import { illegalCombinationError, typeMismatchError, duplicateError } from '../../errors';
 
 export interface AddElementArgs {

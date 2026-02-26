@@ -24,12 +24,12 @@ import type { DiagramState } from '../types';
 import { type BpmnElement, type ElementRegistry, type Modeling, getService } from '../bpmn-types';
 import { STANDARD_BPMN_GAP } from '../constants';
 import { extractFlowGraph, type FlowGraph } from './topology';
-import { detectBackEdges } from './back-edges';
-import { topologicalSort } from './topo-sort';
+import { detectBackEdges, topologicalSort } from './graph';
 import { detectGatewayPatterns } from './patterns';
-import { buildContainerHierarchy, getContainerRebuildOrder } from './containers';
 import { identifyBoundaryEvents } from './boundary';
 import {
+  buildContainerHierarchy,
+  getContainerRebuildOrder,
   moveElementTo,
   collectExceptionChainIds,
   positionBoundaryEventsAndChains,

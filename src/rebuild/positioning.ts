@@ -8,7 +8,7 @@
 
 import type { BpmnElement } from '../bpmn-types';
 import type { FlowGraph, FlowNode } from './topology';
-import type { LayeredNode } from './topo-sort';
+import type { LayeredNode } from './graph';
 import type { GatewayPattern } from './patterns';
 
 // ── Constants ──────────────────────────────────────────────────────────────

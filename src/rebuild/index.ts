@@ -16,11 +16,9 @@ export {
   isFlowNode,
 } from './topology';
 
-// ── Back-edge (cycle) detection ────────────────────────────────────────────
-export { detectBackEdges, getBackEdgeTargets } from './back-edges';
-
-// ── Topological sort with layer assignment ─────────────────────────────────
-export { type LayeredNode, topologicalSort, groupByLayer } from './topo-sort';
+// ── Back-edge detection and topological sort ─────────────────────────────────
+export { detectBackEdges, getBackEdgeTargets } from './graph';
+export { type LayeredNode, topologicalSort, groupByLayer } from './graph';
 
 // ── Gateway fan-out and merge pattern detection ────────────────────────────
 export { type GatewayPattern, detectGatewayPatterns } from './patterns';
@@ -32,7 +30,7 @@ export {
   buildContainerHierarchy,
   buildContainerHierarchyFromElements,
   getContainerRebuildOrder,
-} from './containers';
+} from './container-layout';
 
 // ── Boundary events and exception chains ───────────────────────────────────
 export {

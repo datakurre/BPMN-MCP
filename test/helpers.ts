@@ -2,9 +2,8 @@
  * Barrel re-export from focused test utility modules.
  *
  * Core diagram utilities (used by ~100 test files) are in `utils/diagram.ts`.
- * Layout comparison, SVG parsing, and BPMN XML comparison are in `utils/layout-comparison.ts`.
  *
- * New tests should import directly from `./utils/diagram` or `./utils/layout-comparison`.
+ * New tests should import directly from `./utils/diagram`.
  * This barrel exists for backwards compatibility.
  */
 
@@ -22,32 +21,3 @@ export {
   importReference,
   importAndLayout,
 } from './utils/diagram';
-
-// Layout comparison helpers (used by ~7 layout regression tests)
-export {
-  type RefPosition,
-  loadReferencePositions,
-  type PositionDelta,
-  comparePositions,
-  type NormalisedDelta,
-  compareWithNormalisation,
-  type SvgPosition,
-  parsePositionsFromSVG,
-  loadPositionsFromSVG,
-  normaliseBpmnXml,
-  extractProcessXml,
-  extractBpmnPositions,
-  compareBpmnPositions,
-  loadReferenceBpmn,
-  type EdgeWaypoints,
-  extractEdgeWaypoints,
-  type EdgeWaypointComparison,
-  compareEdgeWaypoints,
-  type TypeMatchRate,
-  type PerTypeMatchRates,
-  computePerTypeMatchRates,
-  type LabelPosition,
-  extractLabelPositionsFromBpmn,
-  type LabelPositionComparison,
-  compareLabelPositions,
-} from './utils/layout-comparison';
