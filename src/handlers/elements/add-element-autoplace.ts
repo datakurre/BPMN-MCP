@@ -115,10 +115,25 @@ function detectAutoPlaceConnection(
 }
 
 /**
+ * Detect if participantId refers to a different pool than the given element's pool.
+ * Returns true when cross-pool is detected (AutoPlace should be skipped).
+ */
+function isCrossPoolPlacement(afterEl: BpmnElement, participantId: string | undefined): boolean {
+  if (!participantId) return false;
+  let el: any = afterEl;
+  while (el && el.type !== 'bpmn:Participant') el = el.parent;
+  return !!el && el.id !== participantId;
+}
+
+/**
  * Handle add_bpmn_element with afterElementId using bpmn-js AutoPlace.
  *
  * AutoPlace positions the new element AND creates a SequenceFlow from
  * the source element in one step.
+ *
+ * When participantId refers to a different pool than afterEl's pool,
+ * AutoPlace is skipped and we return null so the caller falls through to
+ * standard absolute placement.
  */
 export async function handleAutoPlaceAdd(
   args: AddElementArgs,
@@ -130,9 +145,16 @@ export async function handleAutoPlaceAdd(
   elementName: string | undefined,
   hostElementId: string | undefined,
   isExpanded: boolean | undefined
-): Promise<ToolResult> {
+): Promise<ToolResult | null> {
   const diagramId = args.diagramId;
   const afterEl = requireElement(elementRegistry, afterElementId);
+
+  // Cross-pool check: if participantId refers to a different pool than afterEl,
+  // AutoPlace would silently place the element in afterEl's pool and ignore
+  // participantId. Signal the caller to use standard placement instead.
+  if (isCrossPoolPlacement(afterEl, args.participantId)) {
+    return null;
+  }
 
   const descriptiveId = generateDescriptiveId(elementRegistry, elementType, elementName);
   const elementSize = getElementSize(elementType);

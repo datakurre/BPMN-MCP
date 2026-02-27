@@ -100,4 +100,47 @@ describe('add_bpmn_element — boundary event shorthand', () => {
     expect(res.success).toBe(true);
     expect(res.eventDefinitionType).toBeUndefined();
   });
+
+  test('cancelActivity:false creates non-interrupting boundary event', async () => {
+    const diagramId = await createDiagram('NonInterrupting');
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', { name: 'Long Task' });
+
+    const res = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:BoundaryEvent',
+        name: 'Reminder',
+        hostElementId: taskId,
+        cancelActivity: false,
+        eventDefinitionType: 'bpmn:TimerEventDefinition',
+        eventDefinitionProperties: { timeDuration: 'PT48H' },
+      } as any)
+    );
+
+    expect(res.success).toBe(true);
+    // Verify cancelActivity was set on the business object
+    const props = parseResult(await handleGetProperties({ diagramId, elementId: res.elementId }));
+    expect(props.cancelActivity).toBe(false);
+  });
+
+  test('cancelActivity defaults to true (interrupting) when not specified', async () => {
+    const diagramId = await createDiagram('DefaultInterrupting');
+    const taskId = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task' });
+
+    const res = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:BoundaryEvent',
+        name: 'Error Handler',
+        hostElementId: taskId,
+        eventDefinitionType: 'bpmn:ErrorEventDefinition',
+        errorRef: { id: 'Error_X', name: 'ErrorX' },
+      } as any)
+    );
+
+    expect(res.success).toBe(true);
+    const props = parseResult(await handleGetProperties({ diagramId, elementId: res.elementId }));
+    // Default is cancelActivity: true (interrupting) — the property may be absent (defaults to true)
+    expect(props.cancelActivity === undefined || props.cancelActivity === true).toBe(true);
+  });
 });

@@ -118,36 +118,76 @@ function validateChainElements(
   }
 }
 
-export async function handleAddElementChain(args: AddElementChainArgs): Promise<ToolResult> {
-  validateArgs(args, ['diagramId', 'elements']);
-  const { diagramId, elements, afterElementId } = args;
+/** Resolve the participantId of an anchor element (afterElementId). */
+function resolveAnchorParticipantId(
+  elementRegistry: ReturnType<typeof getService<'elementRegistry'>>,
+  afterElementId: string | undefined,
+  fallback: string | undefined
+): string | undefined {
+  if (!afterElementId) return fallback;
+  const anchorEl = elementRegistry.get(afterElementId);
+  if (!anchorEl) return fallback;
+  let el: any = anchorEl;
+  while (el && el.type !== 'bpmn:Participant') el = el.parent;
+  return el?.type === 'bpmn:Participant' ? (el.id as string) : fallback;
+}
 
-  if (!Array.isArray(elements) || elements.length === 0) {
-    throw missingRequiredError(['elements']);
+/** Emit a cross-pool warning when an element targets a different pool than the previous. */
+function detectCrossPoolTransition(
+  el: AddElementChainArgs['elements'][number],
+  defaultParticipantId: string | undefined,
+  previousParticipantId: string | undefined,
+  warnings: string[]
+): string | undefined {
+  const currentParticipantId = el.participantId || defaultParticipantId;
+  if (
+    currentParticipantId &&
+    previousParticipantId &&
+    currentParticipantId !== previousParticipantId
+  ) {
+    warnings.push(
+      `Element "${el.name || el.elementType}" specifies participantId "${currentParticipantId}" but the previous element is in "${previousParticipantId}". ` +
+        `AutoPlace does not support cross-pool placement — the element may have landed in the wrong pool. ` +
+        `Use add_bpmn_element with explicit x/y coordinates and participantId to place it correctly.`
+    );
   }
+  return currentParticipantId || previousParticipantId;
+}
 
-  const diagram = requireDiagram(diagramId);
-  validateChainElements(elements, afterElementId, diagram);
+type CreatedEntry = {
+  elementId: string;
+  elementType: string;
+  name?: string;
+  connectionId?: string;
+};
+type UnconnectedEntry = { elementId: string; elementType: string; name?: string };
+interface ChainLoopResult {
+  createdElements: CreatedEntry[];
+  unconnectedElements: UnconnectedEntry[];
+  warnings: string[];
+}
 
-  const createdElements: Array<{
-    elementId: string;
-    elementType: string;
-    name?: string;
-    connectionId?: string;
-  }> = [];
-
-  let previousId = afterElementId;
-
-  for (const el of elements) {
+async function runChainLoop(
+  args: AddElementChainArgs,
+  initialPreviousId: string | undefined,
+  initialParticipantId: string | undefined
+): Promise<ChainLoopResult> {
+  const createdElements: CreatedEntry[] = [];
+  const unconnectedElements: UnconnectedEntry[] = [];
+  const warnings: string[] = [];
+  let previousId = initialPreviousId;
+  let postGateway = false;
+  let previousParticipantId = initialParticipantId;
+  for (const el of args.elements) {
+    const isGateway = GATEWAY_TYPES.has(el.elementType);
     const addResult = await handleAddElement({
-      diagramId,
+      diagramId: args.diagramId,
       elementType: el.elementType,
       name: el.name,
       participantId: el.participantId || args.participantId,
       laneId: el.laneId || args.laneId,
-      ...(previousId ? { afterElementId: previousId } : {}),
+      ...(postGateway ? {} : previousId ? { afterElementId: previousId } : {}),
     });
-
     const parsed = JSON.parse(addResult.content[0].text);
     createdElements.push({
       elementId: parsed.elementId,
@@ -155,29 +195,53 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
       name: el.name,
       ...(parsed.connectionId ? { connectionId: parsed.connectionId } : {}),
     });
-
+    previousParticipantId = detectCrossPoolTransition(
+      el,
+      args.participantId,
+      previousParticipantId,
+      warnings
+    );
+    if (postGateway) {
+      unconnectedElements.push({
+        elementId: parsed.elementId,
+        elementType: el.elementType,
+        name: el.name,
+      });
+    }
+    if (isGateway) postGateway = true;
     previousId = parsed.elementId;
   }
+  return { createdElements, unconnectedElements, warnings };
+}
 
+export async function handleAddElementChain(args: AddElementChainArgs): Promise<ToolResult> {
+  validateArgs(args, ['diagramId', 'elements']);
+  const { diagramId, elements, afterElementId } = args;
+  if (!Array.isArray(elements) || elements.length === 0) throw missingRequiredError(['elements']);
+
+  const diagram = requireDiagram(diagramId);
+  validateChainElements(elements, afterElementId, diagram);
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
+  const initialParticipantId = resolveAnchorParticipantId(
+    elementRegistry,
+    afterElementId,
+    args.participantId
+  );
 
-  // Detect whether the chain contains a gateway element (not as first or last).
-  // When it does, sequential auto-connections from the gateway onwards will be
-  // wrong for fork/join patterns, and running layout before parallel branches
-  // are wired produces a degenerate single-column result.  Suppress auto-layout
-  // in that case and emit a deferredLayout hint so the caller knows to add
-  // explicit connect_bpmn_elements calls first.
+  const { createdElements, unconnectedElements, warnings } = await runChainLoop(
+    args,
+    afterElementId,
+    initialParticipantId
+  );
+
   const chainHasGateway = elements.some((el) => GATEWAY_TYPES.has(el.elementType));
   const shouldLayout = args.autoLayout !== false && !chainHasGateway;
-
-  if (shouldLayout) {
-    await handleLayoutDiagram({ diagramId });
-  }
+  if (shouldLayout) await handleLayoutDiagram({ diagramId });
 
   const deferredLayoutNote = chainHasGateway
-    ? 'Chain contains a gateway — sequential auto-connections may not reflect the intended fork/join wiring. ' +
-      'Remove incorrect connections, add explicit ones with connect_bpmn_elements, ' +
-      'then run layout_bpmn_diagram after all branches are connected.'
+    ? 'Chain contains a gateway — elements after it were NOT auto-connected to avoid wrong sequential wiring. ' +
+      'Use connect_bpmn_elements to wire branches explicitly (do NOT re-call connect_bpmn_elements for pairs the chain already connected). ' +
+      'Then run layout_bpmn_diagram after all branches are wired.'
     : undefined;
 
   const result = jsonResult({
@@ -185,10 +249,17 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
     elementIds: createdElements.map((e) => e.elementId),
     elements: createdElements,
     elementCount: createdElements.length,
+    connectionIds: Object.fromEntries(
+      createdElements
+        .filter((e) => e.connectionId)
+        .map((e) => [e.elementId, e.connectionId as string])
+    ),
     message: `Created chain of ${createdElements.length} elements: ${createdElements.map((e) => e.name || e.elementType).join(' → ')}`,
     diagramCounts: buildElementCounts(elementRegistry),
     ...(shouldLayout ? { autoLayoutApplied: true } : {}),
     ...(deferredLayoutNote ? { deferredLayout: true, note: deferredLayoutNote } : {}),
+    ...(unconnectedElements.length > 0 ? { unconnectedElements } : {}),
+    ...(warnings.length > 0 ? { warnings } : {}),
   });
   return appendLintFeedback(result, diagram);
 }

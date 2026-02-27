@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleAddElementChain } from '../../../src/handlers';
+import { handleAddElementChain, handleCreateCollaboration } from '../../../src/handlers';
 import { createDiagram, parseResult, addElement, clearDiagrams } from '../../helpers';
 
 describe('add_bpmn_element_chain', () => {
@@ -169,5 +169,116 @@ describe('add_bpmn_element_chain', () => {
 
     expect(res.success).toBe(true);
     expect(res.elementCount).toBe(3);
+  });
+
+  test('stops auto-connecting elements after a gateway in chain', async () => {
+    const diagramId = await createDiagram();
+
+    const res = parseResult(
+      await handleAddElementChain({
+        diagramId,
+        elements: [
+          { elementType: 'bpmn:StartEvent', name: 'Start' },
+          { elementType: 'bpmn:UserTask', name: 'Prepare' },
+          { elementType: 'bpmn:ParallelGateway', name: 'Fork' },
+          { elementType: 'bpmn:ServiceTask', name: 'Branch A' },
+          { elementType: 'bpmn:UserTask', name: 'Branch B' },
+        ],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.elementCount).toBe(5);
+    expect(res.deferredLayout).toBe(true);
+
+    // Elements after the gateway must NOT be auto-connected to each other
+    // (Branch A and Branch B should be unconnected to chain)
+    const branchA = res.elements.find((e: any) => e.name === 'Branch A');
+    const branchB = res.elements.find((e: any) => e.name === 'Branch B');
+    expect(branchA?.connectionId).toBeUndefined();
+    expect(branchB?.connectionId).toBeUndefined();
+  });
+
+  test('includes unconnectedElements in response when chain has gateway', async () => {
+    const diagramId = await createDiagram();
+
+    const res = parseResult(
+      await handleAddElementChain({
+        diagramId,
+        elements: [
+          { elementType: 'bpmn:StartEvent', name: 'Start' },
+          { elementType: 'bpmn:ExclusiveGateway', name: 'Decision' },
+          { elementType: 'bpmn:UserTask', name: 'Option A' },
+          { elementType: 'bpmn:UserTask', name: 'Option B' },
+        ],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.deferredLayout).toBe(true);
+    expect(Array.isArray(res.unconnectedElements)).toBe(true);
+    expect(res.unconnectedElements.length).toBe(2); // Option A and Option B
+  });
+
+  test('includes connectionIds map in response for linear chain', async () => {
+    const diagramId = await createDiagram();
+
+    const res = parseResult(
+      await handleAddElementChain({
+        diagramId,
+        elements: [
+          { elementType: 'bpmn:StartEvent', name: 'Start' },
+          { elementType: 'bpmn:UserTask', name: 'Review' },
+          { elementType: 'bpmn:EndEvent', name: 'End' },
+        ],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.connectionIds).toBeDefined();
+    // Two connections: Start→Review, Review→End
+    const connIds = Object.values(res.connectionIds);
+    expect(connIds.length).toBe(2);
+    // Each connectionId should match the per-element connectionId
+    const reviewEl = res.elements.find((e: any) => e.name === 'Review');
+    const endEl = res.elements.find((e: any) => e.name === 'End');
+    expect(res.connectionIds[reviewEl.elementId]).toBe(reviewEl.connectionId);
+    expect(res.connectionIds[endEl.elementId]).toBe(endEl.connectionId);
+  });
+
+  test('warns when chain elements span different participantIds (cross-pool)', async () => {
+    const diagramId = await createDiagram();
+
+    const collResult = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          { name: 'Pool A', width: 600, height: 250 },
+          { name: 'Pool B', width: 600, height: 250 },
+        ],
+      })
+    );
+    const poolAId = collResult.participantIds[0];
+    const poolBId = collResult.participantIds[1];
+
+    const res = parseResult(
+      await handleAddElementChain({
+        diagramId,
+        elements: [
+          { elementType: 'bpmn:StartEvent', name: 'Start', participantId: poolAId },
+          { elementType: 'bpmn:UserTask', name: 'Task A', participantId: poolAId },
+          // Cross-pool: this element's participantId differs from the previous
+          { elementType: 'bpmn:ServiceTask', name: 'Task B', participantId: poolBId },
+        ],
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(Array.isArray(res.warnings)).toBe(true);
+    const crossPoolWarning = res.warnings.find(
+      (w: string) =>
+        w.includes('cross-pool') || w.includes('different pool') || w.includes('wrong pool')
+    );
+    expect(crossPoolWarning).toBeDefined();
   });
 });

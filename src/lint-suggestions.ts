@@ -67,7 +67,7 @@ export const FIX_SUGGESTIONS: Record<string, string> = {
   'bpmn-mcp/process-too-complex':
     'Decompose the process into smaller subprocesses using Call Activities (add_bpmn_element with elementType "bpmn:CallActivity"), or use Link events (bpmn:IntermediateThrowEvent + bpmn:IntermediateCatchEvent with LinkEventDefinition) to split the flow into readable sections within the same process',
   'bpmn-mcp/empty-participant-with-lanes':
-    'Remove the empty participant{elementRef} with delete_bpmn_element, or add process elements to it. If it represents an external system, set it to collapsed',
+    'Remove the empty participant{elementRef} with delete_bpmn_element, or add process elements to it. If it represents an external system, collapse it with set_bpmn_element_properties { isExpanded: false } on the participant ID',
   'bpmn-mcp/lane-zigzag-flow':
     'Consider moving the element{elementRef} to the same lane as its predecessor and successor using move_bpmn_element with laneId, or restructure the process to avoid unnecessary lane crossings',
   'bpmn-mcp/gateway-pair-mismatch':

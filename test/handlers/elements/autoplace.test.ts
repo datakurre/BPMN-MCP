@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleAddElement } from '../../../src/handlers';
+import { handleAddElement, handleCreateCollaboration } from '../../../src/handlers';
 import { parseResult, createDiagram, addElement, clearDiagrams, connect } from '../../helpers';
 import { getDiagram } from '../../../src/diagram-manager';
 
@@ -214,5 +214,49 @@ describe('C2-3/C2-6: branch-aware placement for afterElementId', () => {
     // The new element should be at a different Y than the existing task
     // (AutoPlace places second branch below the first)
     expect(newEl.y).not.toBe(existingEl.y);
+  });
+
+  test('falls back to standard placement when participantId is a different pool than afterEl', async () => {
+    const diagramId = await createDiagram('Cross-pool fallback');
+
+    const collResult = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          { name: 'Pool A', width: 600, height: 250 },
+          { name: 'Pool B', width: 600, height: 250 },
+        ],
+      })
+    );
+    const poolAId = collResult.participantIds[0];
+    const poolBId = collResult.participantIds[1];
+
+    // Add an anchor element in Pool A
+    const anchorId = await addElement(diagramId, 'bpmn:StartEvent', {
+      name: 'Start',
+      participantId: poolAId,
+    });
+
+    // Add a new element with afterElementId pointing to Pool A anchor,
+    // but participantId pointing to Pool B — should land in Pool B, not Pool A
+    const result = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:ServiceTask',
+        name: 'External Task',
+        afterElementId: anchorId,
+        participantId: poolBId,
+      })
+    );
+
+    expect(result.elementId).toBeDefined();
+    const reg = getDiagram(diagramId)!.modeler.get('elementRegistry');
+    const newEl = reg.get(result.elementId);
+    expect(newEl).toBeDefined();
+
+    // The created element's participant should be Pool B, not Pool A
+    let parent: any = newEl;
+    while (parent && parent.type !== 'bpmn:Participant') parent = parent.parent;
+    expect(parent?.id).toBe(poolBId);
   });
 });

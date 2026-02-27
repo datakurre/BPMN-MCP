@@ -377,5 +377,76 @@ describe('lane lint rules', () => {
       const issues = res.issues.filter((i: any) => i.rule === 'bpmn-mcp/lane-zigzag-flow');
       expect(issues).toHaveLength(0);
     });
+
+    test('does not warn when cross-lane flow originates from a gateway (parallel fork)', async () => {
+      // Pattern: TaskA(laneA) → GW(laneA) → TaskB(laneB) → TaskC(laneA)
+      // TaskB receives from GW (gateway-sourced cross-lane) — not a zigzag
+      const diagramId = await createDiagram('Gateway Fork');
+
+      const collResult = parseResult(
+        await handleCreateCollaboration({
+          diagramId,
+          participants: [
+            { name: 'Organization', width: 1400, height: 600 },
+            { name: 'External', collapsed: true },
+          ],
+        })
+      );
+      const poolId = collResult.participantIds[0];
+
+      const laneA = await addElement(diagramId, 'bpmn:Lane', {
+        name: 'Team A',
+        participantId: poolId,
+      });
+      const laneB = await addElement(diagramId, 'bpmn:Lane', {
+        name: 'Team B',
+        participantId: poolId,
+      });
+
+      const start = await addElement(diagramId, 'bpmn:StartEvent', {
+        name: 'Start',
+        laneId: laneA,
+      });
+      const task1 = await addElement(diagramId, 'bpmn:UserTask', {
+        name: 'Prepare',
+        laneId: laneA,
+      });
+      const gw = await addElement(diagramId, 'bpmn:ParallelGateway', {
+        name: 'Fork',
+        laneId: laneA,
+      });
+      const taskB = await addElement(diagramId, 'bpmn:ServiceTask', {
+        name: 'Notify',
+        laneId: laneB,
+      });
+      const taskA2 = await addElement(diagramId, 'bpmn:UserTask', {
+        name: 'Approve',
+        laneId: laneA,
+      });
+      const joinGw = await addElement(diagramId, 'bpmn:ParallelGateway', {
+        name: 'Join',
+        laneId: laneA,
+      });
+      const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End', laneId: laneA });
+
+      // Linear path through fork gateway
+      await connectAll(diagramId, start, task1, gw);
+      await connectAll(diagramId, gw, taskB, joinGw); // cross-lane, gateway-sourced
+      await connectAll(diagramId, gw, taskA2, joinGw);
+      await connectAll(diagramId, joinGw, end);
+
+      const res = parseResult(
+        await handleLintDiagram({
+          diagramId,
+          config: {
+            extends: 'plugin:bpmn-mcp/recommended',
+            rules: { 'bpmn-mcp/lane-zigzag-flow': 'warn' },
+          },
+        })
+      );
+
+      const issues = res.issues.filter((i: any) => i.rule === 'bpmn-mcp/lane-zigzag-flow');
+      expect(issues).toHaveLength(0);
+    });
   });
 });

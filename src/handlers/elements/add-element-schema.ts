@@ -196,6 +196,13 @@ export const TOOL_DEFINITION = {
           'and camunda properties, placing the copy at an offset from the original. Connections are not copied. ' +
           'When set, elementType is still required but used only for validation — the actual type is taken from the source.',
       },
+      cancelActivity: {
+        type: 'boolean',
+        description:
+          'For bpmn:BoundaryEvent only: false = non-interrupting (dashed border, host activity continues). ' +
+          'true = interrupting (default, host activity is cancelled when event fires). ' +
+          'Ignored for non-boundary event element types.',
+      },
     },
     required: ['diagramId', 'elementType'],
     allOf: [

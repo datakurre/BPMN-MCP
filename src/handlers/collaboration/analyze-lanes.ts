@@ -557,36 +557,44 @@ function computeCoherence(
   };
 }
 
+/** Build a LaneIssue for a detected zigzag pattern. */
+function buildZigzagIssue(
+  node: any,
+  nodeLane: any,
+  pred: any,
+  predLane: any,
+  succ: any,
+  succLane: any
+): LaneIssue {
+  const nName = node.name || node.id;
+  const pName = `${pred.name || pred.id} (${predLane.name || predLane.id})`;
+  const sName = `${succ.name || succ.id} (${succLane.name || succLane.id})`;
+  return {
+    severity: 'warning',
+    code: 'zigzag-flow',
+    message: `Zigzag flow: ${pName} → ${nName} (${nodeLane.name || nodeLane.id}) → ${sName}. Consider moving "${nName}" to lane "${predLane.name || predLane.id}".`,
+    elementIds: [node.id],
+    suggestion: `Use redistribute_bpmn_elements_across_lanes (strategy: manual) to move "${nName}" to lane "${predLane.name || predLane.id}".`,
+  };
+}
+
 /** Check if a node has a zigzag pattern through a predecessor's lane. */
 function findZigzag(node: any, nodeLane: any, laneMap: Map<string, any>): LaneIssue | null {
   for (const inFlow of node.incoming || []) {
     const pred = inFlow.sourceRef;
-    if (!pred) {
-      continue;
-    }
+    if (!pred) continue;
+    // Gateway-sourced cross-lane flows are structurally necessary for fork/join
+    // patterns — they should never be reported as zigzags.
+    const predType: string = pred.$type || pred.type || '';
+    if (predType.includes('Gateway')) continue;
     const predLane = laneMap.get(pred.id);
-    if (!predLane || predLane.id === nodeLane.id) {
-      continue;
-    }
+    if (!predLane || predLane.id === nodeLane.id) continue;
     for (const outFlow of node.outgoing || []) {
       const succ = outFlow.targetRef;
-      if (!succ) {
-        continue;
-      }
+      if (!succ) continue;
       const succLane = laneMap.get(succ.id);
-      if (!succLane || succLane.id !== predLane.id) {
-        continue;
-      }
-      const nName = node.name || node.id;
-      const pName = `${pred.name || pred.id} (${predLane.name || predLane.id})`;
-      const sName = `${succ.name || succ.id} (${succLane.name || succLane.id})`;
-      return {
-        severity: 'warning',
-        code: 'zigzag-flow',
-        message: `Zigzag flow: ${pName} → ${nName} (${nodeLane.name || nodeLane.id}) → ${sName}. Consider moving "${nName}" to lane "${predLane.name || predLane.id}".`,
-        elementIds: [node.id],
-        suggestion: `Use redistribute_bpmn_elements_across_lanes (strategy: manual) to move "${nName}" to lane "${predLane.name || predLane.id}".`,
-      };
+      if (!succLane || succLane.id !== predLane.id) continue;
+      return buildZigzagIssue(node, nodeLane, pred, predLane, succ, succLane);
     }
     break;
   }

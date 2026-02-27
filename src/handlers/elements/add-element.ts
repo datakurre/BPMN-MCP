@@ -63,6 +63,13 @@ export interface AddElementArgs {
   escalationRef?: { id: string; name?: string; escalationCode?: string };
   /** Duplicate an existing element: copies its type, name, and camunda properties. */
   copyFrom?: string;
+  /**
+   * For bpmn:BoundaryEvent: whether the boundary event is interrupting (cancelActivity: true,
+   * the default) or non-interrupting (cancelActivity: false). Non-interrupting boundary events
+   * show with a dashed border and do NOT cancel the host activity when triggered.
+   * Only valid for boundary events — ignored for other element types.
+   */
+  cancelActivity?: boolean;
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
@@ -157,8 +164,9 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
   // Auto-position after another element using bpmn-js AutoPlace
   // Note: AutoPlace doesn't support parentId (placing inside a subprocess),
   // so we fall through to the standard path when parentId is specified.
+  // Also falls through when participantId refers to a different pool than afterEl.
   if (afterElementId && !hostElementId && !parentId) {
-    return handleAutoPlaceAdd(
+    const autoPlaceResult = await handleAutoPlaceAdd(
       args,
       diagram,
       modeling,
@@ -169,6 +177,10 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
       hostElementId,
       isExpanded
     );
+    if (autoPlaceResult !== null) {
+      return autoPlaceResult;
+    }
+    // null → cross-pool case: fall through to standard placement below
   }
 
   // ── Standard path: boundary events, absolute positioning, default placement ──
@@ -223,6 +235,12 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
 
   if (elementName) {
     modeling.updateProperties(createdElement, { name: elementName });
+  }
+
+  // cancelActivity for bpmn:BoundaryEvent: false = non-interrupting (dashed border)
+  // Must be applied after element creation. Defaults to true (interrupting) if not set.
+  if (elementType === 'bpmn:BoundaryEvent' && args.cancelActivity === false) {
+    modeling.updateProperties(createdElement, { cancelActivity: false });
   }
 
   // bpmn:Group at negative coordinates: clamp to (0, 0)

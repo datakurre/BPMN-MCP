@@ -118,11 +118,17 @@ describe('Story 2: Parallel Review — Fork / Join with Lanes', () => {
     [s.startId, s.submitId, s.splitId, s.joinId, s.consolidateId, s.endId] =
       chainRes.elementIds as string[];
 
-    // Capture the spurious sequential connections the chain auto-created so
-    // we can delete them and rewire correctly later.
+    // With the improved chain handler, elements after a gateway are NOT
+    // auto-connected. Only the pre-gateway portion is auto-wired:
+    // Request Received → Submit Request → Review Split (gateway).
+    // Everything after Review Split (Join, Consolidate, End) is unconnected.
     s.chainConnections = chainRes.elements
       .filter((e: any) => e.connectionId)
       .map((e: any) => e.connectionId) as string[];
+
+    // unconnectedElements should list the post-gateway elements
+    expect(chainRes.unconnectedElements).toBeDefined();
+    expect(chainRes.unconnectedElements.length).toBeGreaterThan(0);
 
     await assertStep(s.diagramId, 'S2-Step02', {
       containsElements: [
@@ -213,6 +219,19 @@ describe('Story 2: Parallel Review — Fork / Join with Lanes', () => {
       diagramId: s.diagramId,
       sourceElementId: s.reviewBId,
       targetElementId: s.joinId,
+    });
+
+    // With the improved chain handler, elements after a gateway are NOT
+    // auto-connected. Wire the post-join tail explicitly.
+    await handleConnect({
+      diagramId: s.diagramId,
+      sourceElementId: s.joinId,
+      targetElementId: s.consolidateId,
+    });
+    await handleConnect({
+      diagramId: s.diagramId,
+      sourceElementId: s.consolidateId,
+      targetElementId: s.endId,
     });
   });
 

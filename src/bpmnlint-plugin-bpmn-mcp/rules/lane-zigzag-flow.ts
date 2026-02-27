@@ -48,6 +48,8 @@ function countLanes(laneSets: any[]): number {
 /**
  * Get cross-lane predecessors: incoming sequence flow source elements
  * that are in a different lane than the given element lane.
+ * Skips gateway predecessors — gateway-sourced cross-lane flows are
+ * structurally necessary for fork/join patterns and are not zigzags.
  */
 function getCrossLanePredecessors(
   element: any,
@@ -59,6 +61,9 @@ function getCrossLanePredecessors(
     if (!isType(inFlow, 'bpmn:SequenceFlow')) continue;
     const pred = inFlow.sourceRef;
     if (!pred) continue;
+    // Skip gateway predecessors — cross-lane flow from a gateway is structural
+    const predType: string = pred.$type || '';
+    if (predType.includes('Gateway')) continue;
     const predLane = elementToLane.get(pred.id);
     if (predLane && predLane.id !== elementLane.id) {
       result.push({ element: pred, lane: predLane });

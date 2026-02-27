@@ -86,7 +86,7 @@ export default function emptyParticipantWithLanes() {
       node.id,
       `Participant "${node.name || node.id}" is empty while a sibling pool has lanes. ` +
         `Remove this empty pool with delete_bpmn_element, or add process elements to it. ` +
-        `If it represents an external system, set it to collapsed.`
+        `If it represents an external system, collapse it with set_bpmn_element_properties { isExpanded: false } on the participant ID.`
     );
   }
 

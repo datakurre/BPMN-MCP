@@ -332,12 +332,17 @@ export async function handleGetProperties(args: GetPropertiesArgs): Promise<Tool
     height: element.height,
   };
 
-  // For boundary events, include host element reference
+  // For boundary events, include host element reference and cancelActivity
   if (element.type === 'bpmn:BoundaryEvent') {
     const attachedToRef = bo.attachedToRef as { id?: string } | undefined;
     const hostId = element.host?.id || attachedToRef?.id;
     if (hostId) {
       result.attachedToRef = hostId;
+    }
+    // cancelActivity: true = interrupting (default), false = non-interrupting
+    result.cancelActivity = bo.cancelActivity !== false; // bpmn-js default is true
+    if (bo.cancelActivity === false) {
+      result.cancelActivity = false;
     }
   }
 
