@@ -59,16 +59,43 @@ function isDescendantOf(el: BpmnElement, ancestor: BpmnElement): boolean {
 
 /**
  * Build a mapping of element ID → lane for elements within a pool.
- * Uses each lane's businessObject.flowNodeRef to determine membership.
+ *
+ * Strategy (issue #13):
+ * 1. First, check `element.parent` — when an element was explicitly added
+ *    to a lane via `add_bpmn_element laneId`, its diagram-js parent is the
+ *    lane shape.  This is the authoritative source before the first layout.
+ * 2. Fall back to `lane.businessObject.flowNodeRef` for elements whose
+ *    parent is not a lane (e.g. boundary events, which sit on their host's
+ *    parent).  bpmn-js updates flowNodeRef based on y-coordinate ownership,
+ *    which can disagree with the explicit `add` call before layout runs.
+ *
+ * The `lanes` array is used to build a fast lookup set so the parent-walk
+ * can identify lane shapes in O(1).
  */
-export function buildElementToLaneMap(lanes: BpmnElement[]): Map<string, BpmnElement> {
+export function buildElementToLaneMap(
+  lanes: BpmnElement[],
+  registry?: ElementRegistry
+): Map<string, BpmnElement> {
   const elementToLane = new Map<string, BpmnElement>();
+  const laneSet = new Set(lanes.map((l) => l.id));
 
+  // Pass 1: prefer element.parent when it's a lane shape.
+  if (registry) {
+    const allElements: BpmnElement[] = registry.getAll();
+    for (const el of allElements) {
+      if (!el.parent || !laneSet.has(el.parent.id)) continue;
+      // Find the lane BpmnElement (we need the full element, not just the id)
+      const parentLane = lanes.find((l) => l.id === el.parent!.id);
+      if (parentLane) elementToLane.set(el.id, parentLane);
+    }
+  }
+
+  // Pass 2: fall back to flowNodeRef for anything not already mapped.
   for (const lane of lanes) {
     const refs = lane.businessObject?.flowNodeRef;
     if (!Array.isArray(refs)) continue;
     for (const ref of refs) {
-      if (ref?.id) {
+      if (ref?.id && !elementToLane.has(ref.id)) {
         elementToLane.set(ref.id, lane);
       }
     }
@@ -154,12 +181,40 @@ function spreadCoColumnElements(
 ): number {
   let count = 0;
   for (const [key, siblings] of laneColumns) {
+    if (siblings.length < 2) {
+      // Single element — move to lane centre as before.
+      const laneId = key.split(':')[0];
+      const targetY = laneCenterYs.get(laneId)!;
+      const el = siblings[0];
+      const dy = Math.round(targetY - (el.y + el.height / 2));
+      if (dy !== 0) {
+        modeling.moveElements([el], { x: 0, y: dy });
+        count++;
+      }
+      continue;
+    }
+
+    // Issue #12: if elements were already spread by resolvePositionOverlaps
+    // (i.e. every consecutive pair differs by ≥ branchSpacing), skip
+    // re-spreading to avoid collapsing the spread back to lane-centre Y.
+    siblings.sort((a, b) => a.y - b.y);
+    let alreadySpread = true;
+    for (let i = 1; i < siblings.length; i++) {
+      const prevCY = siblings[i - 1].y + siblings[i - 1].height / 2;
+      const currCY = siblings[i].y + siblings[i].height / 2;
+      if (Math.abs(currCY - prevCY) < branchSpacing - 1) {
+        alreadySpread = false;
+        break;
+      }
+    }
+    if (alreadySpread) continue;
+
+    // Not yet spread — apply symmetric distribution around lane centre.
     const laneId = key.split(':')[0];
     const targetY = laneCenterYs.get(laneId)!;
-    siblings.sort((a, b) => a.y - b.y);
     for (let i = 0; i < siblings.length; i++) {
       const el = siblings[i];
-      const offset = siblings.length > 1 ? (i - (siblings.length - 1) / 2) * branchSpacing : 0;
+      const offset = (i - (siblings.length - 1) / 2) * branchSpacing;
       const dy = Math.round(targetY + offset - (el.y + el.height / 2));
       if (dy !== 0) {
         modeling.moveElements([el], { x: 0, y: dy });
@@ -210,7 +265,10 @@ export function applyLaneLayout(
       el.type !== SEQUENCE_FLOW_TYPE &&
       el.type !== 'bpmn:Lane' &&
       el.type !== 'bpmn:LaneSet' &&
-      el.type !== 'label'
+      el.type !== 'label' &&
+      // Boundary events follow their host via AttachSupport when the host moves.
+      // Positioning them independently to lane-center Y breaks their host attachment.
+      el.type !== 'bpmn:BoundaryEvent'
   );
 
   // Group elements by (laneId, columnX) so we can detect and spread
@@ -379,6 +437,54 @@ export function restoreLaneAssignments(
     const elBo = el.businessObject;
     if (elBo && !laneBo.flowNodeRef.includes(elBo)) {
       laneBo.flowNodeRef.push(elBo);
+    }
+  }
+}
+
+// ── Boundary event lane sync ───────────────────────────────────────────────
+
+/**
+ * Sync boundary event lane membership to match their host element's lane.
+ *
+ * After `positionBoundaryEventsAndChains()` runs, bpmn-js may assign each
+ * boundary event to whichever lane its y-coordinate falls inside, which
+ * can differ from the host's lane (issue #14).  This function explicitly
+ * sets each boundary event's `flowNodeRef` membership to match its host.
+ *
+ * @param registry     Element registry for the modeler.
+ * @param savedLaneMap Element-ID → intended lane (captured before rebuild).
+ * @param lanes        All lane elements in the participant.
+ */
+export function syncBoundaryEventLanes(
+  registry: ElementRegistry,
+  savedLaneMap: Map<string, BpmnElement>,
+  lanes: BpmnElement[]
+): void {
+  if (savedLaneMap.size === 0 || lanes.length === 0) return;
+
+  const allElements: BpmnElement[] = registry.getAll();
+  const boundaryEvents = allElements.filter((el) => el.type === 'bpmn:BoundaryEvent' && el.host);
+
+  for (const be of boundaryEvents) {
+    const host = be.host!;
+    const hostLane = savedLaneMap.get(host.id);
+    if (!hostLane) continue;
+
+    // Remove boundary event from any lane it's currently listed in.
+    for (const lane of lanes) {
+      const refs = lane.businessObject?.flowNodeRef;
+      if (!Array.isArray(refs)) continue;
+      const idx = refs.findIndex((r: any) => r?.id === be.businessObject?.id);
+      if (idx !== -1) refs.splice(idx, 1);
+    }
+
+    // Add to the host's lane.
+    const laneBo = hostLane.businessObject;
+    if (!laneBo) continue;
+    if (!Array.isArray(laneBo.flowNodeRef)) laneBo.flowNodeRef = [];
+    const beBo = be.businessObject;
+    if (beBo && !laneBo.flowNodeRef.includes(beBo)) {
+      laneBo.flowNodeRef.push(beBo);
     }
   }
 }

@@ -47,6 +47,7 @@ import {
   getLanesForParticipant,
   resizePoolToFit,
   restoreLaneAssignments,
+  syncBoundaryEventLanes,
 } from './lane-layout';
 import { positionArtifacts, adjustLabels } from './artifacts';
 
@@ -208,7 +209,7 @@ function processContainerNode(
     container.type === 'bpmn:Participant' ? getLanesForParticipant(registry, container) : [];
   const savedLaneMap =
     participantLanes.length > 0
-      ? buildElementToLaneMap(participantLanes)
+      ? buildElementToLaneMap(participantLanes, registry)
       : new Map<string, BpmnElement>();
 
   // Lane-aware positioning: precompute element → lane center Y (tasks 3a/3c)
@@ -260,6 +261,13 @@ function processContainerNode(
       rebuiltParticipants,
       skipPoolResize
     );
+
+    if (participantLanes.length > 0) {
+      // Sync boundary event lane membership to their host's lane (issue #14).
+      // Must run after applyParticipantLayout because the lane assignment
+      // can be mutated when elements are moved during layout.
+      syncBoundaryEventLanes(registry, savedLaneMap, participantLanes);
+    }
   }
 
   return { repositionedCount, reroutedCount };

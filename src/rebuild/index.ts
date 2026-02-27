@@ -51,6 +51,7 @@ export {
   buildElementToLaneMap,
   applyLaneLayout,
   resizePoolToFit,
+  syncBoundaryEventLanes,
 } from './lane-layout';
 
 // ── Artifact positioning and label adjustment (Phase 4) ────────────────────

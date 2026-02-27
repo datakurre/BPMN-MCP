@@ -252,6 +252,7 @@ function buildLayoutResponse(opts: {
   diWarnings: string[];
   poolExpansionApplied: boolean;
   subprocessesExpanded: number;
+  boundaryEventWarning?: string;
 }): ToolResult {
   const {
     diagramId,
@@ -265,6 +266,7 @@ function buildLayoutResponse(opts: {
     diWarnings,
     poolExpansionApplied,
     subprocessesExpanded,
+    boundaryEventWarning,
   } = opts;
 
   const scopeNote = scopeElementId
@@ -277,6 +279,7 @@ function buildLayoutResponse(opts: {
     labelsMoved,
     repositionedCount: result.repositionedCount,
     reroutedCount: result.reroutedCount,
+    ...(boundaryEventWarning ? { boundaryEventWarning } : {}),
     ...(laneCrossingMetrics
       ? {
           laneCrossingMetrics: {
@@ -355,6 +358,20 @@ export async function handleLayoutDiagram(
   const subprocessesExpanded = args.expandSubprocesses ? expandCollapsedSubprocesses(diagram) : 0;
   const preRepairs = repairMissingDiShapes(diagram);
 
+  // Warn when the diagram contains boundary events (issue #16).
+  // Full layout may reposition them incorrectly until issues #11 and #14
+  // are fully resolved.  This gives users an actionable alternative.
+  const boundaryEventRegistry = getService(diagram.modeler, 'elementRegistry');
+  const boundaryEventCount = boundaryEventRegistry
+    .getAll()
+    .filter((el: any) => el.type === 'bpmn:BoundaryEvent').length;
+  const boundaryEventWarning =
+    boundaryEventCount > 0
+      ? `\u26a0 This diagram has ${boundaryEventCount} boundary event(s). ` +
+        `Full layout repositions them relative to their host tasks — verify positions after layout. ` +
+        `Use labelsOnly: true for label-only cleanup, or scopeElementId to scope layout to one participant.`
+      : undefined;
+
   // Determine whether pool autosize will run after layout (task 7b):
   // when poolExpansion is enabled (or auto-detected), `handleAutosizePoolsAndLanes`
   // will resize pools/lanes — skip the redundant internal resize in rebuildLayout.
@@ -406,6 +423,7 @@ export async function handleLayoutDiagram(
     diWarnings: [...allRepairs, ...checkDiIntegrity(diagram, elementRegistry)],
     poolExpansionApplied,
     subprocessesExpanded,
+    boundaryEventWarning,
   });
 
   return appendLintFeedback(layoutResult, diagram);
