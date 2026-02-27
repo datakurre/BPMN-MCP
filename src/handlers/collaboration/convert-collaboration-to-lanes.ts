@@ -20,7 +20,15 @@
 
 import { type ToolResult } from '../../types';
 import { semanticViolationError } from '../../errors';
-import { requireDiagram, jsonResult, syncXml, validateArgs, getService } from '../helpers';
+import {
+  requireDiagram,
+  jsonResult,
+  syncXml,
+  validateArgs,
+  getService,
+  shiftToPositiveCoordinates,
+  runOptionalLayout,
+} from '../helpers';
 import { appendLintFeedback } from '../../linter';
 import { handleCreateLanes } from './create-lanes';
 import { handleAssignElementsToLane } from './assign-elements-to-lane';
@@ -277,18 +285,6 @@ function resizePoolToFitChildren(modeling: any, pool: any, children: any[]): voi
   });
 }
 
-/** Optionally run layout after conversion. */
-async function runOptionalLayout(diagramId: string, shouldLayout: boolean): Promise<boolean> {
-  if (!shouldLayout) return false;
-  try {
-    const { handleLayoutDiagram } = await import('../layout/layout-diagram');
-    await handleLayoutDiagram({ diagramId });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Build the result object. */
 function buildConversionResult(
   mainPool: any,
@@ -397,6 +393,11 @@ export async function handleConvertCollaborationToLanes(
 
   // 8. Resize main pool to fit
   resizePoolToFitChildren(modeling, mainPool, getChildFlowNodes(elementRegistry, mainPool.id));
+
+  // 8b. Shift to positive coordinates (TODO #2: normaliseOrigin equivalent)
+  // Must run regardless of whether layout: true is set, so that any subsequent
+  // waypoints or element placements reference positive coordinates.
+  shiftToPositiveCoordinates(elementRegistry, modeling);
 
   await syncXml(diagram);
 

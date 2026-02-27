@@ -318,7 +318,7 @@ export function buildRedistributeResult(
 
 /** Find the first participant that has at least 2 lanes. */
 export function findParticipantWithLanes(elementRegistry: any): string | null {
-  const participants = elementRegistry.filter((el: any) => el.type === 'bpmn:Participant');
+  const participants = elementRegistry.filter((el: any) => el.type === PARTICIPANT_TYPE);
   for (const p of participants) {
     const lanes = elementRegistry.filter(
       (el: any) => el.type === 'bpmn:Lane' && el.parent?.id === p.id
@@ -515,8 +515,11 @@ interface MoveRecord {
   reason: string;
 }
 
+/** Reusable constant to avoid duplicate string literals (sonarjs/no-duplicate-string). */
+const PARTICIPANT_TYPE = 'bpmn:Participant';
+
 const NON_ASSIGNABLE = new Set([
-  'bpmn:Participant',
+  PARTICIPANT_TYPE,
   'bpmn:Lane',
   'bpmn:LaneSet',
   'bpmn:Process',
@@ -729,10 +732,61 @@ function collectMoves(
   return moves;
 }
 
+// ── Empty lane detection (TODO #6) ────────────────────────────────────────
+
+/**
+ * Return IDs of lanes in the given participant that have zero flowNodeRef entries.
+ * Called after redistribution to surface lanes that can be safely deleted.
+ */
+function findEmptyLaneIds(reg: any, participantId: string): string[] {
+  const lanes: any[] = reg.filter(
+    (el: any) => el.type === 'bpmn:Lane' && el.parent?.id === participantId
+  );
+  return lanes
+    .filter((l: any) => {
+      const refs = l.businessObject?.flowNodeRef;
+      return !Array.isArray(refs) || refs.length === 0;
+    })
+    .map((l: any) => l.id as string);
+}
+
+/**
+ * Build nextStep entries for each empty lane — suggests calling
+ * delete_bpmn_element for each to clean up the diagram.
+ */
+function buildEmptyLaneNextSteps(
+  emptyLaneIds: string[],
+  reg: any
+): Array<{ tool: string; description: string; args?: Record<string, unknown> }> {
+  return emptyLaneIds.map((laneId) => {
+    const lane: any = reg.get(laneId);
+    const name = lane?.businessObject?.name || laneId;
+    return {
+      tool: 'delete_bpmn_element',
+      description: `Delete empty lane "${name}" (${laneId}) — it has no elements after redistribution.`,
+      args: { elementId: laneId },
+    };
+  });
+}
+
+/** Find the participant that contains a given lane element. */
+function getParticipantIdFromLaneId(reg: any, laneId: string): string | null {
+  const lane: any = reg.get(laneId);
+  if (!lane) return null;
+  let el: any = lane.parent;
+  while (el) {
+    if (el.type === PARTICIPANT_TYPE) return el.id as string;
+    el = el.parent;
+  }
+  return null;
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 /** Handle manual strategy: direct lane assignment (merged from assign_bpmn_elements_to_lane). */
-function handleManualStrategy(args: RedistributeElementsAcrossLanesArgs): Promise<ToolResult> {
+async function handleManualStrategy(
+  args: RedistributeElementsAcrossLanesArgs
+): Promise<ToolResult> {
   if (!args.laneId || !args.elementIds || args.elementIds.length === 0) {
     return Promise.resolve(
       jsonResult({
@@ -741,12 +795,33 @@ function handleManualStrategy(args: RedistributeElementsAcrossLanesArgs): Promis
       })
     );
   }
-  return handleAssignElementsToLane({
+  const assignResult = await handleAssignElementsToLane({
     diagramId: args.diagramId,
     laneId: args.laneId,
     elementIds: args.elementIds,
     reposition: args.reposition !== false,
   });
+
+  // TODO #6: detect empty lanes after assignment and suggest deletion
+  try {
+    const diagram = requireDiagram(args.diagramId);
+    const reg = getService(diagram.modeler, 'elementRegistry');
+    const poolId = args.participantId || getParticipantIdFromLaneId(reg, args.laneId);
+    if (poolId) {
+      const emptyLaneIds = findEmptyLaneIds(reg, poolId);
+      if (emptyLaneIds.length > 0) {
+        const parsed = JSON.parse(assignResult.content[0].text as string);
+        const emptySteps = buildEmptyLaneNextSteps(emptyLaneIds, reg);
+        const existing: any[] = parsed.nextSteps ?? [];
+        const merged = jsonResult({ ...parsed, nextSteps: [...existing, ...emptySteps] });
+        return merged;
+      }
+    }
+  } catch {
+    // Non-fatal — return original result if detection fails
+  }
+
+  return assignResult;
 }
 
 export async function handleRedistributeElementsAcrossLanes(
@@ -779,8 +854,8 @@ export async function handleRedistributeElementsAcrossLanes(
   }
 
   const pool = requireElement(reg, participantId);
-  if (pool.type !== 'bpmn:Participant') {
-    throw typeMismatchError(participantId, pool.type, ['bpmn:Participant']);
+  if (pool.type !== PARTICIPANT_TYPE) {
+    throw typeMismatchError(participantId, pool.type, [PARTICIPANT_TYPE]);
   }
 
   const lanes = getLanes(reg, participantId);
@@ -811,6 +886,24 @@ export async function handleRedistributeElementsAcrossLanes(
   }
 
   // ── Standard redistribution (no validation wrapper) ─────────────────────
+  return runStandardRedistribution(args, diagram, reg, modeling, participantId, pool, lanes);
+}
+
+/**
+ * Run the standard (non-validate) redistribution path and build the result.
+ * Extracted to keep `handleRedistributeElementsAcrossLanes` within the line/
+ * complexity limits (TODO #6: adds empty-lane nextStep detection).
+ */
+async function runStandardRedistribution(
+  args: RedistributeElementsAcrossLanesArgs,
+  diagram: any,
+  reg: any,
+  modeling: any,
+  participantId: string,
+  pool: any,
+  lanes: LaneInfo[]
+): Promise<ToolResult> {
+  const { strategy = 'role-based', reposition = true, dryRun = false } = args;
   const laneMap = buildCurrentLaneMap(lanes);
   const flowNodes = getFlowNodes(reg, participantId);
   const moves = collectMoves(flowNodes, strategy, lanes, laneMap, dryRun, reposition, modeling);
@@ -827,7 +920,24 @@ export async function handleRedistributeElementsAcrossLanes(
     participantId,
     pool
   );
-  return dryRun ? result : appendLintFeedback(result, diagram);
+
+  if (dryRun) return result;
+
+  // TODO #6: append nextSteps for empty lanes after redistribution
+  if (moves.length > 0) {
+    const emptyLaneIds = findEmptyLaneIds(reg, participantId);
+    if (emptyLaneIds.length > 0) {
+      const parsed = JSON.parse(result.content[0].text as string);
+      const emptySteps = buildEmptyLaneNextSteps(emptyLaneIds, reg);
+      const existing: any[] = parsed.nextSteps ?? [];
+      return appendLintFeedback(
+        jsonResult({ ...parsed, nextSteps: [...existing, ...emptySteps] }),
+        diagram
+      );
+    }
+  }
+
+  return appendLintFeedback(result, diagram);
 }
 
 // Schema extracted to redistribute-elements-schema.ts for readability.

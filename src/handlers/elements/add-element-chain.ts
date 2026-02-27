@@ -234,6 +234,28 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
     initialParticipantId
   );
 
+  // TODO #8: warn when participantId has lanes but no laneId is specified
+  const effectiveParticipantId = initialParticipantId;
+  if (effectiveParticipantId) {
+    const hasTopLevelLaneId = !!args.laneId;
+    const allElementsHaveLaneId = elements.every((el) => !!el.laneId);
+    if (!hasTopLevelLaneId && !allElementsHaveLaneId) {
+      const lanes = elementRegistry
+        .getAll()
+        .filter((el: any) => el.type === 'bpmn:Lane' && el.parent?.id === effectiveParticipantId);
+      if (lanes.length > 0) {
+        const laneList = lanes
+          .map((l: any) => `${l.id} ("${l.businessObject?.name || 'unnamed'}")`)
+          .join(', ');
+        warnings.push(
+          `participantId "${effectiveParticipantId}" has lanes but no laneId was specified. ` +
+            `Chain elements may be placed outside all lanes. ` +
+            `Specify laneId on the chain or per element. Available lanes: ${laneList}`
+        );
+      }
+    }
+  }
+
   const chainHasGateway = elements.some((el) => GATEWAY_TYPES.has(el.elementType));
   const shouldLayout = args.autoLayout !== false && !chainHasGateway;
   if (shouldLayout) await handleLayoutDiagram({ diagramId });

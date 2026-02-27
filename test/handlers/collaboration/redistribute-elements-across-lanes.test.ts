@@ -295,4 +295,57 @@ describe('redistribute_bpmn_elements_across_lanes', () => {
     expect(result.success).toBe(true);
     expect(result.movedCount).toBe(0);
   });
+
+  test('includes nextStep to delete empty lanes after redistribution', async () => {
+    // Regression for TODO #6: empty lanes not cleaned up after redistribution
+    const diagramId = await createDiagram();
+    const { poolId, laneIds } = await createPoolWithLanes(diagramId);
+
+    // Create tasks and assign to the first lane (Support)
+    const task1 = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Task One',
+        participantId: poolId,
+      })
+    ).elementId;
+    const task2 = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Task Two',
+        participantId: poolId,
+      })
+    ).elementId;
+
+    await handleAssignElementsToLane({
+      diagramId,
+      laneId: laneIds[1], // Engineering
+      elementIds: [task1, task2],
+    });
+
+    // Manually redistribute all to Support lane (leaves Engineering + Management empty)
+    const result = parseResult(
+      await handleRedistributeElementsAcrossLanes({
+        diagramId,
+        participantId: poolId,
+        strategy: 'manual',
+        laneId: laneIds[0], // Support
+        elementIds: [task1, task2],
+      })
+    );
+
+    expect(result.success).toBe(true);
+
+    // Result should include nextSteps to delete empty lanes
+    const deleteSteps = (result.nextSteps ?? []).filter(
+      (s: any) => s.tool === 'delete_bpmn_element'
+    );
+    expect(deleteSteps.length).toBeGreaterThan(0);
+    // Each delete step should include an empty laneId
+    for (const step of deleteSteps) {
+      expect(step.args?.elementId ?? step.description).toBeTruthy();
+    }
+  });
 });

@@ -699,3 +699,110 @@ export async function buildF12TextAnnotation(): Promise<F12Ids> {
 
   return { diagramId, start, reviewTask, end, annotation, dataObject, association, dataAssoc };
 }
+
+// ── F13: Pool with non-interrupting boundary event ────────────────────────
+
+export interface F13Ids {
+  diagramId: string;
+  pool: string;
+  start: string;
+  task: string;
+  end: string;
+  boundaryEvent: string;
+  timeoutEnd: string;
+  mainFlow1: string;
+  mainFlow2: string;
+  timeoutFlow: string;
+}
+
+/**
+ * A participant pool with a service task that has a non-interrupting timer
+ * boundary event.  The exception chain (boundary → timeout end) runs in
+ * parallel with the main flow (start → task → done).
+ *
+ * Used to test that connection waypoints stay within pool Y bounds after
+ * rebuildLayout — see TODO #1 (Waypoint clamping).
+ */
+export async function buildF13PoolWithNonInterruptingBoundary(): Promise<F13Ids> {
+  const diagramId = await createDiagram('F13 Pool With Non-Interrupting Boundary');
+
+  const poolRes = parseResult(await handleCreateParticipant({ diagramId, name: 'Order Process' }));
+  const pool = poolRes.participantId as string;
+
+  const start = parseResult(
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:StartEvent',
+      name: 'Start',
+      participantId: pool,
+    })
+  ).elementId;
+
+  const task = parseResult(
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:ServiceTask',
+      name: 'Process Payment',
+      participantId: pool,
+    })
+  ).elementId;
+
+  const end = parseResult(
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:EndEvent',
+      name: 'Done',
+      participantId: pool,
+    })
+  ).elementId;
+
+  const mainFlow1Res = parseResult(
+    await handleConnect({ diagramId, sourceElementId: start, targetElementId: task })
+  );
+  const mainFlow1 = mainFlow1Res.connectionId as string;
+
+  const mainFlow2Res = parseResult(
+    await handleConnect({ diagramId, sourceElementId: task, targetElementId: end })
+  );
+  const mainFlow2 = mainFlow2Res.connectionId as string;
+
+  // Non-interrupting timer boundary event (host task continues when timer fires)
+  const boundaryEvent = parseResult(
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:BoundaryEvent',
+      name: 'Payment Timeout',
+      hostElementId: task,
+      eventDefinitionType: 'bpmn:TimerEventDefinition',
+      eventDefinitionProperties: { timeDuration: 'PT30M' },
+      cancelActivity: false,
+    })
+  ).elementId;
+
+  const timeoutEnd = parseResult(
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:EndEvent',
+      name: 'Payment Cancelled',
+      participantId: pool,
+    })
+  ).elementId;
+
+  const timeoutFlowRes = parseResult(
+    await handleConnect({ diagramId, sourceElementId: boundaryEvent, targetElementId: timeoutEnd })
+  );
+  const timeoutFlow = timeoutFlowRes.connectionId as string;
+
+  return {
+    diagramId,
+    pool,
+    start,
+    task,
+    end,
+    boundaryEvent,
+    timeoutEnd,
+    mainFlow1,
+    mainFlow2,
+    timeoutFlow,
+  };
+}

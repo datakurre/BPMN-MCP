@@ -32,6 +32,7 @@ import {
   buildF10PoolWithLanes,
   buildF11EventSubprocess,
   buildF12TextAnnotation,
+  buildF13PoolWithNonInterruptingBoundary,
 } from '../scenarios/fixture-builders';
 
 afterEach(() => clearDiagrams());
@@ -1154,5 +1155,87 @@ describe('label adjustment after rebuild', () => {
 
     // Should include labels in the repositioned count
     expect(result.repositionedCount).toBeGreaterThan(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3.7 — Waypoint clamping within pool bounds (TODO #1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('waypoint clamping within pool bounds (F13 pool with non-interrupting boundary)', () => {
+  test('all sequence flow waypoints are within pool Y bounds after rebuild', async () => {
+    const ids = await buildF13PoolWithNonInterruptingBoundary();
+    const diagram = getDiagram(ids.diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(ids.diagramId);
+    const pool = registry.get(ids.pool)!;
+    const poolTop = pool.y;
+    const poolBottom = pool.y + pool.height;
+
+    // Get all sequence flows — all should be inside the pool (it's a single-pool diagram)
+    const allElements = (registry as any).getAll() as BpmnElement[];
+    const seqFlows = allElements.filter(
+      (el: BpmnElement) =>
+        el.type === 'bpmn:SequenceFlow' && el.waypoints && el.waypoints.length > 0
+    );
+
+    expect(seqFlows.length).toBeGreaterThan(0);
+
+    // 1px tolerance for rounding; clamping ensures no waypoint escapes pool bounds
+    for (const flow of seqFlows) {
+      for (const wp of flow.waypoints!) {
+        expect(wp.y).toBeGreaterThanOrEqual(poolTop - 1);
+        expect(wp.y).toBeLessThanOrEqual(poolBottom + 1);
+      }
+    }
+  });
+
+  test('main flow elements are in left-to-right order inside pool', async () => {
+    const ids = await buildF13PoolWithNonInterruptingBoundary();
+    const diagram = getDiagram(ids.diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(ids.diagramId);
+    const start = registry.get(ids.start)!;
+    const task = registry.get(ids.task)!;
+    const end = registry.get(ids.end)!;
+
+    expect(start.x + start.width).toBeLessThan(task.x);
+    expect(task.x + task.width).toBeLessThan(end.x);
+  });
+
+  test('pool encompasses all flow elements after rebuild', async () => {
+    const ids = await buildF13PoolWithNonInterruptingBoundary();
+    const diagram = getDiagram(ids.diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(ids.diagramId);
+    const pool = registry.get(ids.pool)!;
+    const elementIds = [ids.start, ids.task, ids.end, ids.timeoutEnd];
+
+    for (const id of elementIds) {
+      const el = registry.get(id)!;
+      expect(el.x).toBeGreaterThanOrEqual(pool.x);
+      expect(el.y).toBeGreaterThanOrEqual(pool.y);
+      expect(el.x + el.width).toBeLessThanOrEqual(pool.x + pool.width + 1);
+      expect(el.y + el.height).toBeLessThanOrEqual(pool.y + pool.height + 1);
+    }
+  });
+
+  test('timeout flow has valid waypoints after rebuild', async () => {
+    const ids = await buildF13PoolWithNonInterruptingBoundary();
+    const diagram = getDiagram(ids.diagramId)!;
+
+    rebuildLayout(diagram);
+
+    const registry = getRegistry(ids.diagramId);
+    const timeoutFlow = registry.get(ids.timeoutFlow)!;
+
+    expect(timeoutFlow.waypoints).toBeDefined();
+    expect(timeoutFlow.waypoints!.length).toBeGreaterThanOrEqual(2);
   });
 });

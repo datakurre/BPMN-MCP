@@ -1,5 +1,10 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { handleAddElementChain, handleCreateCollaboration } from '../../../src/handlers';
+import {
+  handleAddElementChain,
+  handleCreateCollaboration,
+  handleCreateParticipant,
+  handleCreateLanes,
+} from '../../../src/handlers';
 import { createDiagram, parseResult, addElement, clearDiagrams } from '../../helpers';
 
 describe('add_bpmn_element_chain', () => {
@@ -280,5 +285,48 @@ describe('add_bpmn_element_chain', () => {
         w.includes('cross-pool') || w.includes('different pool') || w.includes('wrong pool')
     );
     expect(crossPoolWarning).toBeDefined();
+  });
+
+  test('emits warning when participantId has lanes but no laneId is specified', async () => {
+    // Regression for TODO #8: add_bpmn_element_chain should warn about missing laneId
+    const diagramId = await createDiagram();
+
+    const collResult = parseResult(
+      await handleCreateParticipant({
+        diagramId,
+        name: 'Company',
+        width: 800,
+        height: 400,
+      })
+    );
+    const poolId = collResult.participantId as string;
+
+    // Create lanes in the pool
+    await handleCreateLanes({
+      diagramId,
+      participantId: poolId,
+      lanes: [{ name: 'Engineering' }, { name: 'Management' }],
+    });
+
+    // Call chain with participantId but no laneId
+    const res = parseResult(
+      await handleAddElementChain({
+        diagramId,
+        participantId: poolId,
+        // No laneId — should warn
+        elements: [
+          { elementType: 'bpmn:StartEvent', name: 'Start' },
+          { elementType: 'bpmn:UserTask', name: 'Do Work' },
+        ],
+        autoLayout: false,
+      })
+    );
+
+    expect(res.success).toBe(true);
+    expect(Array.isArray(res.warnings)).toBe(true);
+    const laneWarning = res.warnings.find(
+      (w: string) => w.toLowerCase().includes('lane') && w.toLowerCase().includes('laneid')
+    );
+    expect(laneWarning).toBeDefined();
   });
 });

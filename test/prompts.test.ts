@@ -105,8 +105,9 @@ describe('getPrompt', () => {
     expect(result.messages[0].content.text).toContain('Customer Service');
     expect(result.messages[0].content.text).toContain('Technical Support');
     expect(result.messages[0].content.text).toContain('lanes');
-    expect(result.messages[0].content.text).toContain('create_bpmn_lanes');
-    expect(result.messages[0].content.text).toContain('redistribute_bpmn_elements_across_lanes');
+    // TODO #9: updated prompt uses create_bpmn_participant with lanes parameter
+    expect(result.messages[0].content.text).toContain('create_bpmn_participant');
+    expect(result.messages[0].content.text).toContain('laneId');
   });
 
   test('uses defaults for missing arguments', () => {

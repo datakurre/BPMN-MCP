@@ -50,12 +50,17 @@ const WORKFLOW_CONTEXT_GUIDANCE: Record<
   'single-organization': {
     guidance:
       'For role separation within one organization, use a single pool with lanes. ' +
-      'Create a participant, add lanes for each role (e.g. Requester, Approver, Finance), ' +
-      'and assign elements to lanes.',
+      'Create a participant in one call using the `lanes` parameter (e.g. ' +
+      '`create_bpmn_participant` with `lanes: [{ name: "Customer" }, { name: "Store" }]`). ' +
+      'This avoids multiple expanded pools, which are discouraged in Camunda 7 / Operaton ' +
+      'because only one pool is executable.',
     step: {
       tool: 'create_bpmn_participant',
       description:
-        'Create a single expanded pool with lanes for role separation, then use create_bpmn_lanes.',
+        'Create a single expanded pool with lanes in one call: ' +
+        'use the `lanes` parameter (e.g. `lanes: [{ name: "Customer" }, { name: "Store" }]`) ' +
+        'rather than calling create_bpmn_lanes separately. ' +
+        'Multiple expanded pools are not recommended for single-organization workflows.',
     },
   },
   'multi-organization': {

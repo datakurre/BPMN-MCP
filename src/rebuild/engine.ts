@@ -262,6 +262,10 @@ function processContainerNode(
       skipPoolResize
     );
 
+    // Clamp connection waypoints so none escape outside the pool Y bounds
+    // (TODO #1: normaliseOrigin shifts elements but not waypoints).
+    clampConnectionWaypointsToParticipant(container, registry, modeling);
+
     if (participantLanes.length > 0) {
       // Sync boundary event lane membership to their host's lane (issue #14).
       // Must run after applyParticipantLayout because the lane assignment
@@ -390,6 +394,53 @@ function rebuildContainer(
   reroutedCount += boundaryResult.reroutedCount;
 
   return { repositionedCount, reroutedCount };
+}
+
+// ── Waypoint clamping ──────────────────────────────────────────────────────
+
+/**
+ * Clamp all sequence-flow waypoints so none fall outside the enclosing
+ * participant's Y range.
+ *
+ * After pool resize (which may expand downward to include boundary-event
+ * exception chains), bpmn-js's ManhattanLayout occasionally produces
+ * intermediate waypoints that escape slightly above or below the pool
+ * boundary.  This pass corrects them (TODO #1).
+ *
+ * Only sequence flows whose `parent` is the participant are considered;
+ * message flows between pools are intentionally left untouched.
+ *
+ * @param container  The participant element whose waypoints to clamp.
+ * @param registry   Element registry for the diagram.
+ * @param modeling   Modeling service for waypoint updates.
+ */
+function clampConnectionWaypointsToParticipant(
+  container: BpmnElement,
+  registry: ElementRegistry,
+  modeling: Modeling
+): void {
+  const poolTop = container.y;
+  const poolBottom = container.y + container.height;
+
+  const allElements = registry.getAll();
+  for (const el of allElements) {
+    if (el.type !== 'bpmn:SequenceFlow') continue;
+    const waypoints = el.waypoints;
+    if (!waypoints || waypoints.length === 0) continue;
+
+    // Only clamp flows that belong to this participant's process
+    if (el.parent !== container) continue;
+
+    const newWaypoints = waypoints.map((wp) => ({
+      ...wp,
+      y: Math.max(poolTop, Math.min(poolBottom, wp.y)),
+    }));
+
+    const changed = newWaypoints.some((wp, i) => wp.y !== waypoints[i].y);
+    if (changed) {
+      modeling.updateWaypoints(el, newWaypoints);
+    }
+  }
 }
 
 // ── Connection layout ──────────────────────────────────────────────────────

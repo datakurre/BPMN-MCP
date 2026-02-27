@@ -326,6 +326,7 @@ const createLaneBasedProcess: PromptDefinition = {
     const name = args.processName || 'My Process';
     const roles = args.roles ? args.roles.split(',').map((r) => r.trim()) : ['Role A', 'Role B'];
     const desc = args.description ? `\n\nProcess description: ${args.description}` : '';
+    const lanesJson = roles.map((r) => `{ "name": "${r}" }`).join(', ');
     return [
       {
         role: 'user',
@@ -341,26 +342,35 @@ const createLaneBasedProcess: PromptDefinition = {
             `or independent systems that communicate via messages — e.g. Customer ↔ Supplier, ` +
             `or your system ↔ external payment gateway. Elements across pools use message flows.\n\n` +
             `This process uses **lanes** because ${roles.join(', ')} are roles within the same process.\n\n` +
+            `**Important:** Do NOT create multiple expanded pools — use lanes within one pool.\n` +
+            `Multiple expanded pools cannot be deployed together in Camunda 7 / Operaton.\n\n` +
             `Follow these steps:\n\n` +
-            `1. **Create diagram**: Use \`create_bpmn_diagram\` with name "${name}"\n` +
-            `2. **Build the process flow**: Add all tasks, gateways, and events ` +
-            `using \`add_bpmn_element\` and \`connect_bpmn_elements\`. ` +
-            `Name every element with verb-object pattern.\n` +
-            `3. **Wrap in collaboration**: Use \`create_bpmn_participant\` with ` +
-            `wrapExisting: true and name "${name}"\n` +
-            `4. **Create lanes**: Use \`create_bpmn_lanes\` with the participant ID and lanes:\n` +
-            roles.map((r) => `   - { name: "${r}" }`).join('\n') +
-            `\n` +
-            `5. **Assign elements to lanes**: Use \`redistribute_bpmn_elements_across_lanes\` with strategy: "manual" to place ` +
-            `each task in the appropriate lane based on which role performs it. ` +
-            `Assign start/end events to the role that initiates/completes the process.\n` +
-            `6. **Configure tasks**: Set \`camunda:candidateGroups\` on UserTasks ` +
-            `to match the lane role (e.g. tasks in "Customer Service" lane → ` +
-            `candidateGroups: "customer-service")\n` +
-            `7. **Layout**: Run \`layout_bpmn_diagram\` with laneStrategy "optimize" ` +
-            `to arrange elements within lanes and minimise cross-lane flows\n` +
-            `8. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n\n` +
+            `1. **Create diagram and pool with lanes in one step**:\n` +
+            `   - Use \`create_bpmn_diagram\` with \`workflowContext: "single-organization"\`\n` +
+            `   - Then use \`create_bpmn_participant\` with \`name: "${name}"\` and \`lanes: [${lanesJson}]\`\n` +
+            `     This creates the pool AND lanes in a single call — do NOT call \`create_bpmn_lanes\` separately.\n` +
+            `   - Example for Customer / Store / Payment / Delivery:\n` +
+            `     \`\`\`\n` +
+            `     create_bpmn_participant({ name: "${name}", lanes: [{ name: "${roles[0]}" }` +
+            (roles.length > 1 ? `, { name: "${roles[1]}" }` : '') +
+            (roles.length > 2 ? `, { name: "${roles[2]}" }` : '') +
+            (roles.length > 3 ? `, { name: "${roles[3]}" }` : '') +
+            `] })\n` +
+            `     \`\`\`\n` +
+            `2. **Add elements directly into lanes**: Use \`add_bpmn_element\` with \`laneId\` to place ` +
+            `tasks, events, and gateways in the correct lane from the start:\n` +
+            `   - Use \`add_bpmn_element_chain\` with \`laneId\` for sequences within one lane\n` +
+            `   - Use \`add_bpmn_element\` with \`laneId\` for individual elements in different lanes\n` +
+            `   - Name every element with verb-object pattern (e.g. "Submit Order", "Process Payment")\n` +
+            `3. **Connect cross-lane flows**: Use \`connect_bpmn_elements\` for sequence flows ` +
+            `between elements in different lanes\n` +
+            `4. **Configure tasks**: Set \`camunda:candidateGroups\` on UserTasks ` +
+            `to match the lane role (e.g. tasks in "${roles[0]}" lane → ` +
+            `candidateGroups: "${roles[0].toLowerCase().replace(/\s+/g, '-')}")\n` +
+            `5. **Layout**: Run \`layout_bpmn_diagram\` to arrange elements within lanes\n` +
+            `6. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n\n` +
             `**Best practices:**\n` +
+            `- Create the participant with lanes first, then add elements into lanes (avoids redistribute step)\n` +
             `- Keep related tasks in the same lane to minimise cross-lane sequence flows\n` +
             `- Start events typically go in the lane of the initiating role\n` +
             `- Use exclusive gateways when decisions are made by a specific role\n` +

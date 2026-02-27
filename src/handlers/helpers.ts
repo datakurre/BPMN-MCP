@@ -439,3 +439,55 @@ export function buildPropertyHints(
 
   return hints;
 }
+
+// ---------------------------------------------------------------------------
+// Coordinate normalisation helpers
+// ---------------------------------------------------------------------------
+
+/** Minimum Y margin (px) from the viewport top after normalisation. */
+const POSITIVE_Y_MARGIN = 30;
+
+/**
+ * Shift all participant pools so the topmost element is at least
+ * POSITIVE_Y_MARGIN pixels from the top of the viewport.
+ *
+ * Moving only bpmn:Participant elements is correct because bpmn-js
+ * automatically moves a pool's children when the pool is moved.
+ * Attempting to move non-participant top-level objects (e.g. the canvas
+ * root or Collaboration element) causes BpmnOrderingProvider to crash.
+ */
+export function shiftToPositiveCoordinates(elementRegistry: any, modeling: any): void {
+  const allElements: any[] = elementRegistry.getAll();
+  const minY = allElements
+    .filter(
+      (el) =>
+        el.y !== undefined &&
+        !el.type?.includes('Flow') &&
+        !el.type?.includes('Association') &&
+        el.type !== 'label'
+    )
+    .reduce((m: number, el: any) => Math.min(m, el.y), Infinity);
+  if (!isFinite(minY) || minY >= POSITIVE_Y_MARGIN) return;
+  const participants = allElements.filter((el: any) => el.type === 'bpmn:Participant');
+  if (participants.length > 0) {
+    modeling.moveElements(participants, { x: 0, y: POSITIVE_Y_MARGIN - minY });
+  }
+}
+
+/**
+ * Optionally run `layout_bpmn_diagram` on a diagram.
+ * Returns true if layout was applied, false if skipped or failed.
+ */
+export async function runOptionalLayout(
+  diagramId: string,
+  shouldLayout: boolean
+): Promise<boolean> {
+  if (!shouldLayout) return false;
+  try {
+    const { handleLayoutDiagram } = await import('./layout/layout-diagram');
+    await handleLayoutDiagram({ diagramId });
+    return true;
+  } catch {
+    return false;
+  }
+}

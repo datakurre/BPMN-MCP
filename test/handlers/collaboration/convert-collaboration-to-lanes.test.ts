@@ -6,7 +6,7 @@ import {
   handleConvertCollaborationToLanes,
   handleListElements,
 } from '../../../src/handlers';
-import { createDiagram, parseResult, clearDiagrams } from '../../helpers';
+import { createDiagram, parseResult, clearDiagrams, getRegistry } from '../../helpers';
 
 describe('convert_bpmn_collaboration_to_lanes', () => {
   beforeEach(() => {
@@ -218,5 +218,53 @@ describe('convert_bpmn_collaboration_to_lanes', () => {
     expect(result.laneNames).toHaveLength(2);
     expect(result.laneNames).toContain('Main Process');
     expect(result.laneNames).toContain('Internal Role');
+  });
+
+  test('all elements have non-negative Y coordinates after conversion without layout', async () => {
+    // Regression for TODO #2: normaliseOrigin not called after convert
+    const diagramId = await createDiagram();
+
+    const collab = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [{ name: 'Customer' }, { name: 'Support' }],
+      })
+    );
+
+    const pool1Id = collab.participantIds[0];
+    const pool2Id = collab.participantIds[1];
+
+    // Add elements to both pools
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:StartEvent',
+      name: 'Start',
+      participantId: pool1Id,
+    });
+    await handleAddElement({
+      diagramId,
+      elementType: 'bpmn:UserTask',
+      name: 'Handle Request',
+      participantId: pool2Id,
+    });
+
+    // Convert without layout
+    const result = parseResult(
+      await handleConvertCollaborationToLanes({
+        diagramId,
+        layout: false,
+      })
+    );
+
+    expect(result.success).toBe(true);
+
+    // All flow elements and the participant must have Y >= 0
+    const reg = getRegistry(diagramId);
+    const allElements: any[] = reg.getAll();
+    for (const el of allElements) {
+      if (el.y !== undefined && el.type !== 'label') {
+        expect(el.y, `Element ${el.id} (${el.type}) has y=${el.y} < 0`).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 });

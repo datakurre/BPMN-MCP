@@ -61,4 +61,22 @@ describe('create_bpmn_diagram', () => {
     );
     expect(htlIssues).toEqual([]);
   });
+
+  test('workflowContext single-organization recommends create_bpmn_participant with lanes', async () => {
+    // Regression for TODO #9: single-org context should suggest lanes in one call
+    const res = parseResult(
+      await handleCreateDiagram({ workflowContext: 'single-organization', name: 'Order Process' })
+    );
+    expect(res.workflowContext).toBe('single-organization');
+    expect(res.structureGuidance).toContain('lanes');
+    // The step should recommend create_bpmn_participant (not create_bpmn_lanes as a follow-up)
+    const participantStep = (res.nextSteps ?? []).find(
+      (s: any) => s.tool === 'create_bpmn_participant'
+    );
+    expect(participantStep).toBeDefined();
+    expect(participantStep.description).toContain('lanes');
+    // Should discourage multiple expanded pools
+    const guidance: string = res.structureGuidance ?? '';
+    expect(guidance.toLowerCase()).toMatch(/one pool|single pool|one executable/);
+  });
 });
