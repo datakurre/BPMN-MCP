@@ -382,7 +382,7 @@ export const TOOL_DEFINITION = {
     'Supports standard properties (name, isExecutable, documentation, default, conditionExpression) ' +
     'and Camunda extensions with camunda: prefix (e.g. camunda:assignee, camunda:class, camunda:type, camunda:topic). ' +
     'Also handles: scriptFormat/script on ScriptTask, camunda:connector, camunda:field, camunda:properties, ' +
-    'camunda:retryTimeCycle, and isExpanded on SubProcess. ' +
+    'camunda:retryTimeCycle, isExpanded on SubProcess, and cancelActivity on BoundaryEvent (false = non-interrupting). ' +
     'See bpmn://guides/element-properties for the full property catalog by element type. ' +
     'For loop characteristics, use set_bpmn_loop_characteristics.',
   inputSchema: {

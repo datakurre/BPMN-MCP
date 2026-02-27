@@ -173,4 +173,25 @@ describe('connect_bpmn_elements — descriptive flow IDs', () => {
     // Prefers short 2-part ID on first use
     expect(conn.connectionId).toBe('Flow_Begin_to_Finish');
   });
+
+  test('skips duplicate: second connect between same pair returns skipped with warning', async () => {
+    const diagramId = await createDiagram();
+    const aId = await addElement(diagramId, 'bpmn:StartEvent', { x: 100, y: 100 });
+    const bId = await addElement(diagramId, 'bpmn:EndEvent', { x: 300, y: 100 });
+
+    // First connect — creates the flow
+    const first = parseResult(
+      await handleConnect({ diagramId, sourceElementId: aId, targetElementId: bId })
+    );
+    expect(first.success).toBe(true);
+    const existingId = first.connectionId;
+
+    // Second connect — should skip
+    const second = parseResult(
+      await handleConnect({ diagramId, sourceElementId: aId, targetElementId: bId })
+    );
+    expect(second.skipped).toBe(true);
+    expect(second.existingConnectionId).toBe(existingId);
+    expect(second.warning).toMatch(/already exists/i);
+  });
 });

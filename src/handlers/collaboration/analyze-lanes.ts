@@ -601,6 +601,24 @@ function findZigzag(node: any, nodeLane: any, laneMap: Map<string, any>): LaneIs
   return null;
 }
 
+/** Count cross-lane flows that originate from gateways (intentional fork/join patterns). */
+function countGatewayCrossings(flowNodes: any[], laneMap: Map<string, any>): number {
+  let count = 0;
+  for (const node of flowNodes) {
+    const nodeLane = laneMap.get(node.id);
+    if (!nodeLane) continue;
+    for (const inFlow of node.incoming || []) {
+      const pred = inFlow.sourceRef;
+      if (!pred) continue;
+      const predType: string = pred.$type || pred.type || '';
+      if (!predType.includes('Gateway')) continue;
+      const predLane = laneMap.get(pred.id);
+      if (predLane && predLane.id !== nodeLane.id) count++;
+    }
+  }
+  return count;
+}
+
 /** Detect zigzag flow patterns (A-lane → B-lane → A-lane). */
 function checkZigzag(flowNodes: any[], laneMap: Map<string, any>, issues: LaneIssue[]): void {
   for (const node of flowNodes) {
@@ -612,6 +630,19 @@ function checkZigzag(flowNodes: any[], laneMap: Map<string, any>, issues: LaneIs
     if (issue) {
       issues.push(issue);
     }
+  }
+  const gatewayCrossings = countGatewayCrossings(flowNodes, laneMap);
+  if (gatewayCrossings > 0) {
+    issues.push({
+      severity: 'info',
+      code: 'gateway-cross-lane-flows',
+      message:
+        `${gatewayCrossings} cross-lane flow(s) originate from gateways — ` +
+        `these are intentional fork/join patterns and are excluded from zigzag detection.`,
+      elementIds: [],
+      suggestion:
+        'No action required. Gateway-sourced cross-lane flows are structurally necessary.',
+    });
   }
 }
 

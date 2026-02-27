@@ -17,6 +17,7 @@ import {
   getVisibleElements,
   getTypeSpecificHints,
   getNamingHint,
+  type Hint,
 } from '../helpers';
 import { handleSetEventDefinition } from '../properties/set-event-definition';
 import { buildZShapeRoute } from '../../geometry';
@@ -229,6 +230,28 @@ export function collectAddElementWarnings(opts: {
 // ── Result building ─────────────────────────────────────────────────────────
 
 /**
+ * Merge type-specific hints with any event-definition-specific hints.
+ * Returns `{ nextSteps: Hint[] }` or `{}` (never `nextSteps: undefined`).
+ */
+function buildElementTypeHints(
+  elementType: string,
+  eventDefinitionApplied?: string
+): { nextSteps?: Hint[] } {
+  const base = getTypeSpecificHints(elementType).nextSteps ?? [];
+  const extra: Hint[] = [];
+  // Timer boundary events: hint about cancelActivity for non-interrupting variant
+  if (elementType === 'bpmn:BoundaryEvent' && eventDefinitionApplied?.includes('Timer')) {
+    extra.push({
+      tool: 'set_bpmn_element_properties',
+      description:
+        'Set cancelActivity: false to make this a non-interrupting timer (dashed border — the host task continues alongside the timer branch). Default is true (interrupting — host task is cancelled when the timer fires).',
+    });
+  }
+  const merged = [...base, ...extra];
+  return merged.length > 0 ? { nextSteps: merged } : {};
+}
+
+/**
  * Build the JSON result object for a successful add-element operation.
  */
 export function buildAddElementResult(opts: {
@@ -299,7 +322,7 @@ export function buildAddElementResult(opts: {
           message: `Added ${elementType} to diagram${eventDefinitionApplied ? ` with ${eventDefinitionApplied}` : ''}${hint}`,
         }),
     diagramCounts: buildElementCounts(elementRegistry),
-    ...getTypeSpecificHints(elementType),
+    ...buildElementTypeHints(elementType, eventDefinitionApplied),
     ...getNamingHint(elementType, elementName),
   });
 }

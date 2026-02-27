@@ -24,6 +24,7 @@ import {
   connectAll,
   connect,
 } from '../../helpers';
+import { getDiagram } from '../../../src/diagram-manager';
 
 describe('add_bpmn_element argument validation', () => {
   beforeEach(() => {
@@ -144,9 +145,14 @@ describe('duplicate-edges-same-waypoints lint rule', () => {
     const task = await addElement(diagramId, 'bpmn:UserTask', { name: 'Task' });
     const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End' });
 
-    // Create two connections between start and task
+    // Create one connection via MCP tool
     await handleConnect({ diagramId, sourceElementId: start, targetElementId: task });
-    await handleConnect({ diagramId, sourceElementId: start, targetElementId: task });
+    // Create a second connection directly via modeler to bypass the dedup guard
+    // (the guard prevents duplicates via handleConnect, so we test the lint rule separately)
+    const diagram = getDiagram(diagramId)!;
+    const elementRegistry = diagram.modeler.get('elementRegistry') as any;
+    const modeling = diagram.modeler.get('modeling') as any;
+    modeling.connect(elementRegistry.get(start), elementRegistry.get(task));
     await handleConnect({ diagramId, sourceElementId: task, targetElementId: end });
 
     const res = parseResult(

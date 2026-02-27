@@ -326,4 +326,54 @@ describe('validate_bpmn_lane_organization', () => {
     expect(laneA).toBeDefined();
     expect(laneA.elementCount).toBeGreaterThanOrEqual(1);
   });
+
+  test('reports gateway-sourced cross-lane flows as info, not warning', async () => {
+    // Pattern: Start(A) → Task(A) → Gateway(A) → TaskB(B) → Join(A) → End(A)
+    //          The gateway-sourced cross-lane flow (GW→TaskB) is intentional.
+    const { handleCreateParticipant, handleCreateLanes: createLanes } =
+      await import('../../../src/handlers');
+
+    const diagramId = await createDiagram();
+    const poolRes = parseResult(await handleCreateParticipant({ diagramId, name: 'Process' }));
+    const participantId = poolRes.participant?.id ?? poolRes.participantId;
+    const lanesRes = parseResult(
+      await createLanes({
+        diagramId,
+        participantId,
+        lanes: [{ name: 'Lane A' }, { name: 'Lane B' }],
+      })
+    );
+    const [laneA, laneB] = lanesRes.laneIds as string[];
+
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start', laneId: laneA });
+    const task1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Prepare', laneId: laneA });
+    const gw = await addElement(diagramId, 'bpmn:ParallelGateway', { name: 'Fork', laneId: laneA });
+    const taskB = await addElement(diagramId, 'bpmn:ServiceTask', {
+      name: 'Notify',
+      laneId: laneB,
+    });
+    const join = await addElement(diagramId, 'bpmn:ParallelGateway', {
+      name: 'Join',
+      laneId: laneA,
+    });
+    const end = await addElement(diagramId, 'bpmn:EndEvent', { name: 'End', laneId: laneA });
+
+    await connect(diagramId, start, task1);
+    await connect(diagramId, task1, gw);
+    await connect(diagramId, gw, taskB);
+    await connect(diagramId, gw, join);
+    await connect(diagramId, taskB, join);
+    await connect(diagramId, join, end);
+
+    const res = parseResult(await handleValidateLaneOrganization({ diagramId }));
+
+    // No zigzag warnings
+    const zigzagIssues = res.issues.filter((i: any) => i.code === 'zigzag-flow');
+    expect(zigzagIssues).toHaveLength(0);
+
+    // An informational note about gateway-sourced cross-lane flows
+    const infoIssues = res.issues.filter((i: any) => i.code === 'gateway-cross-lane-flows');
+    expect(infoIssues).toHaveLength(1);
+    expect(infoIssues[0].severity).toBe('info');
+  });
 });
