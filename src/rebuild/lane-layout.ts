@@ -142,6 +142,34 @@ export function buildElementLaneYMap(
  *                      afterwards to avoid a redundant double-resize.
  * @returns Number of elements repositioned.
  */
+/**
+ * Spread co-column elements symmetrically around their lane's center Y.
+ * Extracted to keep `applyLaneLayout` within cognitive-complexity limits.
+ */
+function spreadCoColumnElements(
+  laneColumns: Map<string, BpmnElement[]>,
+  laneCenterYs: Map<string, number>,
+  branchSpacing: number,
+  modeling: Modeling
+): number {
+  let count = 0;
+  for (const [key, siblings] of laneColumns) {
+    const laneId = key.split(':')[0];
+    const targetY = laneCenterYs.get(laneId)!;
+    siblings.sort((a, b) => a.y - b.y);
+    for (let i = 0; i < siblings.length; i++) {
+      const el = siblings[i];
+      const offset = siblings.length > 1 ? (i - (siblings.length - 1) / 2) * branchSpacing : 0;
+      const dy = Math.round(targetY + offset - (el.y + el.height / 2));
+      if (dy !== 0) {
+        modeling.moveElements([el], { x: 0, y: dy });
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
 export function applyLaneLayout(
   registry: ElementRegistry,
   modeling: Modeling,
@@ -166,6 +194,14 @@ export function applyLaneLayout(
   // Move elements to their lane's center Y.
   // Use savedLaneMap (not el.parent) so we catch elements that may
   // have been reparented when moveElements placed them outside pool bounds.
+  //
+  // When multiple elements share the same X column in one lane (e.g.
+  // parallel branch tasks all assigned to the Reviewers lane), centering
+  // them all at the same Y would stack them on top of each other.
+  // Instead, distribute co-column elements symmetrically around the lane
+  // center Y using BRANCH_SPREAD_SPACING between neighbours.
+  const BRANCH_SPREAD_SPACING = 130; // matches DEFAULT_BRANCH_SPACING in engine
+
   let repositioned = 0;
   const allElements: BpmnElement[] = registry.getAll();
   const flowNodes = allElements.filter(
@@ -177,19 +213,25 @@ export function applyLaneLayout(
       el.type !== 'label'
   );
 
+  // Group elements by (laneId, columnX) so we can detect and spread
+  // co-column siblings within a lane.
+  const laneColumns = new Map<string, BpmnElement[]>(); // key: `${laneId}:${colX}`
   for (const el of flowNodes) {
     const lane = savedLaneMap.get(el.id);
     if (!lane) continue;
-    const targetY = laneCenterYs.get(lane.id);
-    if (targetY === undefined) continue;
-
-    const currentCenterY = el.y + el.height / 2;
-    const dy = Math.round(targetY - currentCenterY);
-    if (dy !== 0) {
-      modeling.moveElements([el], { x: 0, y: dy });
-      repositioned++;
-    }
+    if (laneCenterYs.get(lane.id) === undefined) continue;
+    const colX = Math.round(el.x + el.width / 2);
+    const key = `${lane.id}:${colX}`;
+    if (!laneColumns.has(key)) laneColumns.set(key, []);
+    laneColumns.get(key)!.push(el);
   }
+
+  repositioned += spreadCoColumnElements(
+    laneColumns,
+    laneCenterYs,
+    BRANCH_SPREAD_SPACING,
+    modeling
+  );
 
   // Resize pool and lanes to fit content BEFORE re-routing connections,
   // so that connection waypoints reflect the final pool/lane geometry.

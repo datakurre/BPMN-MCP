@@ -164,14 +164,32 @@ function buildNextSteps(
   ];
 
   if (laneCrossingMetrics && laneCrossingMetrics.laneCoherenceScore < 70) {
-    steps.push({
-      tool: 'analyze_bpmn_lanes',
-      description: `Lane coherence score is ${laneCrossingMetrics.laneCoherenceScore}% (below 70%). Run analyze_bpmn_lanes with mode: 'validate' for detailed lane improvement suggestions.`,
-    });
-    steps.push({
-      tool: 'redistribute_bpmn_elements_across_lanes',
-      description: `Lane coherence is low (${laneCrossingMetrics.laneCoherenceScore}%). Run redistribute_bpmn_elements_across_lanes with validate: true to automatically minimize cross-lane flows.`,
-    });
+    // Suppress redistribution advice when most crossings originate from
+    // gateway fan-out — those cross-lane flows are structurally required
+    // and lane reordering cannot eliminate them.
+    const gw = laneCrossingMetrics.gatewaySourcedCrossings ?? 0;
+    const crossings = laneCrossingMetrics.crossingLaneFlows;
+    const mostlyGateway = crossings > 0 && gw / crossings >= 0.8;
+
+    if (mostlyGateway) {
+      steps.push({
+        tool: 'analyze_bpmn_lanes',
+        description:
+          `Lane coherence score is ${laneCrossingMetrics.laneCoherenceScore}% — ` +
+          `but ${gw}/${crossings} crossing flow(s) originate from gateway fan-out, which is ` +
+          `structurally necessary and cannot be reduced by lane reordering. ` +
+          `No redistribution is recommended.`,
+      });
+    } else {
+      steps.push({
+        tool: 'analyze_bpmn_lanes',
+        description: `Lane coherence score is ${laneCrossingMetrics.laneCoherenceScore}% (below 70%). Run analyze_bpmn_lanes with mode: 'validate' for detailed lane improvement suggestions.`,
+      });
+      steps.push({
+        tool: 'redistribute_bpmn_elements_across_lanes',
+        description: `Lane coherence is low (${laneCrossingMetrics.laneCoherenceScore}%). Run redistribute_bpmn_elements_across_lanes with validate: true to automatically minimize cross-lane flows.`,
+      });
+    }
   }
 
   const poolIssues = sizingIssues.filter((i) => i.severity === 'warning');

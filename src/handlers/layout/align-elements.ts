@@ -161,7 +161,94 @@ function resolveXOverlaps(elements: any[], modeling: any): void {
   }
 }
 
+// ── Non-selected overlap resolution (TODO #4) ────────────────────────────
+
+/**
+ * After compact alignment, selected elements may overlap non-selected elements
+ * that sit in the same X range (e.g. a gateway that wasn't part of the
+ * selection).  Nudge each selected element rightward until it clears all
+ * non-selected elements on the same Y row.
+ */
+function resolveAgainstNonSelected(
+  selectedEls: any[],
+  allEls: any[],
+  selectedIds: Set<string>,
+  modeling: any
+): void {
+  const nonSelected = allEls.filter(
+    (el: any) =>
+      !selectedIds.has(el.id) &&
+      el.width &&
+      el.height &&
+      !el.type?.includes('Flow') &&
+      !el.type?.includes('Lane') &&
+      !el.type?.includes('Participant') &&
+      !el.type?.includes('Process')
+  );
+  if (nonSelected.length === 0) return;
+
+  // Work on a fresh snapshot of selected positions (elements may have moved
+  // during compact redistribution, so re-read from the element objects).
+  for (const sel of selectedEls) {
+    let safeX = sel.x;
+    // Iterate until no overlap remains (max 20 iterations to avoid infinite loops)
+    for (let iter = 0; iter < 20; iter++) {
+      let overlapping = false;
+      for (const other of nonSelected) {
+        const xOverlap = safeX < other.x + other.width && safeX + sel.width > other.x;
+        const yOverlap = sel.y < other.y + other.height && sel.y + sel.height > other.y;
+        if (xOverlap && yOverlap) {
+          safeX = other.x + other.width + STANDARD_BPMN_GAP;
+          overlapping = true;
+          break;
+        }
+      }
+      if (!overlapping) break;
+    }
+    if (Math.abs(safeX - sel.x) > 0.5) {
+      modeling.moveElements([sel], { x: safeX - sel.x, y: 0 });
+    }
+  }
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
+
+/** Capture current flowNodeRef membership: elementId → laneId. */
+function snapshotLaneMembership(lanes: any[]): Map<string, string> {
+  const saved = new Map<string, string>();
+  for (const lane of lanes) {
+    const refs: Array<{ id: string }> = lane.businessObject?.flowNodeRef ?? [];
+    for (const ref of refs) {
+      if (ref?.id) saved.set(ref.id, lane.id);
+    }
+  }
+  return saved;
+}
+
+/** Restore flowNodeRef on lanes from a previously captured snapshot. */
+function restoreLaneMembership(
+  lanes: any[],
+  saved: Map<string, string>,
+  elementRegistry: any
+): void {
+  if (lanes.length === 0 || saved.size === 0) return;
+  const laneById = new Map<string, any>(lanes.map((l: any) => [l.id, l]));
+  const affectedLaneIds = new Set<string>(saved.values());
+  for (const lane of lanes) {
+    if (!affectedLaneIds.has(lane.id)) continue;
+    const refs = lane.businessObject?.flowNodeRef;
+    if (Array.isArray(refs)) refs.length = 0;
+  }
+  for (const [elementId, laneId] of saved) {
+    const el = elementRegistry.get(elementId);
+    const lane = laneById.get(laneId);
+    if (!el || !lane?.businessObject) continue;
+    const laneBo = lane.businessObject;
+    if (!Array.isArray(laneBo.flowNodeRef)) laneBo.flowNodeRef = [];
+    const elBo = el.businessObject;
+    if (elBo && !laneBo.flowNodeRef.includes(elBo)) laneBo.flowNodeRef.push(elBo);
+  }
+}
 
 export async function handleAlignElements(args: AlignElementsArgs): Promise<ToolResult> {
   validateArgs(args, ['diagramId', 'elementIds', 'alignment']);
@@ -175,6 +262,13 @@ export async function handleAlignElements(args: AlignElementsArgs): Promise<Tool
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
   const modeling = getService(diagram.modeler, 'modeling');
   const elements = elementIds.map((id) => requireElement(elementRegistry, id));
+
+  // ── Fix #5: snapshot lane assignments before any moves ──────────────────
+  // bpmn-js silently mutates lane.businessObject.flowNodeRef when elements
+  // are moved across lane boundaries.  Capture the intended membership now
+  // so we can restore it after alignment.
+  const lanes: any[] = elementRegistry.filter((el: any) => el.type === 'bpmn:Lane');
+  const savedLaneMembership = snapshotLaneMembership(lanes);
 
   // Compute and apply alignment moves
   const deltas = computeAlignmentDeltas(elements, alignment);
@@ -193,8 +287,16 @@ export async function handleAlignElements(args: AlignElementsArgs): Promise<Tool
     // branch elements may have identical X coordinates after alignment.
     if (['top', 'middle', 'bottom'].includes(alignment)) {
       resolveXOverlaps(elements, modeling);
+      // TODO #4: also push selected elements past any non-selected elements
+      // they now overlap (e.g. a join gateway that wasn't in the selection).
+      const selectedIds = new Set(elementIds);
+      const allEls: any[] = elementRegistry.getAll();
+      resolveAgainstNonSelected(elements, allEls, selectedIds, modeling);
     }
   }
+  // Restore lane membership so that compact redistribution
+  // by vertical element moves does not corrupt the exported XML.
+  restoreLaneMembership(lanes, savedLaneMembership, elementRegistry);
 
   await syncXml(diagram);
 

@@ -85,7 +85,11 @@ export function resolvePositionOverlaps(
       // Multiple elements at same (x, y) — spread them vertically
       // Use the cluster's current Y as the center
       const clusterY = positions.get(cluster[0])!.y;
-      const spacing = branchSpacing / 2;
+      // Use full branchSpacing (default 130 px) as the spread unit.
+      // branchSpacing/2 (65 px) was too tight: standard task height (80 px)
+      // plus the STANDARD_BPMN_GAP (50 px) already exceeds 65 px, causing
+      // neighbouring branch elements to visually overlap.
+      const spacing = branchSpacing;
 
       for (let i = 0; i < cluster.length; i++) {
         const id = cluster[i];
@@ -308,8 +312,25 @@ function positionMerge(
     }
   }
 
+  // TODO #3: safety net for unequal-length branches.
+  // If any branch's last-element centre-x is within gap/2 of the initial
+  // join position, the join would visually abut that branch endpoint.
+  // Add one extra gap to ensure a clear visual separation.
+  const initialJoinX = maxRight + gap + element.width / 2;
+  let extraGap = 0;
+  for (const branch of pattern.branches) {
+    if (branch.length > 0) {
+      const lastId = branch[branch.length - 1];
+      const lastPos = positions.get(lastId);
+      if (lastPos && lastPos.x >= initialJoinX - gap / 2) {
+        extraGap = gap;
+        break;
+      }
+    }
+  }
+
   positions.set(element.id, {
-    x: maxRight + gap + element.width / 2,
+    x: initialJoinX + extraGap,
     y: splitPos.y,
   });
 }

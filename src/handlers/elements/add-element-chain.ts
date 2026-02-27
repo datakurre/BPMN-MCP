@@ -43,6 +43,14 @@ export interface AddElementChainArgs {
   autoLayout?: boolean;
 }
 
+/** Gateway types that require explicit branch wiring after chain creation. */
+const GATEWAY_TYPES = new Set([
+  'bpmn:ParallelGateway',
+  'bpmn:InclusiveGateway',
+  'bpmn:EventBasedGateway',
+  'bpmn:ExclusiveGateway',
+]);
+
 const CHAIN_ELEMENT_TYPES = new Set([
   'bpmn:StartEvent',
   'bpmn:EndEvent',
@@ -153,11 +161,24 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
 
   const elementRegistry = getService(diagram.modeler, 'elementRegistry');
 
-  // Run layout once for the whole chain (default: true, since chains always create connected flows)
-  const shouldLayout = args.autoLayout !== false;
+  // Detect whether the chain contains a gateway element (not as first or last).
+  // When it does, sequential auto-connections from the gateway onwards will be
+  // wrong for fork/join patterns, and running layout before parallel branches
+  // are wired produces a degenerate single-column result.  Suppress auto-layout
+  // in that case and emit a deferredLayout hint so the caller knows to add
+  // explicit connect_bpmn_elements calls first.
+  const chainHasGateway = elements.some((el) => GATEWAY_TYPES.has(el.elementType));
+  const shouldLayout = args.autoLayout !== false && !chainHasGateway;
+
   if (shouldLayout) {
     await handleLayoutDiagram({ diagramId });
   }
+
+  const deferredLayoutNote = chainHasGateway
+    ? 'Chain contains a gateway — sequential auto-connections may not reflect the intended fork/join wiring. ' +
+      'Remove incorrect connections, add explicit ones with connect_bpmn_elements, ' +
+      'then run layout_bpmn_diagram after all branches are connected.'
+    : undefined;
 
   const result = jsonResult({
     success: true,
@@ -167,6 +188,7 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
     message: `Created chain of ${createdElements.length} elements: ${createdElements.map((e) => e.name || e.elementType).join(' → ')}`,
     diagramCounts: buildElementCounts(elementRegistry),
     ...(shouldLayout ? { autoLayoutApplied: true } : {}),
+    ...(deferredLayoutNote ? { deferredLayout: true, note: deferredLayoutNote } : {}),
   });
   return appendLintFeedback(result, diagram);
 }

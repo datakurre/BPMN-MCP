@@ -14,6 +14,13 @@ export interface LaneCrossingMetrics {
   crossingLaneFlows: number;
   crossingFlowIds?: string[];
   laneCoherenceScore: number;
+  /**
+   * Number of crossing flows whose source element is a gateway.
+   * When this is ≥ 80 % of crossingLaneFlows the crossings are
+   * structurally necessary (fan-out from a split gateway to branch
+   * tasks in a different lane) and cannot be fixed by lane reordering.
+   */
+  gatewaySourcedCrossings?: number;
 }
 
 /**
@@ -68,10 +75,23 @@ export function computeLaneCrossingMetrics(
 
   const coherenceScore = Math.round(((totalFlows - crossingFlows) / totalFlows) * 100);
 
+  // Count crossing flows whose source is a gateway — these are structurally
+  // necessary (split → branch in another lane) and cannot be eliminated by
+  // lane reordering.
+  let gatewaySourcedCrossings = 0;
+  for (const flowId of crossingFlowIds) {
+    const flowEl = elementRegistry.filter((el: BpmnElement) => el.id === flowId)[0];
+    if (flowEl?.source) {
+      const srcType: string = (flowEl.source as BpmnElement).type ?? '';
+      if (srcType.includes('Gateway')) gatewaySourcedCrossings++;
+    }
+  }
+
   return {
     totalLaneFlows: totalFlows,
     crossingLaneFlows: crossingFlows,
     crossingFlowIds: crossingFlowIds.length > 0 ? crossingFlowIds : undefined,
     laneCoherenceScore: coherenceScore,
+    ...(crossingFlows > 0 ? { gatewaySourcedCrossings } : {}),
   };
 }

@@ -377,9 +377,16 @@ export async function handleConnect(args: ConnectArgs): Promise<ToolResult> {
     nextSteps: [
       {
         tool: 'layout_bpmn_diagram',
-        description:
-          'Arrange elements automatically after connecting — especially useful after multiple connections',
+        description: 'Auto-arrange after connecting — recommended for multiple connections.',
       },
+      ...(sourceType === 'bpmn:ParallelGateway'
+        ? [
+            {
+              tool: 'align_bpmn_elements',
+              description: 'Space branch targets: align_bpmn_elements (horizontal, gap 50).',
+            },
+          ]
+        : []),
     ],
   });
   return appendLintFeedback(result, diagram);
