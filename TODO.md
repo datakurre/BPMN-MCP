@@ -16,8 +16,8 @@ issues found in the service.
 | 3 | Exclusive Gateway (decision) | Medium | ✅ Done |
 | 4 | Parallel Gateway | Medium | ✅ Done |
 | 5 | Full Executable Order Processing (4 lanes, 2 GWs) | Complex | ✅ Done — exported to `example.bpmn` |
-| 6 | Event-based + Timer + Error boundary | Complex | ⏳ Pending — see build recipe below |
-| 7 | Full executable with error compensation | Complex | ⏳ Pending — see build recipe below |
+| 6 | Event-based + Timer + Error boundary | Complex | ✅ Done — Issues E/F/G found and fixed (724df79) |
+| 7 | Full executable with error compensation | Complex | ✅ Done — Issues F/G fixed via same commit (724df79) |
 
 ---
 
@@ -101,6 +101,21 @@ validate measures the *current* layout. However the response text doesn't make t
 - All 1265 tests pass (180 test files)
 - Committed as `a909428` — "fix(analyze-lanes): fix EL expression lane names..."
 
+### 2026-02-28 — Issues E, F, G identified, fixed, and tested (724df79)
+- **Issue E confirmed:** `totalFlowNodes` counted boundary events (they ARE in `flowNodeRef`
+  so unassigned warning didn't fire, but the count was wrong). Fixed by excluding
+  `bpmn:BoundaryEvent` from `partitionFlowElements`.
+- **Issue F confirmed:** `isForCompensation=true` tasks caused false-positive count inflation.
+  Fixed by excluding them from `partitionFlowElements`.
+- **Issue G confirmed:** Compensation handlers appeared in "Automated Tasks" lane suggestions.
+  Fixed by excluding `isForCompensation` from suggest-mode `flowNodes` filter and the
+  `buildRoleSuggestions` unassigned bucket.
+- **Files changed:** `src/handlers/collaboration/analyze-lanes.ts` (3 targeted edits)
+- **New test files:**
+  - `test/handlers/collaboration/analyze-lanes-boundary-events.test.ts` (5 cases)
+  - `test/handlers/collaboration/analyze-lanes-compensation.test.ts` (5 cases)
+- All 1275 tests pass (182 files) — format/typecheck/lint clean
+
 ---
 
 ## Pending Diagram Recipes & Potential Issues
@@ -176,9 +191,9 @@ separate business objects in `process.flowElements`.
 
 ### Potential Issue E — `validate` mode: BoundaryEvents may be flagged as unassigned flow nodes
 
-**Status:** ⚠️ Unverified — requires building Diagram 6 to confirm
-
-**File:** `src/handlers/collaboration/analyze-lanes.ts` → `partitionFlowElements()`
+**Status:** ✅ Fixed (724df79) — `partitionFlowElements()` now excludes `bpmn:BoundaryEvent`
+from `flowNodes`. bpmn-js adds boundary events to their host task's lane via `flowNodeRef`,
+so they inherit lane membership and must not be independently checked or counted.
 
 **Symptom (expected):** After building Diagram 6, `analyze_bpmn_lanes(mode: validate)` returns
 an `elements-not-in-lane` warning mentioning the timer boundary event or error boundary event
@@ -349,7 +364,9 @@ incoming sequence flow — connected only via a compensation association from a 
 
 ### Potential Issue F — `validate` mode: compensation handler tasks trigger false-positive `elements-not-in-lane`
 
-**Status:** ⚠️ Unverified — requires building Diagram 7 to confirm
+**Status:** ✅ Fixed (724df79) — `partitionFlowElements()` now excludes nodes where
+`isForCompensation === true`. These handlers are not part of normal flow and may not
+appear in `lane.flowNodeRef`.
 
 **File:** `src/handlers/collaboration/analyze-lanes.ts` → `partitionFlowElements()` and
 `checkUnassigned()`
@@ -416,7 +433,8 @@ describe('Issue F — compensation handler tasks should not appear as unassigned
 
 ### Potential Issue G — `suggest` mode: compensation handlers mixed into "Automated Tasks"
 
-**Status:** ⚠️ Unverified — requires building Diagram 7 to confirm
+**Status:** ✅ Fixed (724df79) — suggest mode `flowNodes` filter and the unassigned-bucket
+filter in `buildRoleSuggestions()` both now exclude `isForCompensation` tasks.
 
 **File:** `src/handlers/collaboration/analyze-lanes.ts` → `buildRoleSuggestions()` /
 `isFlowControlSuggest()`
