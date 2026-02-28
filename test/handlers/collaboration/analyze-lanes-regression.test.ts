@@ -266,9 +266,7 @@ describe('analyze_bpmn_lanes — regression fixes', () => {
   describe('Fix C — no false-positive diWarnings for pool/lane shapes', () => {
     test('layout on a participant with lanes produces no diWarnings', async () => {
       const diagramId = await createDiagram();
-      const poolRes = parseResult(
-        await handleCreateParticipant({ diagramId, name: 'Test Pool' })
-      );
+      const poolRes = parseResult(await handleCreateParticipant({ diagramId, name: 'Test Pool' }));
       const participantId = poolRes.participantId;
 
       // Create lanes
@@ -366,9 +364,7 @@ describe('analyze_bpmn_lanes — regression fixes', () => {
 
     test('coherenceNote mentions "proposed" to distinguish from validate coherence', async () => {
       const diagramId = await createDiagram();
-      const poolRes = parseResult(
-        await handleCreateParticipant({ diagramId, name: 'Process' })
-      );
+      const poolRes = parseResult(await handleCreateParticipant({ diagramId, name: 'Process' }));
       const participantId = poolRes.participantId;
 
       const task1 = await addElement(diagramId, 'bpmn:UserTask', {
