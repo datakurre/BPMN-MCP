@@ -68,19 +68,34 @@ const CONNECTION_TYPES = new Set([
 // ── Role extraction ────────────────────────────────────────────────────────
 
 /**
+ * Return true when a string looks like a UEL/EL expression (e.g. "${initiator}").
+ * Such expressions are not meaningful as human-readable lane names.
+ */
+function isElExpression(value: string): boolean {
+  const v = value.trim();
+  return v.startsWith('${') || v.startsWith('#{');
+}
+
+/**
  * Extract the primary role (assignee or first candidateGroup) from a flow node.
  * Returns null when no role assignment is found.
+ *
+ * Priority:
+ *   1. `camunda:candidateGroups` — first group (preferred: human-readable role)
+ *   2. `camunda:assignee` — only when it is NOT an EL expression like "${initiator}"
  */
 function extractPrimaryRoleSuggest(node: any): string | null {
-  const assignee = node.$attrs?.['camunda:assignee'] ?? node.assignee;
-  if (assignee && typeof assignee === 'string' && assignee.trim()) {
-    return assignee.trim();
-  }
-
+  // Prefer candidateGroups (role name) over assignee (often an EL expression)
   const candidateGroups = node.$attrs?.['camunda:candidateGroups'] ?? node.candidateGroups;
   if (candidateGroups) {
     const first = String(candidateGroups).split(',')[0]?.trim();
     if (first) return first;
+  }
+
+  // Fall back to assignee only when it is a literal name, not an EL expression
+  const assignee = node.$attrs?.['camunda:assignee'] ?? node.assignee;
+  if (assignee && typeof assignee === 'string' && assignee.trim() && !isElExpression(assignee)) {
+    return assignee.trim();
   }
 
   return null;
@@ -142,15 +157,32 @@ function buildRoleSuggestions(
   );
   if (unassigned.length > 0) {
     const ids = unassigned.map((e: any) => e.id);
-    // Assign unassigned to the first role lane (best guess)
-    const fallbackLane = suggestions[0]?.laneName || 'General';
-    ids.forEach((id: string) => laneMap.set(id, fallbackLane));
+    // Detect whether unassigned elements are all automated task types.
+    // When they are, name the lane "Automated Tasks" to match their semantic
+    // purpose rather than the unhelpful generic label "Unassigned".
+    const automatedTypes = new Set([
+      'bpmn:ServiceTask',
+      'bpmn:ScriptTask',
+      'bpmn:BusinessRuleTask',
+      'bpmn:SendTask',
+      'bpmn:ReceiveTask',
+    ]);
+    const allAutomated = unassigned.every((n: any) => automatedTypes.has(n.$type));
+    const groupName = allAutomated ? 'Automated Tasks' : 'Unassigned';
+    const groupDesc = allAutomated
+      ? 'Automated tasks executed by systems or external workers (no human assignee)'
+      : 'Tasks without explicit assignee or candidateGroup';
+    const groupReasoning = allAutomated
+      ? `${unassigned.length} automated task(s) (ServiceTask / ScriptTask) — consider assigning them to a "System" or "Automated Tasks" lane.`
+      : `${unassigned.length} element(s) lack a camunda:assignee or camunda:candidateGroups. Consider assigning them to a role.`;
+    // Use the group name as the laneMap key so coherence is computed correctly
+    ids.forEach((id: string) => laneMap.set(id, groupName));
     suggestions.push({
-      laneName: 'Unassigned',
-      description: 'Tasks without explicit assignee or candidateGroup',
+      laneName: groupName,
+      description: groupDesc,
       elementIds: ids,
       elementNames: unassigned.map((e: any) => e.name || e.id),
-      reasoning: `${unassigned.length} element(s) lack a camunda:assignee or camunda:candidateGroups. Consider assigning them to a role.`,
+      reasoning: groupReasoning,
     });
   }
 
@@ -425,6 +457,9 @@ export async function handleSuggestLaneOrganization(
     crossLaneFlows: crossLane,
     intraLaneFlows: intraLane,
     coherenceScore: coherence,
+    coherenceNote:
+      'coherenceScore reflects the proposed lane assignment (not the current one). ' +
+      "Use mode: 'validate' to measure the current diagram's coherence.",
     recommendation,
     nextSteps,
   };

@@ -71,8 +71,14 @@ export function checkDiIntegrity(diagram: any, elementRegistry: any): string[] {
     const definitions = getDefinitionsFromModeler(diagram.modeler);
     if (!definitions) return [];
 
+    // Mirror repairDiIntegrity: include both the shape ID and the business-object
+    // ID so that elements repaired via bpmnImporter (whose el.id may differ from
+    // el.businessObject.id) are not reported as still-missing.
     const registeredIds = new Set<string>();
-    for (const el of elementRegistry.getAll()) registeredIds.add(el.id);
+    for (const el of elementRegistry.getAll()) {
+      registeredIds.add(el.id);
+      if (el.businessObject?.id) registeredIds.add(el.businessObject.id);
+    }
 
     const { missingShapes, missingEdges } = collectMissingDiElements(definitions, registeredIds);
     const warnings: string[] = [];
