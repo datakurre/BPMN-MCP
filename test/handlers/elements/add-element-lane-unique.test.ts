@@ -3,7 +3,12 @@
  */
 import { describe, test, expect, afterEach } from 'vitest';
 import { parseResult, createDiagram, addElement, clearDiagrams } from '../../utils/diagram';
-import { handleAddElement } from '../../../src/handlers';
+import {
+  handleAddElement,
+  handleCreateParticipant,
+  handleCreateLanes,
+  handleCreateCollaboration,
+} from '../../../src/handlers';
 
 afterEach(() => clearDiagrams());
 
@@ -152,5 +157,81 @@ describe('add_bpmn_element — di info in response', () => {
     // Gateway default size is 50×50
     expect(result.di.width).toBe(50);
     expect(result.di.height).toBe(50);
+  });
+});
+
+describe('add_bpmn_element — laneId warning when participantId has lanes (TODO #8)', () => {
+  test('emits warning when participantId refers to a pool with lanes and no laneId given', async () => {
+    const diagramId = await createDiagram();
+
+    const poolRes = parseResult(
+      await handleCreateParticipant({ diagramId, name: 'MyOrg', width: 800, height: 400 })
+    );
+    const poolId = poolRes.participantId as string;
+
+    await handleCreateLanes({
+      diagramId,
+      participantId: poolId,
+      lanes: [{ name: 'Engineering' }, { name: 'Management' }],
+    });
+
+    // Add element with participantId but no laneId — should warn
+    const result = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Review PR',
+        participantId: poolId,
+        // no laneId
+      })
+    );
+
+    expect(result.success).toBe(true);
+    expect(Array.isArray(result.warnings)).toBe(true);
+    const laneWarning = result.warnings.find(
+      (w: string) => w.toLowerCase().includes('lane') && w.toLowerCase().includes('laneid')
+    );
+    expect(laneWarning).toBeDefined();
+    // Warning should reference available lanes
+    expect(laneWarning).toContain('Engineering');
+  });
+
+  test('no lane warning when participantId refers to a pool without lanes (even if another pool has lanes)', async () => {
+    // Regression: in a 2-pool collaboration where Pool A has lanes and Pool B does not,
+    // adding an element to Pool B (via participantId) must NOT warn about laneId.
+    const diagramId = await createDiagram();
+
+    const collabRes = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [{ name: 'PoolA' }, { name: 'PoolB' }],
+      })
+    );
+    const poolAId = collabRes.participantIds[0];
+    const poolBId = collabRes.participantIds[1];
+
+    // Give Pool A two lanes
+    await handleCreateLanes({
+      diagramId,
+      participantId: poolAId,
+      lanes: [{ name: 'Lane1' }, { name: 'Lane2' }],
+    });
+
+    // Pool B has NO lanes — adding element with participantId=poolB should NOT warn
+    const result = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Do Work',
+        participantId: poolBId,
+      })
+    );
+
+    expect(result.success).toBe(true);
+    // No lane warning expected since participant poolB has no lanes
+    const laneWarning = (result.warnings ?? []).find(
+      (w: string) => w.toLowerCase().includes('lane') && w.toLowerCase().includes('laneid')
+    );
+    expect(laneWarning).toBeUndefined();
   });
 });

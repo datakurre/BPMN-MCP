@@ -161,6 +161,8 @@ export function collectAddElementWarnings(opts: {
   elementName?: string;
   createdElementId: string;
   elementRegistry: ElementRegistry;
+  /** When provided, lane-warning only fires for lanes in this participant. */
+  participantId?: string;
 }): string[] {
   const {
     afterElementId,
@@ -172,6 +174,7 @@ export function collectAddElementWarnings(opts: {
     elementName,
     createdElementId,
     elementRegistry,
+    participantId,
   } = opts;
 
   const needsConnection =
@@ -189,20 +192,28 @@ export function collectAddElementWarnings(opts: {
     );
   }
 
-  // Warn when adding a flow element to a process with lanes but no laneId specified
+  // Warn when adding a flow element to a process with lanes but no laneId specified.
+  // When participantId is provided, only check lanes belonging to that participant
+  // (avoids false positives in multi-pool collaborations where another pool has lanes).
   if (
     !assignToLaneId &&
     !hostElementId &&
     needsConnection &&
     elementType !== 'bpmn:BoundaryEvent'
   ) {
-    const lanes = getVisibleElements(elementRegistry).filter((el: any) => el.type === 'bpmn:Lane');
-    if (lanes.length > 0) {
-      const laneNames = lanes
+    const allLanes = getVisibleElements(elementRegistry).filter(
+      (el: any) => el.type === 'bpmn:Lane'
+    );
+    const relevantLanes = participantId
+      ? allLanes.filter((l: any) => l.parent?.id === participantId)
+      : allLanes;
+    if (relevantLanes.length > 0) {
+      const laneNames = relevantLanes
         .map((l: any) => `${l.id} ("${l.businessObject?.name || 'unnamed'}")`)
         .join(', ');
+      const participantNote = participantId ? ` (participant "${participantId}")` : '';
       warnings.push(
-        `This process has lanes but no laneId was specified. The element may be outside all lanes. ` +
+        `This process has lanes but no laneId was specified${participantNote}. The element may be outside all lanes. ` +
           `Consider specifying laneId to place the element in a lane. Available lanes: ${laneNames}`
       );
     }

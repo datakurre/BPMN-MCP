@@ -205,6 +205,7 @@ export async function handleAutoPlaceAdd(
     elementName,
     createdElementId: createdElement.id,
     elementRegistry,
+    participantId: args.participantId,
   });
 
   const result = buildAddElementResult({

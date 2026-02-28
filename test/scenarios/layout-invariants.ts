@@ -179,6 +179,43 @@ export function assertContainedIn(
 }
 
 /**
+ * Assert that all sequence flows connect elements left-to-right
+ * (target center-X > source center-X).
+ *
+ * Use in diagrams without loop-back edges. Back-edge connections
+ * where target is intentionally to the left of source will fail this check,
+ * so pass them in `excludeFlowIds` to skip them.
+ *
+ * This catches TODO #3: open-fan gateway backward connections where
+ * the rebuild engine places downstream elements at the same X-layer
+ * as sibling-branch elements, causing U-turn routes.
+ */
+export function assertAllFlowsForward(
+  registry: ElementRegistry,
+  tolerance = 1,
+  excludeFlowIds?: Set<string>
+): void {
+  const flows = (registry as any).getAll().filter((el: any) => el.type === 'bpmn:SequenceFlow');
+
+  for (const flow of flows) {
+    if (excludeFlowIds?.has(flow.id)) continue;
+    const source = flow.source;
+    const target = flow.target;
+    if (!source || !target) continue;
+
+    const sourceCenterX = source.x + (source.width ?? 0) / 2;
+    const targetCenterX = target.x + (target.width ?? 0) / 2;
+
+    expect(
+      targetCenterX,
+      `Flow ${flow.id} goes backward: ` +
+        `source ${source.id} (${source.type}, center-x=${sourceCenterX.toFixed(1)}) → ` +
+        `target ${target.id} (${target.type}, center-x=${targetCenterX.toFixed(1)})`
+    ).toBeGreaterThan(sourceCenterX - tolerance);
+  }
+}
+
+/**
  * Assert that every flow node in the registry has a non-zero size (DI is present).
  * Pools and lanes are included. Connections and labels are excluded.
  */

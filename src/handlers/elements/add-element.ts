@@ -305,6 +305,7 @@ export async function handleAddElement(args: AddElementArgs): Promise<ToolResult
     elementName,
     createdElementId: createdElement.id,
     elementRegistry,
+    participantId,
   });
 
   const result = buildAddElementResult({

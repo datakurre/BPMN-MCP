@@ -267,4 +267,68 @@ describe('convert_bpmn_collaboration_to_lanes', () => {
       }
     }
   });
+
+  test('does not create a lane for an empty source pool (TODO #6 second sub)', async () => {
+    // 3-pool collaboration: "Customer" (with elements), "Support" (with elements), "Operations" (empty)
+    const diagramId = await createDiagram();
+
+    const collab = parseResult(
+      await handleCreateCollaboration({
+        diagramId,
+        participants: [
+          { name: 'Customer' },
+          { name: 'Support' },
+          { name: 'Operations' }, // intentionally left empty
+        ],
+      })
+    );
+
+    const customerId = collab.participantIds[0];
+    const supportId = collab.participantIds[1];
+    // operationsId = collab.participantIds[2] — left empty
+
+    // Add elements to Customer pool
+    const start = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:StartEvent',
+        participantId: customerId,
+      })
+    ).elementId;
+    const task1 = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:UserTask',
+        name: 'Place Order',
+        participantId: customerId,
+      })
+    ).elementId;
+    await handleConnect({ diagramId, sourceElementId: start, targetElementId: task1 });
+
+    // Add elements to Support pool
+    const task2 = parseResult(
+      await handleAddElement({
+        diagramId,
+        elementType: 'bpmn:ServiceTask',
+        name: 'Handle Support',
+        participantId: supportId,
+      })
+    ).elementId;
+    const end = parseResult(
+      await handleAddElement({ diagramId, elementType: 'bpmn:EndEvent', participantId: supportId })
+    ).elementId;
+    await handleConnect({ diagramId, sourceElementId: task2, targetElementId: end });
+
+    // Convert to lanes — Operations pool is empty so its lane should NOT be created
+    const result = parseResult(
+      await handleConvertCollaborationToLanes({ diagramId, layout: false })
+    );
+
+    expect(result.success).toBe(true);
+    // Only 2 lanes: Customer and Support — Operations (empty) is skipped
+    expect(result.laneNames).toHaveLength(2);
+    expect(result.laneNames).toContain('Customer');
+    expect(result.laneNames).toContain('Support');
+    expect(result.laneNames).not.toContain('Operations');
+  });
 });

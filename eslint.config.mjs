@@ -122,6 +122,7 @@ export default tseslint.config(
   {
     files: [
       'src/handlers/collaboration/analyze-lanes.ts',
+      'src/handlers/collaboration/convert-collaboration-to-lanes.ts',
       'src/handlers/collaboration/redistribute-elements-across-lanes.ts',
       'src/handlers/collaboration/create-lanes.ts',
       'src/handlers/helpers.ts',

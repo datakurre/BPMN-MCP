@@ -20,6 +20,7 @@ import {
   assertInLane,
   assertContainedIn,
   assertAllElementsHaveShape,
+  assertAllFlowsForward,
 } from './layout-invariants';
 import type { ElementRegistry } from '../../src/bpmn-types';
 
@@ -689,6 +690,62 @@ const s14MultiLaneParallelDemo: LayoutScenario = {
   },
 };
 
+// ── S15: Open-fan exclusive gateway, 2 branches with 2–3 tasks (TODO #3) ──
+
+const s15OpenFanExclusiveTwoBranches: LayoutScenario = {
+  name: 'S15: Open-fan exclusive gateway — two multi-task branches, no backward connections (TODO #3)',
+  build: async () => {
+    const diagramId = await createDiagram('S15 Open Fan Exclusive');
+    const start = await addElement(diagramId, 'bpmn:StartEvent', { name: 'Start' });
+    const gw = await addElement(diagramId, 'bpmn:ExclusiveGateway', { name: 'Route?' });
+
+    // Branch A — 3 tasks (longer branch)
+    const taskA1 = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Process A1' });
+    const taskA2 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Process A2' });
+    const taskA3 = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Process A3' });
+    const endA = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done A' });
+
+    // Branch B — 2 tasks (shorter branch)
+    const taskB1 = await addElement(diagramId, 'bpmn:UserTask', { name: 'Handle B1' });
+    const taskB2 = await addElement(diagramId, 'bpmn:ServiceTask', { name: 'Handle B2' });
+    const endB = await addElement(diagramId, 'bpmn:EndEvent', { name: 'Done B' });
+
+    await connect(diagramId, start, gw);
+    await connect(diagramId, gw, taskA1, { label: 'Path A' });
+    await connect(diagramId, taskA1, taskA2);
+    await connect(diagramId, taskA2, taskA3);
+    await connect(diagramId, taskA3, endA);
+    await connect(diagramId, gw, taskB1, { label: 'Path B' });
+    await connect(diagramId, taskB1, taskB2);
+    await connect(diagramId, taskB2, endB);
+
+    return {
+      diagramId,
+      expectations: [
+        {
+          label: 'branch A and B first tasks are on distinct Y rows',
+          assert: (reg) => assertDistinctRows(reg, [taskA1, taskB1], 10),
+        },
+        {
+          label: 'branch A elements are ordered left-to-right',
+          assert: (reg) => assertLeftToRight(reg, [start, gw, taskA1, taskA2, taskA3, endA]),
+        },
+        {
+          label: 'branch B elements are ordered left-to-right',
+          assert: (reg) => assertLeftToRight(reg, [gw, taskB1, taskB2, endB]),
+        },
+        {
+          label: 'all flows are left-to-right (no backward connections) — TODO #3',
+          assert: (reg) => assertAllFlowsForward(reg),
+        },
+        { label: 'no element overlaps', assert: (reg) => assertNoOverlaps(reg) },
+        { label: 'all flows orthogonal', assert: (reg) => assertOrthogonalFlows(reg) },
+        { label: 'all elements have DI shape', assert: (reg) => assertAllElementsHaveShape(reg) },
+      ],
+    };
+  },
+};
+
 // ── Scenario registry ──────────────────────────────────────────────────────
 
 export const scenarios: LayoutScenario[] = [
@@ -701,4 +758,5 @@ export const scenarios: LayoutScenario[] = [
   s08Collaboration,
   s13OpenFanParallel,
   s14MultiLaneParallelDemo,
+  s15OpenFanExclusiveTwoBranches,
 ];

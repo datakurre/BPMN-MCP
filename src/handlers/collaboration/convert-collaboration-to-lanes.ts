@@ -325,7 +325,7 @@ function buildConversionResult(
         : []),
       {
         tool: 'analyze_bpmn_lanes',
-        description: 'Check the lane organization quality and coherence (mode: validate)',
+        description: 'Check lane organization quality and coherence (mode: validate)',
       },
       {
         tool: 'redistribute_bpmn_elements_across_lanes',
@@ -366,9 +366,21 @@ export async function handleConvertCollaborationToLanes(
   // 3. Move elements from merge pools into main pool
   const movedElements = moveElementsToMainPool(elementRegistry, modeling, mergePools, mainPool);
 
-  // 4. Create lanes in the main pool (while collaboration still exists)
+  // 4. Create lanes in the main pool (while collaboration still exists).
+  //    Skip merge pools that had no flow nodes — their lane would be permanently
+  //    empty (TODO #6 second sub). Always keep at least 2 lanes to satisfy the
+  //    handleCreateLanes minimum requirement.
   const mainPoolName = mainPool.businessObject?.name || 'Main';
-  const laneNames = [mainPoolName, ...mergePools.map((p: any) => p.businessObject?.name || p.id)];
+  const nonEmptyMergePools = mergePools.filter(
+    (p: any) => (movedElements[p.businessObject?.name || p.id]?.length ?? 0) > 0
+  );
+  // Guarantee at least one merge-pool lane so handleCreateLanes (min 2) won't throw
+  const mergePoolsForLanes =
+    nonEmptyMergePools.length > 0 ? nonEmptyMergePools : mergePools.slice(0, 1);
+  const laneNames = [
+    mainPoolName,
+    ...mergePoolsForLanes.map((p: any) => p.businessObject?.name || p.id),
+  ];
   await handleCreateLanes({
     diagramId,
     participantId: mainPool.id,
