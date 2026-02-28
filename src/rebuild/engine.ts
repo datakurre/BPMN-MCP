@@ -467,8 +467,13 @@ function layoutConnections(
       if (backEdgeIds.has(flowId)) continue;
       const conn = registry.get(flowId);
       if (conn) {
-        modeling.layoutConnection(conn);
-        count++;
+        try {
+          modeling.layoutConnection(conn);
+          count++;
+        } catch {
+          // ManhattanLayout throws "unexpected dockingDirection" when waypoints are
+          // inconsistent. Skip silently — element still appears in the diagram.
+        }
       }
     }
   }
@@ -477,8 +482,12 @@ function layoutConnections(
   for (const flowId of backEdgeIds) {
     const conn = registry.get(flowId);
     if (conn) {
-      modeling.layoutConnection(conn);
-      count++;
+      try {
+        modeling.layoutConnection(conn);
+        count++;
+      } catch {
+        // Same docking guard for back-edge (loop) connections.
+      }
     }
   }
 

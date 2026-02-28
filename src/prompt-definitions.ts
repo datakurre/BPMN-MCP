@@ -368,9 +368,13 @@ const createLaneBasedProcess: PromptDefinition = {
             `to match the lane role (e.g. tasks in "${roles[0]}" lane → ` +
             `candidateGroups: "${roles[0].toLowerCase().replace(/\s+/g, '-')}")\n` +
             `5. **Layout**: Run \`layout_bpmn_diagram\` to arrange elements within lanes\n` +
-            `6. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n\n` +
+            `6. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n` +
+            `7. **Auto-size**: Run \`autosize_bpmn_pools_and_lanes\` to fit all lanes to their content\n\n` +
             `**Best practices:**\n` +
             `- Create the participant with lanes first, then add elements into lanes (avoids redistribute step)\n` +
+            `- **Never** use \`assign_bpmn_elements_to_lane\` to retroactively move already-connected elements.\n` +
+            `  This triggers \`unexpected dockingDirection\` crashes in ManhattanLayout.\n` +
+            `  Instead, always specify \`laneId\` when calling \`add_bpmn_element\` / \`add_bpmn_element_chain\`.\n` +
             `- Keep related tasks in the same lane to minimise cross-lane sequence flows\n` +
             `- Start events typically go in the lane of the initiating role\n` +
             `- Use exclusive gateways when decisions are made by a specific role\n` +

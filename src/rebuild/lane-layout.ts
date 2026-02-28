@@ -304,7 +304,11 @@ export function applyLaneLayout(
   // that avoids routing back through unrelated lanes.
   for (const el of allElements) {
     if (el.parent === participant && el.type === SEQUENCE_FLOW_TYPE) {
-      modeling.layoutConnection(el);
+      try {
+        modeling.layoutConnection(el);
+      } catch {
+        // ManhattanLayout docking guard: skip connections with inconsistent waypoints.
+      }
     }
   }
 

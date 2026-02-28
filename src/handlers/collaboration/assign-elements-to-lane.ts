@@ -38,22 +38,40 @@ const NON_LANE_ASSIGNABLE = new Set([
   'bpmn:BoundaryEvent', // Boundary events must stay attached to their host
 ]);
 
-/** Reposition an element vertically to center within lane bounds. */
+/** Reposition an element vertically to center within lane bounds.
+ *
+ * Returns a warning string if the move triggers a docking error from
+ * ManhattanLayout (i.e. when the element already has connected flows in
+ * an inconsistent state), or undefined when the move succeeds silently.
+ */
 function repositionInLane(
   modeling: any,
   element: any,
   laneCenterY: number,
   laneTop: number,
   laneBottom: number
-): void {
+): string | undefined {
   const elCenterY = element.y + (element.height || 0) / 2;
   const halfH = (element.height || 0) / 2;
   const outsideLane = elCenterY - halfH < laneTop || elCenterY + halfH > laneBottom;
-  if (!outsideLane) return;
+  if (!outsideLane) return undefined;
   const dy = laneCenterY - elCenterY;
   if (Math.abs(dy) > 0.5) {
-    modeling.moveElements([element], { x: 0, y: dy });
+    try {
+      modeling.moveElements([element], { x: 0, y: dy });
+    } catch (err: any) {
+      // ManhattanLayout throws "unexpected dockingDirection: <undefined>" when
+      // the element already has sequence-flow connections whose waypoints are
+      // in an inconsistent state.  Degrade gracefully: skip the reposition and
+      // return a warning so callers can surface it without crashing.
+      return (
+        `Could not reposition element "${element.id}" into lane ` +
+        `(docking error: ${err?.message ?? String(err)}). ` +
+        `Run layout_bpmn_diagram afterwards to correct positions.`
+      );
+    }
   }
+  return undefined;
 }
 
 export async function handleAssignElementsToLane(
@@ -77,6 +95,7 @@ export async function handleAssignElementsToLane(
 
   const assigned: string[] = [];
   const skipped: Array<{ elementId: string; reason: string }> = [];
+  const repositionWarnings: string[] = [];
 
   for (const elementId of elementIds) {
     const element = elementRegistry.get(elementId);
@@ -97,7 +116,10 @@ export async function handleAssignElementsToLane(
 
     removeFromAllLanes(elementRegistry, element.businessObject);
     addToLane(lane, element.businessObject);
-    if (reposition) repositionInLane(modeling, element, laneCenterY, laneTop, laneBottom);
+    if (reposition) {
+      const warn = repositionInLane(modeling, element, laneCenterY, laneTop, laneBottom);
+      if (warn) repositionWarnings.push(warn);
+    }
     assigned.push(elementId);
 
     // Automatically move attached boundary events with their host task
@@ -120,6 +142,7 @@ export async function handleAssignElementsToLane(
     assignedCount: assigned.length,
     assignedElementIds: assigned,
     ...(skipped.length > 0 ? { skipped } : {}),
+    ...(repositionWarnings.length > 0 ? { repositionWarnings } : {}),
     message: `Assigned ${assigned.length} element(s) to lane "${lane.businessObject?.name || laneId}"${skipped.length > 0 ? ` (${skipped.length} skipped)` : ''}`,
     nextSteps: [
       {

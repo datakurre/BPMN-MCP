@@ -267,7 +267,41 @@ export function collectExceptionChainIds(boundaryInfos: BoundaryEventInfo[]): Se
   return ids;
 }
 
-// ── Boundary event positioning ─────────────────────────────────────────────
+// ── Safe connection layout helper ─────────────────────────────────────────
+
+/**
+ * Layout a single connection, catching ManhattanLayout docking errors.
+ * Returns true if the connection was laid out successfully, false on error.
+ */
+function layoutConnectionSafe(modeling: Modeling, connElement: any): boolean {
+  try {
+    modeling.layoutConnection(connElement);
+    return true;
+  } catch {
+    // ManhattanLayout throws "unexpected dockingDirection: <undefined>" when
+    // connection waypoints are inconsistent. Skip silently.
+    return false;
+  }
+}
+
+/**
+ * Layout all outgoing connections from a single element.
+ * Returns the count of successfully routed connections.
+ */
+function layoutOutgoingConnections(
+  registry: ElementRegistry,
+  modeling: Modeling,
+  element: any
+): number {
+  let count = 0;
+  for (const conn of element.outgoing ?? []) {
+    const connElement = registry.get(conn.id);
+    if (connElement && layoutConnectionSafe(modeling, connElement)) count++;
+  }
+  return count;
+}
+
+// ── Boundary event & exception chain positioning ────────────────────────────
 
 /**
  * Position boundary events on their host's bottom border and lay out
@@ -365,26 +399,13 @@ function positionExceptionChain(
   }
 
   // Layout exception chain connections (boundary event → chain elements)
-  const beOutgoing = info.boundaryEvent.outgoing ?? [];
-  for (const conn of beOutgoing) {
-    const connElement = registry.get(conn.id);
-    if (connElement) {
-      modeling.layoutConnection(connElement);
-      reroutedCount++;
-    }
-  }
+  reroutedCount += layoutOutgoingConnections(registry, modeling, info.boundaryEvent);
 
   // Layout connections within the exception chain
   for (const chainId of info.exceptionChain) {
     const chainElement = registry.get(chainId);
-    if (!chainElement) continue;
-    const outgoing = chainElement.outgoing ?? [];
-    for (const conn of outgoing) {
-      const connElement = registry.get(conn.id);
-      if (connElement) {
-        modeling.layoutConnection(connElement);
-        reroutedCount++;
-      }
+    if (chainElement) {
+      reroutedCount += layoutOutgoingConnections(registry, modeling, chainElement);
     }
   }
 
@@ -554,8 +575,7 @@ export function layoutMessageFlows(registry: ElementRegistry, modeling: Modeling
 
   for (const el of allElements) {
     if (el.type === 'bpmn:MessageFlow') {
-      modeling.layoutConnection(el);
-      count++;
+      if (layoutConnectionSafe(modeling, el)) count++;
     }
   }
 

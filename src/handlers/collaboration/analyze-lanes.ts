@@ -375,16 +375,47 @@ export async function handleSuggestLaneOrganization(
 
   // Collect current lane info (if any)
   const currentLanes: { name: string; elementCount: number }[] = [];
+  const existingLaneIdByName = new Map<string, string>();
   const laneSets = (process.laneSets ?? []) as Array<{
     lanes?: Array<{ name?: string; id?: string; flowNodeRef?: unknown[] }>;
   }>;
   for (const ls of laneSets) {
     for (const lane of ls.lanes || []) {
+      const laneName = lane.name || lane.id || '(unnamed)';
       currentLanes.push({
-        name: lane.name || lane.id || '(unnamed)',
+        name: laneName,
         elementCount: (lane.flowNodeRef || []).length,
       });
+      if (lane.id) existingLaneIdByName.set(laneName, lane.id);
     }
+  }
+
+  // Build actionable nextSteps so the AI agent can apply the suggestions directly.
+  // Step 1: create_bpmn_lanes (only when the pool has no lanes yet)
+  // Step N: one assign_bpmn_elements_to_lane per suggestion
+  const nextSteps: Array<{ tool: string; description: string; args: Record<string, unknown> }> = [];
+  if (currentLanes.length === 0 && suggestions.length > 0) {
+    nextSteps.push({
+      tool: 'create_bpmn_lanes',
+      description: `Create ${suggestions.length} suggested lane(s) in the pool`,
+      args: {
+        diagramId: args.diagramId,
+        participantId: args.participantId,
+        lanes: suggestions.map((s) => ({ name: s.laneName })),
+      },
+    });
+  }
+  for (const s of suggestions) {
+    const existingLaneId = existingLaneIdByName.get(s.laneName);
+    nextSteps.push({
+      tool: 'assign_bpmn_elements_to_lane',
+      description: `Assign ${s.elementIds.length} element(s) to lane "${s.laneName}"`,
+      args: {
+        diagramId: args.diagramId,
+        elementIds: s.elementIds,
+        ...(existingLaneId ? { laneId: existingLaneId } : {}),
+      },
+    });
   }
 
   const result: Record<string, any> = {
@@ -395,6 +426,7 @@ export async function handleSuggestLaneOrganization(
     intraLaneFlows: intraLane,
     coherenceScore: coherence,
     recommendation,
+    nextSteps,
   };
   if (currentLanes.length > 0) result.currentLanes = currentLanes;
   return jsonResult(result);

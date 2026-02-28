@@ -236,6 +236,7 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
 
   // TODO #8: warn when participantId has lanes but no laneId is specified
   const effectiveParticipantId = initialParticipantId;
+  const laneNextStep: Array<{ tool: string; description: string }> = [];
   if (effectiveParticipantId) {
     const hasTopLevelLaneId = !!args.laneId;
     const allElementsHaveLaneId = elements.every((el) => !!el.laneId);
@@ -252,6 +253,12 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
             `Chain elements may be placed outside all lanes. ` +
             `Specify laneId on the chain or per element. Available lanes: ${laneList}`
         );
+        laneNextStep.push({
+          tool: 'add_bpmn_element_chain',
+          description:
+            `Re-run with laneId set to one of the available lanes: ${laneList}. ` +
+            `Available lanes are listed above.`,
+        });
       }
     }
   }
@@ -260,11 +267,22 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
   const shouldLayout = args.autoLayout !== false && !chainHasGateway;
   if (shouldLayout) await handleLayoutDiagram({ diagramId });
 
+  // Collect connection IDs created in this chain that have no condition expression.
+  // These need explicit branch wiring (conditionExpression or isDefault) when the
+  // chain contains a gateway.
+  const unconditionedFlowIds = chainHasGateway
+    ? createdElements.filter((e) => e.connectionId).map((e) => e.connectionId as string)
+    : undefined;
+
   const deferredLayoutNote = chainHasGateway
     ? 'Chain contains a gateway — elements after it were NOT auto-connected to avoid wrong sequential wiring. ' +
       'Use connect_bpmn_elements to wire branches explicitly (do NOT re-call connect_bpmn_elements for pairs the chain already connected). ' +
+      'Mark exactly one outgoing branch as the default with isDefault: true in connect_bpmn_elements, ' +
+      'and add conditionExpression to all other branches. ' +
       'Then run layout_bpmn_diagram after all branches are wired.'
     : undefined;
+
+  const nextSteps = laneNextStep.length > 0 ? laneNextStep : undefined;
 
   const result = jsonResult({
     success: true,
@@ -280,8 +298,10 @@ export async function handleAddElementChain(args: AddElementChainArgs): Promise<
     diagramCounts: buildElementCounts(elementRegistry),
     ...(shouldLayout ? { autoLayoutApplied: true } : {}),
     ...(deferredLayoutNote ? { deferredLayout: true, note: deferredLayoutNote } : {}),
+    ...(unconditionedFlowIds !== undefined ? { unconditionedFlowIds } : {}),
     ...(unconnectedElements.length > 0 ? { unconnectedElements } : {}),
     ...(warnings.length > 0 ? { warnings } : {}),
+    ...(nextSteps ? { nextSteps } : {}),
   });
   return appendLintFeedback(result, diagram);
 }

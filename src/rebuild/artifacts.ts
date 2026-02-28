@@ -150,7 +150,11 @@ function layoutArtifactConnections(
   for (const el of allElements) {
     if (el.parent !== container) continue;
     if (ARTIFACT_CONNECTION_TYPES.has(el.type)) {
-      modeling.layoutConnection(el);
+      try {
+        modeling.layoutConnection(el);
+      } catch {
+        // ManhattanLayout docking guard: skip connections with inconsistent waypoints.
+      }
     }
   }
 }
