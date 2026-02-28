@@ -151,9 +151,11 @@ function buildRoleSuggestions(
     });
   }
 
-  // Collect unassigned non-flow-control elements into an "Unassigned" group
+  // Collect unassigned non-flow-control elements into an "Unassigned" group.
+  // Exclude compensation handler tasks (isForCompensation=true) — they are not
+  // part of the normal flow and should not be grouped into task lanes.
   const unassigned = flowNodes.filter(
-    (n: any) => !assignedIds.has(n.id) && !isFlowControlSuggest(n.$type)
+    (n: any) => !assignedIds.has(n.id) && !isFlowControlSuggest(n.$type) && !n.isForCompensation
   );
   if (unassigned.length > 0) {
     const ids = unassigned.map((e: any) => e.id);
@@ -387,7 +389,12 @@ export async function handleSuggestLaneOrganization(
 
   const flowElements: any[] = process.flowElements || [];
   const flowNodes = flowElements.filter(
-    (el: any) => !el.$type.includes('SequenceFlow') && !CONNECTION_TYPES.has(el.$type)
+    (el: any) =>
+      !el.$type.includes('SequenceFlow') &&
+      !CONNECTION_TYPES.has(el.$type) &&
+      // Exclude compensation handler tasks — they are not part of the normal flow
+      // and must not appear in lane suggestions (e.g. "Automated Tasks").
+      !el.isForCompensation
   );
   const sequenceFlows = flowElements.filter((el: any) => el.$type === 'bpmn:SequenceFlow');
 
@@ -533,6 +540,17 @@ function partitionFlowElements(flowElements: any[]): { flowNodes: any[]; sequenc
   const flowNodes = flowElements.filter(
     (el: any) =>
       el.$type !== 'bpmn:SequenceFlow' &&
+      // BoundaryEvents inherit their host task's lane — bpmn-js may or may not
+      // add them to lane.flowNodeRef. Exclude them from lane membership checks
+      // to avoid false-positive 'elements-not-in-lane' warnings and inflated
+      // totalFlowNodes counts. (suggest mode already excludes them via
+      // isFlowControlSuggest which matches 'Event' in the type string.)
+      el.$type !== 'bpmn:BoundaryEvent' &&
+      // Compensation handler tasks (isForCompensation=true) are connected via
+      // compensation associations, not sequence flows. bpmn-js does not always
+      // add them to lane.flowNodeRef, so they would be falsely flagged as
+      // unassigned. They are also not part of the normal process flow.
+      !el.isForCompensation &&
       !el.$type.includes('Association') &&
       !el.$type.includes('DataInput') &&
       !el.$type.includes('DataOutput')
