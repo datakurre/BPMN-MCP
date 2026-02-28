@@ -195,7 +195,7 @@ function buildNextSteps(
   const poolIssues = sizingIssues.filter((i) => i.severity === 'warning');
   if (poolIssues.length > 0 && !poolExpansionApplied) {
     steps.push({
-      tool: 'layout_bpmn_diagram',
+      tool: 'autosize_bpmn_pools_and_lanes',
       description:
         `${poolIssues.length} pool(s) need resizing: ` +
         poolIssues

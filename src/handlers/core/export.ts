@@ -16,6 +16,7 @@ import { exportFailedError } from '../../errors';
 import {
   requireDiagram,
   buildConnectivityWarnings,
+  buildConnectivityNextSteps,
   validateArgs,
   getVisibleElements,
   getService,
@@ -304,6 +305,16 @@ export async function handleExportBpmn(
   warnings.push(...buildLayoutWarnings(elementRegistry));
   if (warnings.length > 0) {
     content.push({ type: 'text', text: '\n' + warnings.join('\n') });
+    // Also emit structured nextSteps for disconnected elements so AI agents
+    // can act on them without further parsing.
+    const nextSteps = buildConnectivityNextSteps(elementRegistry, diagramId);
+    if (nextSteps.length > 0) {
+      content.push({
+        type: 'text',
+        text:
+          '\n**nextSteps** (connect disconnected elements):\n' + JSON.stringify(nextSteps, null, 2),
+      });
+    }
   }
 
   return { content };

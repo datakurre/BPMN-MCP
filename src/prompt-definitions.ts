@@ -357,19 +357,24 @@ const createLaneBasedProcess: PromptDefinition = {
             (roles.length > 3 ? `, { name: "${roles[3]}" }` : '') +
             `] })\n` +
             `     \`\`\`\n` +
-            `2. **Add elements directly into lanes**: Use \`add_bpmn_element\` with \`laneId\` to place ` +
+            `2. **Analyze lane organization before adding elements**: Run \`analyze_bpmn_lanes\` ` +
+            `with \`mode: "suggest"\` to get lane assignment recommendations based on ` +
+            `the roles. This helps decide which tasks belong to which lane before you start adding elements:\n` +
+            `   - \`analyze_bpmn_lanes({ diagramId, mode: "suggest" })\`\n` +
+            `   - Review the suggestions and use them to guide placement in the next step\n` +
+            `3. **Add elements directly into lanes**: Use \`add_bpmn_element\` with \`laneId\` to place ` +
             `tasks, events, and gateways in the correct lane from the start:\n` +
             `   - Use \`add_bpmn_element_chain\` with \`laneId\` for sequences within one lane\n` +
             `   - Use \`add_bpmn_element\` with \`laneId\` for individual elements in different lanes\n` +
             `   - Name every element with verb-object pattern (e.g. "Submit Order", "Process Payment")\n` +
-            `3. **Connect cross-lane flows**: Use \`connect_bpmn_elements\` for sequence flows ` +
+            `4. **Connect cross-lane flows**: Use \`connect_bpmn_elements\` for sequence flows ` +
             `between elements in different lanes\n` +
-            `4. **Configure tasks**: Set \`camunda:candidateGroups\` on UserTasks ` +
+            `5. **Configure tasks**: Set \`camunda:candidateGroups\` on UserTasks ` +
             `to match the lane role (e.g. tasks in "${roles[0]}" lane → ` +
             `candidateGroups: "${roles[0].toLowerCase().replace(/\s+/g, '-')}")\n` +
-            `5. **Layout**: Run \`layout_bpmn_diagram\` to arrange elements within lanes\n` +
-            `6. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n` +
-            `7. **Auto-size**: Run \`autosize_bpmn_pools_and_lanes\` to fit all lanes to their content\n\n` +
+            `6. **Layout**: Run \`layout_bpmn_diagram\` to arrange elements within lanes\n` +
+            `7. **Validate**: Run \`validate_bpmn_diagram\` and fix any issues\n` +
+            `8. **Auto-size**: Run \`autosize_bpmn_pools_and_lanes\` to fit all lanes to their content\n\n` +
             `**Best practices:**\n` +
             `- Create the participant with lanes first, then add elements into lanes (avoids redistribute step)\n` +
             `- **Never** use \`assign_bpmn_elements_to_lane\` to retroactively move already-connected elements.\n` +

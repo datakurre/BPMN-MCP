@@ -264,3 +264,98 @@ export function buildConnectivityWarnings(elementRegistry: any): string[] {
 
   return warnings;
 }
+
+/**
+ * Build structured nextSteps for connecting disconnected elements.
+ * Returns an array of `{ tool, description, args }` entries that an AI agent
+ * can execute directly without further parsing.
+ */
+export function buildConnectivityNextSteps(
+  elementRegistry: any,
+  diagramId: string
+): Array<{ tool: string; description: string; args: Record<string, unknown> }> {
+  const steps: Array<{ tool: string; description: string; args: Record<string, unknown> }> = [];
+
+  const elements = elementRegistry.filter(
+    (el: any) =>
+      el.type &&
+      (el.type.includes('Event') ||
+        el.type.includes('Task') ||
+        el.type.includes('Gateway') ||
+        el.type.includes('SubProcess') ||
+        el.type.includes('CallActivity'))
+  );
+  const flows = elementRegistry.filter(
+    (el: any) => el.type === 'bpmn:SequenceFlow' || el.type === 'bpmn:MessageFlow'
+  );
+
+  if (elements.length <= 1) return steps;
+
+  if (flows.length === 0) {
+    // No flows at all — suggest connecting adjacent elements in registry order
+    for (let i = 0; i < Math.min(elements.length - 1, 5); i++) {
+      steps.push({
+        tool: 'connect_bpmn_elements',
+        description: `Connect ${elements[i].id} → ${elements[i + 1].id}`,
+        args: { diagramId, sourceElementId: elements[i].id, targetElementId: elements[i + 1].id },
+      });
+    }
+    return steps;
+  }
+
+  // Find disconnected elements and suggest connecting them to their nearest neighbour
+  const disconnected = elements.filter((el: any) => {
+    const hasIncoming = el.incoming && el.incoming.length > 0;
+    const hasOutgoing = el.outgoing && el.outgoing.length > 0;
+    if (el.type === 'bpmn:StartEvent') return !hasOutgoing;
+    if (el.type === 'bpmn:EndEvent') return !hasIncoming;
+    if (el.type === 'bpmn:BoundaryEvent') return false;
+    return !hasIncoming && !hasOutgoing;
+  });
+
+  for (const el of disconnected.slice(0, 5)) {
+    // Find the connected element nearest to this one (by centre-to-centre distance)
+    const connected = elements.filter((e: any) => {
+      const hi = e.incoming && e.incoming.length > 0;
+      const ho = e.outgoing && e.outgoing.length > 0;
+      if (e.type === 'bpmn:StartEvent') return ho;
+      if (e.type === 'bpmn:EndEvent') return hi;
+      if (e.type === 'bpmn:BoundaryEvent') return false;
+      return hi || ho;
+    });
+
+    let bestNeighbour: any = null;
+    let bestDist = Infinity;
+    const elX = (el.x ?? 0) + (el.width ?? 0) / 2;
+    const elY = (el.y ?? 0) + (el.height ?? 0) / 2;
+
+    for (const c of connected) {
+      const cx = (c.x ?? 0) + (c.width ?? 0) / 2;
+      const cy = (c.y ?? 0) + (c.height ?? 0) / 2;
+      const dist = Math.hypot(elX - cx, elY - cy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestNeighbour = c;
+      }
+    }
+
+    if (bestNeighbour) {
+      // Connect neighbour → disconnected element (assume it needs incoming)
+      if (el.type === 'bpmn:EndEvent' || !el.incoming || el.incoming.length === 0) {
+        steps.push({
+          tool: 'connect_bpmn_elements',
+          description: `Connect ${bestNeighbour.id} → ${el.id} (${el.type.replace('bpmn:', '')})`,
+          args: { diagramId, sourceElementId: bestNeighbour.id, targetElementId: el.id },
+        });
+      } else {
+        steps.push({
+          tool: 'connect_bpmn_elements',
+          description: `Connect ${el.id} → ${bestNeighbour.id} (${bestNeighbour.type.replace('bpmn:', '')})`,
+          args: { diagramId, sourceElementId: el.id, targetElementId: bestNeighbour.id },
+        });
+      }
+    }
+  }
+
+  return steps;
+}

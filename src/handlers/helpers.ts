@@ -61,6 +61,7 @@ export {
   isInfrastructureElement,
   buildElementCounts,
   buildConnectivityWarnings,
+  buildConnectivityNextSteps,
   getParticipants,
   getLanes,
   getProcesses,
